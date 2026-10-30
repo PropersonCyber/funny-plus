@@ -2,9 +2,9 @@ import { readFileSync } from 'node:fs'
 import { eq } from 'drizzle-orm'
 import { db, pool } from './client.ts'
 import { factFeedbacks, facts, places, tripVersions, trips } from './schema.ts'
-import { generatePlans, revisePlan } from '@/api/planner'
-import { setPlaces } from '@/lib/placeIndex'
-import { validatePlan } from '@/lib/validate'
+import { generatePlans, revisePlan } from '@/engine/planner'
+import { setPlaces } from '@/engine/placeIndex'
+import { validatePlan } from '@/engine/validate'
 import type { Demand, Place, Plan, TravelFact } from '@/types/index.ts'
 
 // 数据在仓库根目录 data/*.json，这个脚本只做「读文件 → 写库」，不含业务数据字面量。

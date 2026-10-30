@@ -1,6 +1,6 @@
 // 原生壳暂时读本地副本：lynx 还没有 API base URL，等原生端接上后端再换成 GET /api/facts。
 // 服务端的权威数据在 server/src/db/seed.ts，改内容时两边一起改。
-import type { TravelFact } from '../../web/src/types/index.js';
+import type { TravelFact } from '../../shared/types/index.js';
 
 export const facts: TravelFact[] = [
   {

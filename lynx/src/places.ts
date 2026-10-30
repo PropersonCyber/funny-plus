@@ -1,6 +1,6 @@
 // 原生壳暂时读本地副本：lynx 还没有 API base URL，等原生端接上后端再换成 GET /api/places。
 // 内容与仓库根 data/places.json 同源，改一处要一起改。
-import type { Place } from '../../web/src/types/index.js';
+import type { Place } from '../../shared/types/index.js';
 
 export const places: Place[] =[
   {

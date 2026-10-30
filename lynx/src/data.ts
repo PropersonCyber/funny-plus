@@ -1,9 +1,9 @@
-// 一切业务计算都复用 web/src 的确定性引擎，这里只做适配，不复制规则
-import { generatePlans } from '../../web/src/api/planner.js';
+// 一切业务计算都复用 shared/engine 的确定性引擎，这里只做适配，不复制规则
+import { generatePlans } from '../../shared/engine/planner.js';
 import { facts } from './facts.js';
 import { places } from './places.js';
-import { placeById, placesOf, setPlaces } from '../../web/src/lib/placeIndex.js';
-import type { Demand, Plan, TransportMode } from '../../web/src/types/index.js';
+import { placeById, placesOf, setPlaces } from '../../shared/engine/placeIndex.js';
+import type { Demand, Plan, TransportMode } from '../../shared/types/index.js';
 
 // 引擎的索引需要在同步计算前就绪；原生壳没有接口可拉，先用本地副本顶上
 try {

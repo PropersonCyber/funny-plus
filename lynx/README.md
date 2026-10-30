@@ -1,6 +1,6 @@
 # lynx/ — 跨端 UI（ReactLynx）
 
-按 `docs/proto.png` 实现，一份代码出 iOS / Android / Web。**业务逻辑不在这里重写**：`planner` / `budget` / `validate` / `places` 全部来自 `web/src`（纯 TS，无 DOM 依赖）。
+按 `docs/proto.png` 实现，一份代码出 iOS / Android / Web。**业务逻辑不在这里重写**：`planner` / `budget` / `validate` / `places` 全部来自 `shared/engine`（纯 TS，无 DOM 依赖）。
 
 ## 页面
 
@@ -45,7 +45,7 @@ xcrun simctl openurl <UDID> "lynx://open?url=<URL 编码后的 bundle 地址>?fu
 | --- | --- |
 | `docs/materials/icons/*.svg` | 全部线性图标（tab 与功能图标），运行时内联成 `<svg content>` |
 | `docs/materials/brand/*.svg` | App 图标符号、吉祥物矢量基础稿 |
-| `web/public/img/*.jpg` | 已有插画：chengdu / chongqing / jinli / panda / chunxi / dufu / map |
+| `lynx/src/assets/gen/*.jpg` | 已有插画：chengdu / chongqing / jinli / panda / chunxi / dufu / map（原 `web/public/img` 已随旧 H5 下线迁到这里） |
 
 **只在缺素材时用 `gpt-image-2.5-flare` 补**，风格锚定已提供插画（饱满动漫插画 + 暖灯笼光 + 蓝天）：
 

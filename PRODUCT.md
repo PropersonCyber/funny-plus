@@ -8,11 +8,11 @@ iOS 优先（Android 同期跟进），Web 作为同步产物。H5 版是 480px 
 
 ## Stack
 
-**客户端**：Lynx（ReactLynx）+ TypeScript，一份 UI 代码渲染 iOS / Android / Web。工程在 `lynx/`，通过 `@` 别名直接复用 `web/src` 的确定性引擎。
+**客户端**：Lynx（ReactLynx）+ TypeScript，一份 UI 代码渲染 iOS / Android / Web。工程在 `lynx/`，通过 `@` 别名直接复用 `shared/` 的确定性引擎与数据客户端。
 
-**存量 H5**：Vue 3 + Vite + vue-router（`web/`），继续作为逻辑源与老页面；新页面不再往这里加。
+**存量 H5**：原 Vue 3 H5（`web/`）已下线，功能与新 UI 重复，逻辑已抽到 `shared/`。
 
-**确定性逻辑**（两端共用，纯 TS 无 DOM 依赖）：`web/src/api/planner.ts` + `web/src/lib/`。避坑反馈走后端；本地存档目前是 localStorage（H5），原生端待接。
+**确定性逻辑**（两端共用，纯 TS 无 DOM 依赖）：`shared/engine/` + `shared/types/`。地点、避坑、反馈走后端；行程存档 H5 端在 localStorage，原生端待接。
 
 视觉与资源按 `docs/proto.png` + `docs/materials/` 落地；早期 SwiftUI 单端实现已删除，只在需要时从设计稿重建。
 

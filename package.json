@@ -3,13 +3,12 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "dev": "npm --prefix web run dev",
-    "build": "npm --prefix web run build",
-    "typecheck": "npm --prefix web run typecheck",
-    "preview": "npm --prefix web run preview",
-    "dev:api": "npm --prefix web run dev:api",
-    "dev:db": "npm --prefix web run dev:db",
-    "lynx:dev": "npm --prefix lynx run dev",
-    "lynx:build": "npm --prefix lynx run build"
+    "dev": "npm --prefix lynx run dev",
+    "build": "npm --prefix lynx run build",
+    "typecheck": "npm --prefix server run typecheck && npm --prefix lynx run typecheck",
+    "dev:api": "npm --prefix server run dev",
+    "dev:db": "docker compose -f server/docker-compose.yml up -d",
+    "db:migrate": "npm --prefix server run db:migrate",
+    "db:seed": "npm --prefix server run db:seed"
   }
 }

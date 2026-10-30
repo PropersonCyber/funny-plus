@@ -1,6 +1,6 @@
 import type { FactFeedbackSummary, FeedbackVerdict } from '@/types'
 import { readError } from './http'
-import { DEMO_CLIENT_ID, demoMode } from '@/lib/demo'
+import { DEMO_CLIENT_ID, demoMode } from '@/api/demo'
 
 // 匿名去重用的设备标识，只存在本机；丢了就换一个，不影响已有反馈
 const KEY = 'funny-plus.client-id.v1'

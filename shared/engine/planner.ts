@@ -1,7 +1,7 @@
 import type { ChangeImpact, Demand, ItineraryItem, Pace, Plan, Place, TransportMode, TripDay } from '@/types'
-import { distanceKm, placeById, placesLoaded, placesOf, travelMinutes } from '@/lib/placeIndex'
-import { estimateBudget } from '@/lib/budget'
-import { validatePlan } from '@/lib/validate'
+import { distanceKm, placeById, placesLoaded, placesOf, travelMinutes } from '@/engine/placeIndex'
+import { estimateBudget } from '@/engine/budget'
+import { validatePlan } from '@/engine/validate'
 
 // 这里就是「AI 规划模块」的边界：现在用确定性模板生成，接真模型时只换这个文件，
 // 上层视图只依赖 Plan 结构，不依赖生成方式。

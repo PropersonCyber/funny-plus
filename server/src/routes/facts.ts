@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { and, count, eq } from 'drizzle-orm'
 import { db } from '../db/client.ts'
 import { factFeedbacks, facts } from '../db/schema.ts'
-// 类型从 web 单向引；tsx 跑源码时会被抹掉，所以镜像里不需要打 web/src
+// 类型从 shared 单向引；tsx 跑源码时会被抹掉，所以镜像里不需要打 shared
 import type { TravelFact } from '@/types/index.ts'
 
 const NOTE_MAX = 60

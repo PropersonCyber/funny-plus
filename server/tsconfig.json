@@ -12,7 +12,7 @@
     "noEmit": true,
     "types": ["node"],
     "baseUrl": ".",
-    "paths": { "@/*": ["../web/src/*"] }
+    "paths": { "@/*": ["../shared/*"] }
   },
   "include": ["src/**/*.ts", "drizzle.config.ts"]
 }

@@ -11,7 +11,7 @@
     "noEmit": true,
     "paths": {
       "@/*": [
-        "../../web/src/*"
+        "../../shared/*"
       ]
     },
     "rootDir": "../.."
@@ -19,6 +19,6 @@
   "include": [
     "./**/*.ts",
     "./**/*.tsx",
-    "../../web/src/**/*.ts"
+    "../../shared/**/*.ts"
   ]
 }

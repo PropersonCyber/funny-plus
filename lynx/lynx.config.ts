@@ -5,9 +5,9 @@ import path from 'node:path';
 import { pluginTypeCheck } from '@rsbuild/plugin-type-check';
 
 export default defineConfig({
-  // 确定性计算层复用 web/src（纯 TS，不依赖 DOM）
+  // 确定性计算层与类型、数据客户端都在 shared/（纯 TS，不依赖 DOM）
   source: {
-    alias: { '@': path.resolve(import.meta.dirname, '../web/src') },
+    alias: { '@': path.resolve(import.meta.dirname, '../shared') },
   },
   // 同一份代码同时产出原生 bundle 和 web bundle
   environments: {

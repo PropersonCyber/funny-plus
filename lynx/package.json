@@ -6,7 +6,8 @@
     "build": "rspeedy build",
     "dev": "rspeedy dev",
     "preview": "rspeedy preview",
-    "test": "rstest run"
+    "test": "rstest run",
+    "typecheck": "tsc --noEmit -p src/tsconfig.json"
   },
   "dependencies": {
     "@lynx-js/react": "^0.126.2"

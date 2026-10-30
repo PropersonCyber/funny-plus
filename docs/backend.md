@@ -1,13 +1,13 @@
 # 后端技术方案（第一版定稿）
 
 > 范围：只覆盖「谁提供数据、数据放哪」。AI 生成、对话式修改、地图/路径规划均未开工，见文末待开工清单。
-> 代码位置：`server/`。
+> 代码位置：`server/`（服务端）、`shared/`（两端共用的纯 TS 引擎与数据客户端）。
 
 ## 一、选型
 
 | 层 | 选择 | 为什么不选另一个 |
 | --- | --- | --- |
-| 运行时 | Node 22 + TypeScript，`tsx` 直接跑源码 | 与 `web/`、`lynx/` 共用一份类型；改一行不用等编译 |
+| 运行时 | Node 22 + TypeScript，`tsx` 直接跑源码 | 与 `lynx/` 共用 `shared/` 的一份类型；改一行不用等编译 |
 | Web 框架 | Hono 4 | 路由 + 中间件够用，`streamSSE` 内置；NestJS 的 DI/模块对两张表是纯样板 |
 | 校验 | 手写类型收窄（`typeof x !== 'string'`） | 现在只有 4 个入参字段，上 zod 还早；接 AI 输出时再引 |
 | ORM | Drizzle + `drizzle-kit` | SQL 可读、迁移可 diff；Prisma 多一层引擎二进制，镜像更大 |
@@ -32,16 +32,16 @@ server/drizzle/     迁移文件（进仓，服务器只跑 migrate）
 
 | 数据 | 存放 | 理由 |
 | --- | --- | --- |
-| 地点 `Place` | **PG**（`places` 表） | 引擎要同步索引 → 前端启动时 `GET /api/places` 预热一次 `placeIndex`（`web/src/main.ts`） |
+| 地点 `Place` | **PG**（`places` 表） | 引擎要同步索引 → 前端启动时 `GET /api/places` 预热一次 `placeIndex` |
 | 避坑信息 `TravelFact` | **PG**（`facts` 表） | 需要来源/核验时间/有效期这类可追溯字段，且多个端要读 |
 | 避坑反馈 | **PG**（`fact_feedbacks` 表） | 匿名计数，靠 `clientId` 去重 |
 | 种子数据 | 仓库根 `data/*.json` | seed 脚本只读文件写库，代码里不出现业务数据字面量 |
-| 预算常数、校验阈值 | 前端 `web/src/lib/` | 纯函数，可复算可测，服务端暂不需要权威计算 |
-| 已保存行程 | 浏览器 localStorage | 产品明确第一版不做账号与云端档案 |
+| 预算常数、校验阈值 | `shared/engine/` | 纯函数，可复算可测，服务端暂不需要权威计算 |
+| 已保存行程 | H5 端 localStorage；lynx 端目前是内存态 | 产品明确第一版不做账号与云端档案 |
 
 原生壳（`lynx/`）还没有 API base URL，地点与避坑读 `lynx/src/places.ts` / `lynx/src/facts.ts` 本地副本，内容必须与 `data/*.json` 同步。
 
-服务端与前端之间只有**类型单向引用**：`server/src/routes/facts.ts` 里 `import type { TravelFact }`，运行时被 `tsx` 抹掉，所以镜像里不需要打 `web/src`。
+服务端与前端之间只有**类型单向引用**：`server/src/routes/*.ts` 里 `import type` 指向 `shared/types`，运行时被 `tsx` 抹掉。
 
 ## 四、接口
 
@@ -53,7 +53,7 @@ server/drizzle/     迁移文件（进仓，服务器只跑 migrate）
 | GET | `/api/facts/feedback?clientId=` | `{ items: FactFeedbackSummary[] }`，聚合计数 + 本设备的反馈 |
 | POST | `/api/facts/feedback` | `{ factId, verdict, note?, clientId }` → 201；重复提交 409，factId 不在库里 400 |
 
-字段命名与 `web/src/types` 一致（驼峰）。日期列用 PG `date`，drizzle 默认返回 `YYYY-MM-DD` 字符串，和前端 `validUntil` 的字符串比较口径一致，不引入时区。
+字段命名与 `shared/types` 一致（驼峰）。日期列用 PG `date`，drizzle 默认返回 `YYYY-MM-DD` 字符串，和前端 `validUntil` 的字符串比较口径一致，不引入时区。
 
 ## 五、迁移策略
 
@@ -71,9 +71,9 @@ npm --prefix server run db:seed       # 读 data/*.json 灌种子数据（幂等
 cp server/.env.example server/.env        # PG_URL / PORT
 npm run dev:db                            # docker，宿主端口 5434
 npm --prefix server i
-npm --prefix server run db:migrate && npm --prefix server run db:seed
+npm run db:migrate && npm run db:seed
 npm run dev:api                           # http://127.0.0.1:8787
-npm run dev                               # H5，vite 把 /api 代理到 8787
+npm run dev                               # lynx 预览，默认 3001
 ```
 
 ## 七、待开工（按依赖排序）
