@@ -1,10 +1,13 @@
 import type { FactFeedbackSummary, FeedbackVerdict } from '@/types'
 import { readError } from './http'
+import { DEMO_CLIENT_ID, demoMode } from '@/lib/demo'
 
 // 匿名去重用的设备标识，只存在本机；丢了就换一个，不影响已有反馈
 const KEY = 'funny-plus.client-id.v1'
 
 export function clientId(): string {
+  // 演示模式下固定用测试账号，才能看到「你已反馈」这类状态
+  if (demoMode()) return DEMO_CLIENT_ID
   try {
     const existing = localStorage.getItem(KEY)
     if (existing) return existing

@@ -4,7 +4,8 @@ import { db, pool } from './client.ts'
 import { factFeedbacks, facts, places, tripVersions, trips } from './schema.ts'
 import { generatePlans, revisePlan } from '@/api/planner'
 import { setPlaces } from '@/lib/placeIndex'
-import type { Demand, Place, TravelFact } from '@/types/index.ts'
+import { validatePlan } from '@/lib/validate'
+import type { Demand, Place, Plan, TravelFact } from '@/types/index.ts'
 
 // 数据在仓库根目录 data/*.json，这个脚本只做「读文件 → 写库」，不含业务数据字面量。
 // 重复执行是幂等的：地点/避坑/示例行程按 id upsert，版本与反馈按固定 id / 唯一索引去重。
@@ -83,8 +84,89 @@ for (const [i, demand] of demoDemands.entries()) {
   }
 }
 
+// 测试账号 demo-user：把界面上会遇到的状态各造一条，?demo=1 用这个账号看
+const DEMO_CLIENT = 'demo-user'
+
+/** 把某天第一个景点挪到 23:00，制造「开始太晚 / 落在营业时间外」这类硬冲突 */
+const makeLate = (plan: Plan) => {
+  const items = plan.days[0].items
+  const item = items.find((i) => i.kind === 'place')
+  if (!item) return
+  item.startMin = 23 * 60
+  item.endMin = item.startMin + item.stayMin
+  items.sort((a, b) => a.startMin - b.startMin)
+}
+
+/** 清空第二天，制造「空天」这种硬冲突 */
+const makeEmptyDay = (plan: Plan) => {
+  if (plan.days[1]) plan.days[1].items = []
+}
+
+const demoCases: { id: string; demand: Demand; break?: (plan: Plan) => void; note: string }[] = [
+  {
+    id: 'demo-user-1',
+    demand: { destination: '成都', dayCount: 1, party: 2, budgetLevel: 'mid', preferences: ['经典打卡'], transport: 'public', notes: '' },
+    note: '正常行程'
+  },
+  {
+    id: 'demo-user-2',
+    demand: { destination: '重庆', dayCount: 2, party: 4, budgetLevel: 'low', preferences: ['夜景江湖', '美食探店'], transport: 'public', notes: '' },
+    note: '超预算'
+  },
+  {
+    id: 'demo-user-3',
+    demand: { destination: '重庆', dayCount: 1, party: 8, budgetLevel: 'mid', preferences: ['经典打卡'], transport: 'public', notes: '' },
+    note: '8 人大团'
+  },
+  {
+    id: 'demo-user-4',
+    demand: { destination: '成都', dayCount: 2, party: 2, budgetLevel: 'high', preferences: ['亲子慢游'], transport: 'public', notes: '' },
+    break: makeLate,
+    note: '时间冲突'
+  },
+  {
+    id: 'demo-user-5',
+    demand: { destination: '重庆', dayCount: 2, party: 2, budgetLevel: 'flexible', preferences: ['拍照出片'], transport: 'public', notes: '' },
+    break: makeEmptyDay,
+    note: '空天'
+  },
+  {
+    id: 'demo-user-6',
+    demand: { destination: '成都', dayCount: 1, party: 1, budgetLevel: 'mid', preferences: ['美食探店'], transport: 'public', notes: '' },
+    note: '单人出行'
+  }
+]
+
+let demoCount = 0
+for (const c of demoCases) {
+  const plan = generatePlans(c.demand)[0]
+  c.break?.(plan)
+  plan.issues = validatePlan(plan, c.demand)
+  await db
+    .insert(trips)
+    .values({ id: c.id, clientId: DEMO_CLIENT, demand: c.demand, plan })
+    .onConflictDoUpdate({ target: trips.id, set: { demand: c.demand, plan } })
+  await db
+    .insert(tripVersions)
+    .values({ id: `${c.id}-v1`, tripId: c.id, note: `预置：${c.note}` })
+    .onConflictDoNothing()
+  demoCount++
+}
+
+// 测试账号的反馈：让避坑卡片出现「你已反馈」与别人的计数
+const demoFeedback = [
+  { id: 'demo-user-fb-1', factId: 'f-cq-1', verdict: 'met' as const, note: '国庆去的，确实排了很久' },
+  { id: 'demo-user-fb-2', factId: 'f-cd-1', verdict: 'not-applicable' as const, note: null }
+]
+for (const f of demoFeedback) {
+  await db
+    .insert(factFeedbacks)
+    .values({ id: f.id, factId: f.factId, verdict: f.verdict, note: f.note, clientId: DEMO_CLIENT })
+    .onConflictDoNothing()
+}
+
 console.log(
   `[seed] 地点 ${seedPlaces.length} 条、避坑 ${seedFacts.length} 条、演示反馈 ${feedbackRows.length} 条、` +
-    `示例行程 ${tripCount} 条（版本 ${versionCount} 条）已写入`
+    `示例行程 ${tripCount} 条（版本 ${versionCount} 条）、测试账号行程 ${demoCount} 条已写入`
 )
 await pool.end()

@@ -19,9 +19,10 @@ export async function fetchPlaces(city?: string): Promise<Place[]> {
   return body.items
 }
 
-/** 示例行程（服务端 client_id 为空的记录），首次打开时导入本机 */
-export async function fetchTrips(): Promise<SavedTrip[]> {
-  const res = await fetch('/api/trips')
+/** 示例行程（client_id 为空）+ 指定测试账号的预置行程 */
+export async function fetchTrips(clientId?: string): Promise<SavedTrip[]> {
+  const query = clientId ? `?clientId=${encodeURIComponent(clientId)}` : ''
+  const res = await fetch(`/api/trips${query}`)
   if (!res.ok) throw new Error(await readError(res))
   const body = (await res.json()) as { items: SavedTrip[] }
   return body.items

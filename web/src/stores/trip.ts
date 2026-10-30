@@ -1,6 +1,7 @@
 import { reactive, ref, watch } from 'vue'
 import type { Plan, SavedTrip } from '@/types'
 import { fetchTrips } from '@/api/catalog'
+import { DEMO_CLIENT_ID, demoMode } from '@/lib/demo'
 
 // 单仓单 store，够用就不引 Pinia；localStorage 是首期的「云端档案」替身。
 const KEY = 'funny-plus.trips.v1'
@@ -76,9 +77,11 @@ export const currentTrip = (): SavedTrip | undefined =>
  * 取不到也不报错——示例不是必需能力，空列表就好。
  */
 export async function importExamples(): Promise<void> {
-  if (state.trips.length) return
+  const demo = demoMode()
+  // 演示模式每次都从服务端重拉，保证看到的是干净的预置数据
+  if (state.trips.length && !demo) return
   try {
-    const items = await fetchTrips()
+    const items = await fetchTrips(demo ? DEMO_CLIENT_ID : undefined)
     if (!items.length) return
     state.trips = items
     state.currentId = items[0].id
