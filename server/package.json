@@ -1,0 +1,26 @@
+{
+  "name": "funny-plus-server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file=.env src/index.ts",
+    "start": "tsx --env-file=.env src/index.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:seed": "tsx --env-file=.env src/db/seed.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.7",
+    "drizzle-orm": "^0.38.3",
+    "hono": "^4.6.14",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/pg": "^8.11.10",
+    "drizzle-kit": "^0.30.1",
+    "tsx": "^4.19.2",
+    "typescript": "~5.7.2"
+  }
+}

@@ -1,0 +1,13 @@
+:root {
+  --fp-primary: #2478F2; --fp-primary-dark: #1256C8; --fp-cyan: #35C7E8;
+  --fp-mint: #45D6B0; --fp-violet: #8B7CFF; --fp-sunshine: #FFBE55;
+  --fp-bg: #F5F8FF; --fp-surface: #FFFFFF; --fp-surface-alt: #EEF4FF;
+  --fp-text: #172B4D; --fp-secondary: #7183A2; --fp-tertiary: #A5B2C7;
+  --fp-success: #20B98A; --fp-warning: #FF9A3D; --fp-danger: #F26D6D;
+  --fp-radius-sm: 10px; --fp-radius-md: 16px; --fp-radius-lg: 22px;
+  --fp-radius-sheet: 28px;
+  --fp-shadow-card: 0 6px 24px rgba(48, 104, 175, .09);
+}
+html, body { background: var(--fp-bg); color: var(--fp-text); }
+.fp-card { background: var(--fp-surface); border-radius: var(--fp-radius-lg); box-shadow: var(--fp-shadow-card); }
+.fp-button-primary { color: #fff; background: linear-gradient(100deg, #2478F2, #35BCEB); border: 0; border-radius: 999px; min-height: 48px; font-weight: 600; }

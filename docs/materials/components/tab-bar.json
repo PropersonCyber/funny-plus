@@ -1,0 +1,43 @@
+{
+  "tabs": [
+    {
+      "id": "home",
+      "title": "首页",
+      "icon": "home",
+      "selectedColor": "#2478F2"
+    },
+    {
+      "id": "map",
+      "title": "地图",
+      "icon": "map",
+      "selectedColor": "#2478F2"
+    },
+    {
+      "id": "itinerary",
+      "title": "行程",
+      "icon": "itinerary",
+      "selectedColor": "#2478F2"
+    },
+    {
+      "id": "guide",
+      "title": "避坑",
+      "icon": "shield",
+      "selectedColor": "#2478F2"
+    },
+    {
+      "id": "profile",
+      "title": "我的",
+      "icon": "profile",
+      "selectedColor": "#2478F2"
+    }
+  ],
+  "ios": {
+    "safeArea": true,
+    "tabBarHeightRecommendedPt": 83,
+    "iconSizePt": 23,
+    "labelSizePt": 10,
+    "background": "systemBackground / material blur",
+    "selectedState": "filled or stronger-weight icon + brand blue label",
+    "unselectedState": "secondaryLabel"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "funny-plus",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "npm --prefix web run dev",
+    "build": "npm --prefix web run build",
+    "typecheck": "npm --prefix web run typecheck",
+    "preview": "npm --prefix web run preview",
+    "dev:api": "npm --prefix web run dev:api",
+    "dev:db": "npm --prefix web run dev:db",
+    "lynx:dev": "npm --prefix lynx run dev",
+    "lynx:build": "npm --prefix lynx run build"
+  }
+}

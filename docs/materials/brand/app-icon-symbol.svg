@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<defs>
+ <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#1687F8"/><stop offset="1" stop-color="#31C7E8"/></linearGradient>
+ <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#8AF0E5"/><stop offset="1" stop-color="#22B9C8"/></linearGradient>
+ <linearGradient id="mount" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#E8FCFF"/><stop offset="1" stop-color="#B7E5F8"/></linearGradient>
+</defs>
+<rect x="24" y="24" width="976" height="976" rx="230" fill="url(#bg)"/>
+<circle cx="790" cy="210" r="76" fill="#FFD16A"/>
+<path d="M90 600 300 310l150 190 130-155 290 310H90Z" fill="url(#mount)"/>
+<path d="m235 400 65-90 82 104-48-22-34 30-30-25Z" fill="#fff" opacity=".9"/>
+<path d="M55 700c150-90 260-80 390-15 135 68 260 66 524-60v330H55Z" fill="url(#sea)"/>
+<path d="M70 770c160-70 270-45 390 10 145 67 300 45 490-40" fill="none" stroke="#fff" stroke-width="28" stroke-linecap="round" opacity=".95"/>
+<path d="M70 820c150-55 270-30 390 25 140 63 300 42 490-32" fill="none" stroke="#D8FFFA" stroke-width="12" stroke-linecap="round"/>
+<path d="M510 420c-65 0-118 52-118 117 0 85 118 200 118 200s118-115 118-200c0-65-53-117-118-117Z" fill="#fff" opacity=".96"/>
+<circle cx="510" cy="536" r="38" fill="#2478F2"/>
+</svg>

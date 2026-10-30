@@ -1,0 +1,74 @@
+{
+  "brand": {
+    "primary": "#2478F2",
+    "primaryDark": "#1256C8",
+    "cyan": "#35C7E8",
+    "mint": "#45D6B0",
+    "violet": "#8B7CFF",
+    "sunshine": "#FFBE55"
+  },
+  "background": {
+    "app": "#F5F8FF",
+    "surface": "#FFFFFF",
+    "surfaceAlt": "#EEF4FF"
+  },
+  "text": {
+    "primary": "#172B4D",
+    "secondary": "#7183A2",
+    "tertiary": "#A5B2C7",
+    "inverse": "#FFFFFF"
+  },
+  "status": {
+    "success": "#20B98A",
+    "warning": "#FF9A3D",
+    "danger": "#F26D6D",
+    "info": "#3999F5"
+  },
+  "radius": {
+    "small": 10,
+    "medium": 16,
+    "large": 22,
+    "sheet": 28,
+    "pill": 999
+  },
+  "spacing": {
+    "xxs": 4,
+    "xs": 8,
+    "sm": 12,
+    "md": 16,
+    "lg": 20,
+    "xl": 24,
+    "xxl": 32
+  },
+  "typography": {
+    "fontFamilyIOS": "SF Pro Display, SF Pro Text, PingFang SC, Helvetica Neue, sans-serif",
+    "largeTitle": {
+      "size": 32,
+      "weight": 700
+    },
+    "title1": {
+      "size": 28,
+      "weight": 700
+    },
+    "title2": {
+      "size": 22,
+      "weight": 700
+    },
+    "title3": {
+      "size": 20,
+      "weight": 600
+    },
+    "body": {
+      "size": 16,
+      "weight": 400
+    },
+    "callout": {
+      "size": 14,
+      "weight": 400
+    },
+    "caption": {
+      "size": 12,
+      "weight": 400
+    }
+  }
+}

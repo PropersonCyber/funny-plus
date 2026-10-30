@@ -1,0 +1,64 @@
+[
+  {
+    "factId": "f-cq-1",
+    "verdict": "met",
+    "count": 5,
+    "note": "国庆去的，约到下午场还是排了近一小时"
+  },
+  {
+    "factId": "f-cq-2",
+    "verdict": "met",
+    "count": 3
+  },
+  {
+    "factId": "f-cq-2",
+    "verdict": "not-applicable",
+    "count": 1
+  },
+  {
+    "factId": "f-cq-4",
+    "verdict": "met",
+    "count": 2
+  },
+  {
+    "factId": "f-cq-6",
+    "verdict": "met",
+    "count": 3
+  },
+  {
+    "factId": "f-cq-7",
+    "verdict": "not-applicable",
+    "count": 2
+  },
+  {
+    "factId": "f-cd-1",
+    "verdict": "met",
+    "count": 6,
+    "note": "8 点到的，停车场已经满了"
+  },
+  {
+    "factId": "f-cd-2",
+    "verdict": "not-applicable",
+    "count": 2
+  },
+  {
+    "factId": "f-cd-3",
+    "verdict": "met",
+    "count": 2
+  },
+  {
+    "factId": "f-cd-3",
+    "verdict": "not-applicable",
+    "count": 1
+  },
+  {
+    "factId": "f-cd-4",
+    "verdict": "met",
+    "count": 2
+  },
+  {
+    "factId": "f-cd-6",
+    "verdict": "met",
+    "count": 1
+  }
+]

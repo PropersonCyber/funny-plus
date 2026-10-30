@@ -1,0 +1,21 @@
+// 设计 token 与 docs/materials/tokens/design-tokens.css 对齐，改色只动这里
+export const T = {
+  primary: '#2478F2',
+  primaryDark: '#1256C8',
+  cyan: '#35C7E8',
+  mint: '#45D6B0',
+  violet: '#8B7CFF',
+  sunshine: '#FFBE55',
+  bg: '#F5F8FF',
+  surface: '#FFFFFF',
+  surfaceAlt: '#EEF4FF',
+  text: '#172B4D',
+  secondary: '#7183A2',
+  tertiary: '#A5B2C7',
+  success: '#20B98A',
+  warning: '#FF9A3D',
+  danger: '#F26D6D',
+  radiusSm: '10px',
+  radiusMd: '16px',
+  radiusLg: '22px',
+} as const;

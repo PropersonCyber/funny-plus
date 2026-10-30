@@ -1,0 +1,156 @@
+[
+  {
+    "id": "f-cq-1",
+    "city": "重庆",
+    "category": "预约与门票",
+    "content": "长江索道需线上实名预约分时段票，现场排队可能超 1 小时。",
+    "scope": "重庆 · 长江索道",
+    "source": "景区官方公众号",
+    "verifiedAt": "2026-09-18",
+    "validUntil": "2027-03-31",
+    "trust": "official"
+  },
+  {
+    "id": "f-cq-2",
+    "city": "重庆",
+    "category": "交通与路线",
+    "content": "洪崖洞到解放碑步行约 15 分钟，但电梯与楼梯混行，带老人建议打车绕行。",
+    "scope": "重庆 · 渝中半岛",
+    "source": "本地用户经验（3 条一致）",
+    "verifiedAt": "2026-08-30",
+    "validUntil": null,
+    "trust": "experience"
+  },
+  {
+    "id": "f-cq-3",
+    "city": "重庆",
+    "category": "额外消费",
+    "content": "洪崖洞观光电梯单程收费，夜景楼层观景台另有消费门槛，非强制。",
+    "scope": "重庆 · 洪崖洞",
+    "source": "第三方攻略，未见官方说明",
+    "verifiedAt": "2026-07-12",
+    "validUntil": null,
+    "trust": "pending"
+  },
+  {
+    "id": "f-cq-4",
+    "city": "重庆",
+    "category": "预约与门票",
+    "content": "重庆中国三峡博物馆免费，需在公众号提前预约，周一闭馆。",
+    "scope": "重庆 · 三峡博物馆",
+    "source": "馆方公众号预约须知",
+    "verifiedAt": "2026-09-10",
+    "validUntil": "2027-06-30",
+    "trust": "official"
+  },
+  {
+    "id": "f-cq-5",
+    "city": "重庆",
+    "category": "交通与路线",
+    "content": "李子坝到鹅岭二厂是一路上坡，步行约 20 分钟，雨天台阶湿滑。",
+    "scope": "重庆 · 李子坝 / 鹅岭",
+    "source": "本地用户经验（2 条一致）",
+    "verifiedAt": "2026-09-22",
+    "validUntil": null,
+    "trust": "experience"
+  },
+  {
+    "id": "f-cq-6",
+    "city": "重庆",
+    "category": "天气与人流",
+    "content": "7-8 月午后户外体感常超过 38℃，行程建议排在 10 点前与 18 点后。",
+    "scope": "重庆 · 全域",
+    "source": "气象部门高温提示",
+    "verifiedAt": "2026-09-30",
+    "validUntil": "2027-08-31",
+    "trust": "credible"
+  },
+  {
+    "id": "f-cq-7",
+    "city": "重庆",
+    "category": "额外消费",
+    "content": "两江游船按舱位分档售票，码头兜售的「快速通道」不是官方渠道。",
+    "scope": "重庆 · 朝天门码头",
+    "source": "第三方攻略，未见官方说明",
+    "verifiedAt": "2026-08-05",
+    "validUntil": "2026-08-31",
+    "trust": "pending"
+  },
+  {
+    "id": "f-cd-1",
+    "city": "成都",
+    "category": "预约与门票",
+    "content": "熊猫基地建议 7:30 前入场，10 点后幼年熊猫多回舍，观赏性明显下降。",
+    "scope": "成都 · 熊猫基地",
+    "source": "基地官网入园须知",
+    "verifiedAt": "2026-09-25",
+    "validUntil": "2027-03-31",
+    "trust": "official"
+  },
+  {
+    "id": "f-cd-2",
+    "city": "成都",
+    "category": "交通与路线",
+    "content": "东郊记忆距市中心约 8 公里，地铁 8 号线可直达，晚高峰打车 30 分钟以上。",
+    "scope": "成都 · 东郊记忆",
+    "source": "地图服务实时路况",
+    "verifiedAt": "2026-09-20",
+    "validUntil": null,
+    "trust": "credible"
+  },
+  {
+    "id": "f-cd-3",
+    "city": "成都",
+    "category": "天气与人流",
+    "content": "节假日宽窄巷子 11:00-16:00 拥挤，可改为早上 9 点前或傍晚入场。",
+    "scope": "成都 · 宽窄巷子",
+    "source": "文旅部门客流提示",
+    "verifiedAt": "2026-09-01",
+    "validUntil": "2026-09-30",
+    "trust": "credible"
+  },
+  {
+    "id": "f-cd-4",
+    "city": "成都",
+    "category": "预约与门票",
+    "content": "成都博物馆免费但需实名预约，节假日名额提前 3 天放出。",
+    "scope": "成都 · 成都博物馆",
+    "source": "馆方公众号预约须知",
+    "verifiedAt": "2026-09-12",
+    "validUntil": null,
+    "trust": "credible"
+  },
+  {
+    "id": "f-cd-5",
+    "city": "成都",
+    "category": "交通与路线",
+    "content": "天府广场到太古里地面步行要绕下穿通道，跟着导航容易错过入口。",
+    "scope": "成都 · 春熙路片区",
+    "source": "本地用户经验（2 条一致）",
+    "verifiedAt": "2026-08-18",
+    "validUntil": null,
+    "trust": "experience"
+  },
+  {
+    "id": "f-cd-6",
+    "city": "成都",
+    "category": "天气与人流",
+    "content": "周末返程 17-19 点成灌高速往成都方向易堵，青城山回程建议错峰。",
+    "scope": "成都 · 成灌高速",
+    "source": "地图服务历史路况",
+    "verifiedAt": "2026-09-28",
+    "validUntil": "2027-06-30",
+    "trust": "credible"
+  },
+  {
+    "id": "f-cd-7",
+    "city": "成都",
+    "category": "额外消费",
+    "content": "宽窄巷子茶馆按位计费，通常含茶位费和小吃拼盘，点单前确认是否另收服务费。",
+    "scope": "成都 · 宽窄巷子",
+    "source": "第三方攻略，未见官方说明",
+    "verifiedAt": "2026-07-30",
+    "validUntil": "2026-08-31",
+    "trust": "pending"
+  }
+]

@@ -1,0 +1,20 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: funny-plus-db
+    environment:
+      POSTGRES_USER: funnyplus
+      POSTGRES_PASSWORD: funnyplus
+      POSTGRES_DB: funnyplus
+    ports:
+      - '5434:5432'
+    volumes:
+      - funny-plus-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U funnyplus -d funnyplus']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  funny-plus-pgdata:

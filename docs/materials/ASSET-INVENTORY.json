@@ -1,0 +1,34 @@
+{
+  "brand": [
+    "app-icon-symbol.svg",
+    "mascot-editable.svg"
+  ],
+  "icons": [
+    "budget.svg",
+    "food.svg",
+    "home.svg",
+    "itinerary.svg",
+    "map.svg",
+    "pin.svg",
+    "profile.svg",
+    "route.svg",
+    "search.svg",
+    "settings.svg",
+    "shield.svg",
+    "sparkles.svg",
+    "ticket.svg",
+    "transport.svg",
+    "weather.svg"
+  ],
+  "illustrations": [
+    "map-marker-primary.svg",
+    "route-dotted.svg"
+  ],
+  "tokens": [
+    "design-tokens.json",
+    "design-tokens.css"
+  ],
+  "components": [
+    "tab-bar.json"
+  ]
+}
