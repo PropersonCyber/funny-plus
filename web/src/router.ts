@@ -10,6 +10,7 @@ export const router = createRouter({
     { path: '/compare', name: 'compare', component: () => import('@/views/CompareView.vue') },
     { path: '/trip', name: 'trip', component: () => import('@/views/TripView.vue') },
     { path: '/trip/map', name: 'map', component: () => import('@/views/MapView.vue') },
+    { path: '/trip/advice', name: 'advice', component: () => import('@/views/AdviceView.vue') },
     { path: '/facts', name: 'facts', component: () => import('@/views/FactsView.vue') },
     // 「我的」挂右上角头像，底部导航里不再出现
     { path: '/profile', name: 'profile', component: () => import('@/views/ProfileView.vue') },

@@ -138,6 +138,18 @@ function openSheet() {
           </article>
         </section>
 
+        <!-- 智能建议入口：看完行程想整体调一下时的去处 -->
+        <button class="card card-pad tweak advice-entry" type="button" @click="router.push('/trip/advice')">
+          <span class="row-start gap-sm">
+            <span class="tweak-icon ai"><span class="ms ms-20">auto_awesome</span></span>
+            <span class="col">
+              <span class="t-body strong">智能建议 · 调整这份行程</span>
+              <span class="cite">预算分配、出行方式对比、可直接执行的调整</span>
+            </span>
+          </span>
+          <span class="ms ms-18 muted">chevron_right</span>
+        </button>
+
         <!-- 局部微调入口 -->
         <button class="card card-pad tweak" type="button" @click="openSheet">
           <span class="row-start gap-sm">
@@ -303,6 +315,7 @@ function openSheet() {
   place-items: center;
   flex: none;
 }
+.tweak-icon.ai { background: var(--grad); color: var(--on-primary); }
 
 .impact { border-left: 3px solid var(--primary); }
 .warn-text { color: var(--warning); }

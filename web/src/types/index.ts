@@ -92,7 +92,7 @@ export interface Plan {
 export interface TravelFact {
   id: string
   city: string
-  category: '预约与门票' | '交通与路线' | '额外消费' | '天气与人流'
+  category: '预约与门票' | '交通与路线' | '额外消费' | '天气与人流' | '安全与健康' | '老人与小孩'
   content: string
   scope: string
   source: string

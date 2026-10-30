@@ -28,7 +28,9 @@ const CAT_ICON: Record<string, string> = {
   预约与门票: 'priority_high',
   交通与路线: 'directions_car',
   天气与人流: 'wb_sunny',
-  额外消费: 'storefront'
+  额外消费: 'storefront',
+  安全与健康: 'health_and_safety',
+  老人与小孩: 'family_restroom'
 }
 
 function openSheet(verdict: FeedbackVerdict) {

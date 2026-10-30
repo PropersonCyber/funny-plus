@@ -152,5 +152,49 @@
     "verifiedAt": "2026-07-30",
     "validUntil": "2026-08-31",
     "trust": "pending"
+  },
+  {
+    "id": "f-cq-8",
+    "city": "重庆",
+    "category": "安全与健康",
+    "content": "千厮门大桥人行道护栏不高，节假日人挤时不要探身拍照，掉下去的物件基本捞不回来。",
+    "scope": "重庆 · 千厮门大桥 / 洪崖洞",
+    "source": "本地用户经验（2 条一致）",
+    "verifiedAt": "2026-09-05",
+    "validUntil": null,
+    "trust": "experience"
+  },
+  {
+    "id": "f-cq-9",
+    "city": "重庆",
+    "category": "老人与小孩",
+    "content": "李子坝到鹅岭二厂是一路上坡，部分路段没有遮阴；推婴儿车或带膝盖不好的老人，建议直接打车到二厂入口。",
+    "scope": "重庆 · 李子坝 / 鹅岭",
+    "source": "本地用户经验（2 条一致）",
+    "verifiedAt": "2026-09-22",
+    "validUntil": null,
+    "trust": "experience"
+  },
+  {
+    "id": "f-cd-8",
+    "city": "成都",
+    "category": "安全与健康",
+    "content": "熊猫基地园区很大且遮阴少，夏季正午容易晒到中暑；园内观光车另收费，带小孩建议走到月亮产房再坐车出来。",
+    "scope": "成都 · 熊猫基地",
+    "source": "第三方攻略，未见官方说明",
+    "verifiedAt": "2026-08-14",
+    "validUntil": null,
+    "trust": "pending"
+  },
+  {
+    "id": "f-cd-9",
+    "city": "成都",
+    "category": "老人与小孩",
+    "content": "宽窄巷子是青石板路，雨天湿滑、婴儿车颠簸；带老人小孩遇到雨天，建议改去成都博物馆这类室内场馆。",
+    "scope": "成都 · 宽窄巷子",
+    "source": "本地用户经验（3 条一致）",
+    "verifiedAt": "2026-09-08",
+    "validUntil": null,
+    "trust": "experience"
   }
 ]
