@@ -13,3 +13,10 @@ dist/
 # 壳工程的 web 主包：每次 npm run build 都由 lynx/dist 整份重出（图片内联，3~5MB）
 # 同目录的 static/ 是 web-core 预构建运行时快照，只在升版本时变，继续进仓
 ios/FunnyPlus/FunnyPlus/web/main.web.bundle
+
+# 壳工程的 web 运行时快照：把 @lynx-js/web-core 装机后的 dist/client_prod/static 整份拷过来，
+# 与依赖包逐字节一致，升级 web-core 时重拷即可（见 ios/FunnyPlus/README.md「更新产物」）
+ios/FunnyPlus/FunnyPlus/web/static/
+
+# ios/webapp/build.mjs 的输出目录
+ios/webapp/out/

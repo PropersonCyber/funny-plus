@@ -24,6 +24,8 @@ FunnyPlus/
 ```bash
 npm run build                                  # 重新出 lynx/dist/main.web.bundle
 cp lynx/dist/main.web.bundle ios/FunnyPlus/FunnyPlus/web/
+# web 运行时快照不进仓，从依赖包里同步（升 @lynx-js/web-core 版本后也要重跑）
+rsync -a --delete lynx/node_modules/@lynx-js/web-core/dist/client_prod/static ios/FunnyPlus/FunnyPlus/web/
 cd ios/FunnyPlus
 xcodebuild -project FunnyPlus.xcodeproj -scheme FunnyPlus \
   -configuration Release -sdk iphoneos -derivedDataPath /tmp/dd CODE_SIGNING_ALLOWED=NO build
