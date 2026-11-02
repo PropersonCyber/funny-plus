@@ -1,6 +1,15 @@
-node_modules/
+# 不带尾斜杠：ios/webapp/node_modules 是指向 lynx/node_modules 的软链，
+# 尾斜杠的规则按目录匹配，软链会被漏掉
+node_modules
 dist/
 *.tsbuildinfo
 .env
 .DS_Store
 .build/
+
+# 改版前留的本地备份：*.bak-<时间戳>-<原因>
+*.bak-*
+
+# 壳工程的 web 主包：每次 npm run build 都由 lynx/dist 整份重出（图片内联，3~5MB）
+# 同目录的 static/ 是 web-core 预构建运行时快照，只在升版本时变，继续进仓
+ios/FunnyPlus/FunnyPlus/web/main.web.bundle
