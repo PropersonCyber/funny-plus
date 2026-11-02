@@ -1,0 +1,86 @@
+// 本模块专属样式（CSS Modules，类名会被哈希）
+
+.detail-hero {
+  position: relative;
+  height: 150px;
+  border-radius: 22px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.detail-hero-mask {
+  position: absolute;
+  left: 0; top: 0; width: 100%; height: 100%;
+  background-image: linear-gradient(180deg, rgba(23,43,77,0) 40%, rgba(23,43,77,0.72) 100%);
+}
+
+.detail-hero-in {
+  position: absolute;
+  left: 14px; right: 14px; bottom: 12px;
+}
+
+.detail-title {
+  font-size: 20px;
+  font-weight: bold;
+  color: #ffffff;
+  margin-bottom: 6px;
+}
+
+.tag-inverse {
+  color: #ffffff;
+  background-color: rgba(255,255,255,0.22);
+}
+
+.meta-card {
+  display: flex;
+  flex-direction: row;
+}
+
+.meta-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+.meta-value {
+  font-size: 13px;
+  font-weight: bold;
+  color: #172b4d;
+}
+
+.meta-note {
+  font-size: 10px;
+  color: #7183a2;
+}
+
+.summary-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.summary-day {
+  font-size: 11px;
+  font-weight: bold;
+  color: #2478f2;
+  width: 42px;
+}
+
+.summary-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  margin-right: 10px;
+}
+
+.summary-title {
+  font-size: 13px;
+  color: #172b4d;
+}
+
+.summary-meta {
+  font-size: 10px;
+  color: #7183a2;
+  margin-top: 2px;
+}

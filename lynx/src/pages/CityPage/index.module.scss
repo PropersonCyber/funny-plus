@@ -1,0 +1,117 @@
+// 本模块专属样式（CSS Modules，类名会被哈希）
+
+.city-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: #ffffff;
+  padding: 52px 16px 20px 16px;
+}
+.city-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.city-back {
+  width: 34px;
+  height: 34px;
+  border-radius: 17px;
+  background-color: #f1f5fb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+}
+.city-search {
+  flex: 1;
+  height: 36px;
+  border-radius: 18px;
+  background-color: #f4f7fc;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 0 14px;
+}
+.city-input {
+  flex: 1;
+  font-size: 13px;
+  color: #172b4d;
+}
+.city-input-ph {
+  color: #a5b2c7;
+}
+.city-cur {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background-color: #eef4ff;
+  margin-bottom: 16px;
+}
+.city-cur-label {
+  font-size: 11px;
+  color: #7183a2;
+}
+.city-cur-value {
+  font-size: 16px;
+  font-weight: bold;
+  color: #172b4d;
+  margin-top: 2px;
+}
+.city-cur-note {
+  font-size: 10px;
+  color: #8a99b3;
+  margin-top: 4px;
+}
+.city-sec {
+  font-size: 12px;
+  color: #8a99b3;
+  margin: 4px 0 6px 0;
+}
+.city-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 2px;
+  border-bottom: 1px solid #f1f5fb;
+}
+.city-item-text {
+  font-size: 15px;
+  color: #172b4d;
+}
+.city-item-on {
+  font-weight: bold;
+  color: #2478f2;
+}
+.city-item-tick {
+  font-size: 11px;
+  color: #2478f2;
+}
+.city-empty {
+  font-size: 12px;
+  color: #a5b2c7;
+  padding: 10px 0;
+}
+.city-hot {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+.city-hot-chip {
+  padding: 7px 14px;
+  border-radius: 14px;
+  background-color: #f4f7fc;
+  margin: 0 8px 8px 0;
+}
+.city-hot-text {
+  font-size: 12px;
+  color: #8a99b3;
+}
+.city-tip {
+  font-size: 10px;
+  color: #a5b2c7;
+  margin-top: 6px;
+}

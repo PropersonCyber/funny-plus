@@ -1,0 +1,182 @@
+// 本模块专属样式（CSS Modules，类名会被哈希）
+
+
+
+.ps-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.ps-head-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  margin-left: 8px;
+}
+
+
+.ps-sub {
+  font-size: 11px;
+  color: #8a99b3;
+  margin-top: 3px;
+}
+
+
+
+.ps-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: 18px;
+  background-color: #f7f9fd;
+  padding: 2px 12px;
+  margin-bottom: 14px;
+}
+
+.ps-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  min-height: 54px;
+  padding: 8px 0;
+  border-bottom: 1px solid #eef2f9;
+}
+
+.ps-row-last {
+  border-bottom-width: 0;
+  align-items: flex-start;
+}
+
+.ps-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+}
+
+.ps-icon-orange {
+  background-color: rgba(245, 160, 60, 0.14);
+}
+
+.ps-icon-blue {
+  background-color: rgba(36, 120, 242, 0.12);
+}
+
+.ps-icon-green {
+  background-color: rgba(53, 192, 138, 0.14);
+}
+
+.ps-icon-violet {
+  background-color: rgba(139, 124, 255, 0.14);
+}
+
+.ps-label {
+  font-size: 13px;
+  color: #4b5c78;
+  width: 62px;
+}
+
+.ps-chips {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+}
+
+.ps-chips-wrap {
+  flex-wrap: wrap;
+}
+
+.ps-chip {
+  padding: 6px 12px;
+  border-radius: 12px;
+  background-color: #ffffff;
+  margin-left: 6px;
+  margin-bottom: 4px;
+}
+
+.ps-chip-on {
+  background-color: #2478f2;
+}
+
+/* 补充要求：唯一需要输入的一行，给足高度且不参与排程 */
+.ps-row-notes {
+  align-items: flex-start;
+}
+.ps-notes {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.ps-input {
+  height: 32px;
+  border-radius: 10px;
+  background-color: #ffffff;
+  padding: 0 10px;
+  font-size: 13px;
+  color: #172b4d;
+}
+.ps-input-ph {
+  color: #a5b2c7;
+}
+.ps-notes-hint {
+  font-size: 11px;
+  color: #8a99b3;
+  margin-top: 5px;
+}
+
+.ps-stepper {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.ps-step-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 15px;
+  background-color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ps-step-btn-on {
+  background-color: #2478f2;
+}
+
+.ps-step-value {
+  font-size: 15px;
+  font-weight: bold;
+  color: #172b4d;
+  margin: 0 16px;
+}
+
+.ps-cta {
+  height: 50px;
+  border-radius: 25px;
+  background-image: linear-gradient(90deg, #35a7f5, #2478f2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ps-cta-text {
+  font-size: 16px;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+/* 生成失败提示：跟 CTA 同宽，红色一行，不弹 toast */
+.ps-error {
+  font-size: 12px;
+  color: #e0533d;
+  text-align: center;
+  margin-bottom: 8px;
+}

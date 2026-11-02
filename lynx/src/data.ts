@@ -1,9 +1,9 @@
 // 一切业务计算都复用 shared/engine 的确定性引擎，这里只做适配，不复制规则
-import { generatePlans } from '../../shared/engine/planner.js';
+import { generatePlans, revisePlan } from '../../shared/engine/planner.js';
 import { facts } from './facts.js';
 import { places } from './places.js';
-import { placeById, placesOf, setPlaces } from '../../shared/engine/placeIndex.js';
-import type { Demand, Plan, TransportMode } from '../../shared/types/index.js';
+import { distanceKm, placeById, placesOf, setPlaces } from '../../shared/engine/placeIndex.js';
+import type { ChangeImpact, Demand, Plan, TransportMode } from '../../shared/types/index.js';
 
 // 引擎的索引需要在同步计算前就绪；原生壳没有接口可拉，先用本地副本顶上
 try {
@@ -14,7 +14,10 @@ try {
 
 type BudgetLevel = Demand['budgetLevel'];
 
-export type { Demand, Plan };
+export type { ChangeImpact, Demand, Plan };
+
+// 只做转发：视图层不该直接依赖 engine 路径，换生成方式时只动这一处
+export { revisePlan };
 
 /** 避坑条目：原生壳读本地副本（./facts.ts），H5 读 GET /api/facts。A2 规则：过期条目不展示 */
 export function factsOf(city: string, today = new Date()): typeof facts {
@@ -25,13 +28,16 @@ export function factsOf(city: string, today = new Date()): typeof facts {
   });
 }
 
-export { placeById, facts };
+export { distanceKm, placeById, facts };
 
 export type CityOption = {
   id: string;
   tag: string;
   image: string;
 };
+
+/** 可选目的地。引擎按城市取地点，这里多一个城市就必须有对应地点数据，否则 generatePlans 会抛错 */
+export const CITIES = ['成都', '重庆', '北京'];
 
 export const DEFAULT_DEMAND: Demand = {
   destination: '成都',

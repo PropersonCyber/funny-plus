@@ -4,9 +4,38 @@ export const MOCK = {
   weather: { temp: '22°C', text: '晴' },
 
   cities: [
-    { id: '成都', tag: '美食 · 熊猫', price: '¥1200 起', image: 'chengdu', open: true },
-    { id: '重庆', tag: '山城 · 夜景', price: '¥1500 起', image: 'chongqing', open: true },
-    { id: '大理', tag: '自然风光', price: '¥1800 起', image: 'dali', open: true },
+    { id: '成都', tag: '美食 · 熊猫', price: '¥1200 起', image: 'chengdu', open: true,
+      rating: '4.8', visited: '2.3 万人去过', desc: '美食之都，慢享生活' },
+    { id: '重庆', tag: '山城 · 夜景', price: '¥1500 起', image: 'chongqing', open: true,
+      rating: '4.8', visited: '1.8 万人去过', desc: '山城奇观，夜景迷人' },
+    { id: '北京', tag: '古都 · 人文', price: '¥1600 起', image: 'beijing', open: true,
+      rating: '4.8', visited: '2.0 万人去过', desc: '红墙金瓦，胡同烟火' },
+  ],
+
+  // 首页「本周精选」：一条短途游推荐
+  weekly: {
+    title: '杭州 · 西湖漫游之旅',
+    tags: ['2天1晚', '人均¥800', '自然风光'],
+    desc: '漫步西湖，感受江南之美',
+    image: 'dali',
+  },
+
+  // 首页「AI 旅行助手」一句话推荐
+  assistantTip: '想和朋友去看山看海？试试生成三亚 4 天 3 晚的旅行方案吧～',
+
+  // 首页「爆款玩法」：按出行场景分类，4 张卡
+  hotPlays: [
+    { title: '周末短途', note: '2-3 天轻出发' },
+    { title: '亲子游', note: '带娃不累' },
+    { title: '多人组团', note: '人多更划算' },
+    { title: '深度体验', note: '本地人推荐' },
+  ],
+
+  // 首页「精选攻略」：真实用户路线，浏览量也是 mock
+  guides: [
+    { title: '成都 3 天 2 晚必打卡清单', note: '吃喝玩乐全攻略，附避坑指南', views: '12.3 万', image: 'chengdu' },
+    { title: '重庆解放碑周边美食地图', note: '本地人推荐的 10 家必吃餐厅', views: '8.6 万', image: 'chongqing' },
+    { title: '大理环洱海怎么玩？', note: '最全路线 + 拍照点 + 避坑提醒', views: '6.4 万', image: 'dali' },
   ],
 
   // 首页「最近计划」
@@ -66,6 +95,14 @@ export const MOCK = {
       note: '距离市中心商圈较近 · ¥400-600/晚',
       tags: ['交通便利', '美食丰富', '购物方便'],
     },
+    tips: {
+      highlight: {
+        title: '建议避开周末高峰',
+        note: '4月19日为周末，景区人流较大，建议调整至前一日出行。',
+      },
+      items: ['推荐地铁出行，避免堵车', '建议提前预约门票', '推荐周边美食：龙抄手'],
+    },
+
     budgetSplit: [
       { label: '交通', percent: 35, color: '#2478F2' },
       { label: '住宿', percent: 25, color: '#35C7E8' },
@@ -98,7 +135,7 @@ export const MOCK = {
   },
 
   assistant: {
-    greeting: '你好！我是你的旅行助手，你可以告诉我：',
+    greeting: '你好！我是咕噜，你的旅行助手。你可以告诉我：',
     abilities: ['想要调整行程', '需要推荐景点', '想控制预算', '了解更多避坑信息'],
     userMessage: '帮我把第二天的行程改成轻松点，去一些小众景点',
     reply: '已为你调整第二天行程',

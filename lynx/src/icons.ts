@@ -14,26 +14,6 @@ export function svgIcon(name: string, color: string = COLOR.primary): string {
   return icon(name, color);
 }
 
-// 功能图标（设计稿配色版，见 assets/icons2）
-import aiIcon from './assets/icons2/ai.png';
-import mapIcon from './assets/icons2/map.png';
-import routeIcon from './assets/icons2/route.png';
-import hotelIcon from './assets/icons2/hotel.png';
-import ticketIcon from './assets/icons2/ticket.png';
-import foodIcon from './assets/icons2/food.png';
-import weatherIcon from './assets/icons2/weather.png';
-import busIcon from './assets/icons2/bus.png';
-import budgetIcon from './assets/icons2/budget.png';
-import starIcon from './assets/icons2/star.png';
-import shareIcon from './assets/icons2/share.png';
-import settingsIcon from './assets/icons2/settings.png';
-
-export const FX = {
-  ai: aiIcon, map: mapIcon, route: routeIcon, hotel: hotelIcon, ticket: ticketIcon,
-  food: foodIcon, weather: weatherIcon, bus: busIcon, budget: budgetIcon, star: starIcon,
-  share: shareIcon, settings: settingsIcon,
-};
-
 // 地图元素（assets/map）
 import pinSpot from './assets/map/pin-spot.png';
 import markerTodo from './assets/map/marker-todo.png';
@@ -45,4 +25,24 @@ import thumbSnack from './assets/map/thumb-snack.png';
 
 export const MAP_ART = {
   pinSpot, markerTodo, thumbs: [thumbLandmark, thumbTemple, thumbFood, thumbNature, thumbSnack],
+};
+
+// 首页快捷入口：IP 风格的 3D 光泽图标（比线性字形更有质感，跟吉祥物同一套观感）
+import qPin from './assets/icons3/pin.png';
+import qMap from './assets/icons3/map.png';
+import qShield from './assets/icons3/shield.png';
+import qSpark from './assets/icons3/spark.png';
+import qCalendar from './assets/icons3/calendar.png';
+import qFlame from './assets/icons3/flame.png';
+import qBackpack from './assets/icons3/backpack.png';
+import qBook from './assets/icons3/book.png';
+import qEye from './assets/icons3/eye.png';
+import qStar from './assets/icons3/star.png';
+import qWeather from './assets/icons3/weather.png';
+import qTicket from './assets/icons3/ticket.png';
+
+export const QICON = {
+  pin: qPin, map: qMap, shield: qShield, spark: qSpark, calendar: qCalendar,
+  flame: qFlame, backpack: qBackpack, book: qBook, eye: qEye, star: qStar,
+  weather: qWeather, ticket: qTicket,
 };

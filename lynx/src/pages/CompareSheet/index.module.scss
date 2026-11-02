@@ -1,0 +1,109 @@
+.cp-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.cp-head-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.cp-sub {
+  font-size: 11px;
+  color: #8a99b3;
+  margin-top: 3px;
+}
+
+/* 三列数据：label 列窄、方案列等分，那两行的高度靠 padding 撑，不用固定值 */
+.cp-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  padding: 9px 0;
+  border-bottom: 1px solid #eef2f9;
+}
+
+.cp-row-first {
+  padding-top: 0;
+}
+
+.cp-row-last {
+  border-bottom-width: 0;
+}
+
+.cp-label {
+  width: 52px;
+  font-size: 12px;
+  color: #8a99b3;
+}
+
+.cp-col-head {
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0px;
+  width: 0;
+  font-size: 13px;
+  font-weight: bold;
+  color: #172b4d;
+  text-align: center;
+}
+
+.cp-value {
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0px;
+  width: 0;
+  font-size: 12px;
+  color: #3f5980;
+  text-align: center;
+}
+
+.cp-value-strong {
+  font-size: 13px;
+  font-weight: bold;
+  color: #2478f2;
+}
+
+.cp-value-error {
+  color: #e0533d;
+}
+
+.cp-note {
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0px;
+  width: 0;
+  font-size: 10px;
+  line-height: 1.4;
+  color: #7183a2;
+  text-align: center;
+}
+
+.cp-actions {
+  display: flex;
+  flex-direction: row;
+  margin-top: 12px;
+}
+
+.cp-btn {
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0px;
+  width: 0;
+  height: 42px;
+  margin-right: 8px;
+  border-radius: 21px;
+  background-color: #eef4ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cp-btn-text {
+  font-size: 12px;
+  font-weight: bold;
+  color: #2478f2;
+}

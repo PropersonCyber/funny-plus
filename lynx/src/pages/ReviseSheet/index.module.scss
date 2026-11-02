@@ -1,0 +1,81 @@
+// 本模块专属样式（CSS Modules，类名会被哈希）
+
+.rs-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.rs-head-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.rs-sub {
+  font-size: 11px;
+  color: #8a99b3;
+  margin-top: 3px;
+}
+
+.rs-quick {
+  display: flex;
+  flex-direction: row;
+  margin-bottom: 12px;
+}
+
+.rs-chip {
+  padding: 8px 14px;
+  border-radius: 14px;
+  background-color: #eef4ff;
+  margin-right: 8px;
+}
+
+.rs-chip-text {
+  font-size: 13px;
+  color: #2478f2;
+}
+
+.rs-input-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  height: 44px;
+  border-radius: 14px;
+  background-color: #f7f9fd;
+  padding: 0 12px;
+  margin-bottom: 12px;
+}
+
+.rs-input {
+  flex: 1;
+  font-size: 13px;
+  color: #172b4d;
+}
+
+.rs-input-ph {
+  color: #a5b2c7;
+}
+
+.rs-error {
+  font-size: 12px;
+  color: #d93a3f;
+  line-height: 18px;
+  margin-bottom: 10px;
+}
+
+.rs-cta {
+  height: 46px;
+  border-radius: 23px;
+  background-color: #2478f2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rs-cta-text {
+  font-size: 15px;
+  font-weight: bold;
+  color: #ffffff;
+}

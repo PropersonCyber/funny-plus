@@ -1,0 +1,211 @@
+// 本模块专属样式（CSS Modules，类名会被哈希）
+
+.menu-title {
+  flex: 1;
+  font-size: 14px;
+  color: #172b4d;
+  text-align: left;
+}
+
+.me {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.me-sky {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 260px;
+  background-image: linear-gradient(180deg, #a8d3fb 0%, #d8ecff 55%, #f5f8ff 100%);
+}
+
+.me-in {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 52px 16px 90px 16px;
+}
+
+.me-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.me-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  margin-left: 12px;
+}
+
+.me-name {
+  font-size: 20px;
+  font-weight: bold;
+  color: #172b4d;
+  margin-bottom: 6px;
+}
+
+.stat-row {
+  display: flex;
+  flex-direction: row;
+  padding: 14px 0;
+  border-radius: 16px;
+  background-color: #ffffff;
+  box-shadow: 0 8px 22px rgba(48, 104, 175, 0.08);
+  margin-bottom: 12px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+.stat-num {
+  font-size: 20px;
+  font-weight: bold;
+  color: #172b4d;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: #7183a2;
+  margin-top: 4px;
+}
+
+.member {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 14px 14px;
+  border-radius: 16px;
+  background-color: #1e2a5a;
+  margin-bottom: 12px;
+}
+
+.member-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.member-title {
+  font-size: 15px;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.member-sub {
+  font-size: 10px;
+  color: #a9b6d6;
+  margin-top: 4px;
+}
+
+.member-btn {
+  padding: 7px 14px;
+  border-radius: 14px;
+  background-color: #f7c761;
+}
+
+.member-btn-text {
+  font-size: 12px;
+  font-weight: bold;
+  color: #3a2a08;
+}
+
+.level-pill {
+  background-color: #eef4ff;
+  border-radius: 8px;
+  padding: 1px 6px;
+  margin-top: 3px;
+  align-self: flex-start;
+}
+
+.level-text {
+  font-size: 9px;
+  color: #2478f2;
+}
+
+.member {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background-image: linear-gradient(100deg, #2b2f3a, #444a58);
+  margin-bottom: 12px;
+}
+
+.member-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.member-title {
+  font-size: 13px;
+  font-weight: bold;
+  color: #ffd9a0;
+}
+
+.member-sub {
+  font-size: 10px;
+  color: #c9ced8;
+  margin-top: 2px;
+}
+
+.member-btn {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background-image: linear-gradient(100deg, #ffd9a0, #ffbe55);
+}
+
+.member-btn-text {
+  font-size: 11px;
+  font-weight: bold;
+  color: #3a2a10;
+}
+
+.card-tight {
+  padding: 4px 14px;
+}
+
+.menu-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #eef4ff;
+}
+
+.menu-row-last {
+  border-bottom: 0;
+}
+
+.map-veil {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(245, 248, 255, 0.45);
+}
+
+/* 我的行程：标题 + 存档时间两行并排图标 */
+.save-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+.save-note {
+  font-size: 10px;
+  color: #8a99b3;
+  margin-top: 2px;
+}

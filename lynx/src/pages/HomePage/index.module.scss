@@ -1,0 +1,679 @@
+// 本模块专属样式（CSS Modules，类名会被哈希）
+
+.home {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+
+.home-in {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  /* Hero 要顶到状态栏后面，这里不能留上内边距 */
+  padding: 0 16px 90px 16px;
+}
+
+/* Hero 顶到状态栏后面，整块当背景，只有下面留圆角 */
+
+
+
+.ai-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+
+
+.ai-chevron {
+  font-size: 20px;
+  color: #a5b2c7;
+}
+
+.quick-card {
+  display: flex;
+  flex-direction: row;
+  padding: 16px 6px;
+  border-radius: 18px;
+  background-color: #ffffff;
+  box-shadow: 0 8px 22px rgba(48, 104, 175, 0.08);
+  margin-bottom: 16px;
+  margin-bottom: 18px;
+}
+
+.searchbar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background-color: #ffffff;
+  box-shadow: 0 6px 24px rgba(48, 104, 175, 0.09);
+  margin-bottom: 12px;
+}
+
+.searchbar-icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+}
+
+.searchbar-text {
+  flex: 1;
+  overflow: hidden;
+  font-size: 13px;
+  color: #a5b2c7;
+}
+
+
+.hero-bg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hero-mask {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-image: linear-gradient(180deg, rgba(36, 120, 242, 0.05) 30%, rgba(18, 86, 200, 0.82) 100%);
+}
+
+.hero-card {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background-color: #ffffff;
+}
+
+.hero-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.hero-icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
+}
+
+
+.hero-sub {
+  font-size: 11px;
+  color: #7183a2;
+}
+
+.quick {
+  display: flex;
+  flex-direction: row;
+  padding: 14px 6px;
+  border-radius: 22px;
+  background-color: #ffffff;
+  box-shadow: 0 6px 24px rgba(48, 104, 175, 0.09);
+  margin-bottom: 16px;
+}
+
+.quick-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+.quick-icon-box {
+  width: 52px;
+  height: 52px;
+  border-radius: 18px;
+  background-color: #eef4ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.quick-icon {
+  width: 22px;
+  height: 22px;
+}
+
+
+.city-row {
+  display: flex;
+  flex-direction: row;
+  margin-bottom: 18px;
+}
+
+.city-card {
+  display: flex;
+  flex-direction: column;
+  /* Lynx 的 flex-basis 必须带单位才认；只写 flex:1 会按内容宽度分配，
+     三张卡文字长短不同宽度就不等了（第三张明显更窄） */
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0px;
+  width: 0;
+  margin-right: 12px;
+  border-radius: 14px;
+  overflow: hidden;
+  background-color: #ffffff;
+  box-shadow: 0 8px 22px rgba(48, 104, 175, 0.08);
+  margin-right: 10px;
+}
+
+
+.city-img {
+  width: 100%;
+  height: 72px;
+  border-radius: 12px;
+  margin-bottom: 6px;
+}
+
+
+.city-off-text {
+  font-size: 10px;
+  color: #a5b2c7;
+}
+
+.city-body {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 9px 10px 9px;
+}
+
+.city-name {
+  font-size: 15px;
+  font-weight: bold;
+  color: #172b4d;
+  margin-bottom: 2px;
+}
+
+.city-name-off {
+  color: #a5b2c7;
+}
+
+.city-tag {
+  font-size: 11px;
+  color: #8a99b3;
+}
+
+.city-price {
+  font-size: 14px;
+  font-weight: bold;
+  color: #2478f2;
+  margin-top: 4px;
+}
+
+.city-img-off {
+  width: 104px;
+  height: 72px;
+  border-radius: 12px;
+  margin-bottom: 6px;
+  background-color: #eef4ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ai-fab {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  width: 56px;
+  height: 56px;
+  border-radius: 28px;
+  /* 白胖吉祥物在纯白底上会糊边，给一层浅蓝底把它托出来 */
+  background-color: #eaf3ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 18px rgba(36, 120, 242, 0.22);
+  overflow: hidden;
+}
+
+/* 定位条是页面的固定头：滚动内容从它下面穿过 */
+.home-root {
+  /* 必须是 flex 容器：里面的 scroll-view 靠 flex:1 拿高度，否则整页滚不动 */
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+/* 滚动时的底衬：跟状态栏同色，往下渐隐到透明；未滚动时完全透明 */
+.loc-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 108px;
+  z-index: 4;
+  background-image: linear-gradient(180deg, #f5f8ff 0%, #f5f8ff 84%, rgba(245, 248, 255, 0) 100%);
+}
+/* 顶部当前定位 + 切换入口 */
+.loc-row {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 54px;
+  z-index: 5;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+/* 定位与扫码都收进白色胶囊：压在渐变天空上才有稳定对比度，也跟下面的卡片语言一致 */
+.loc-chip {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  height: 32px;
+  padding: 0 10px 0 11px;
+  border-radius: 16px;
+  background-color: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 4px 12px rgba(31, 71, 135, 0.1);
+}
+.loc-tools {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+.loc-scan {
+  margin-left: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 16px;
+  background-color: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 4px 12px rgba(31, 71, 135, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.loc-city {
+  font-size: 13px;
+  font-weight: bold;
+  color: #172b4d;
+}
+
+/* 城市切换弹层 */
+
+/* Hero 上的手写感标题 + 站在场景里的吉祥物 */
+
+/* 文字压在山体上会看不清，加一层自上而下的暗色蒙版 */
+
+/* ---------- 首页 Hero：插画铺满到状态栏，两侧无留白 ---------- */
+.home-sky {
+  display: none;
+}
+.hero {
+  position: relative;
+  width: 100%;
+  height: 262px;
+  overflow: hidden;
+}
+.hero-copy {
+  position: absolute;
+  left: 18px;
+  top: 84px;
+  display: flex;
+  flex-direction: column;
+}
+.hero-title {
+  font-size: 21px;
+  font-weight: bold;
+  color: #ffffff;
+  line-height: 31px;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 8px rgba(14, 45, 92, 0.55);
+}
+.hero-mascot {
+  position: absolute;
+  right: 10px;
+  bottom: 0;
+  width: 128px;
+  height: 160px;
+}
+/* 卡片压在吉祥物腿上，看起来像他站在卡片后面 */
+
+/* 趴在 AI 卡片上沿的吉祥物：底部与卡片顶边重合，卡片不裁切 */
+.card-mascot {
+  position: absolute;
+  right: 14px;
+  top: -70px;
+  width: 96px;
+  height: 88px;
+}
+.city-card-last {
+  margin-right: 0;
+}
+
+/* ---------- 首页按设计稿补的区块 ---------- */
+.search-row .searchbar {
+  flex: 1;
+  margin-right: 10px;
+}
+.ai-btn {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 22px;
+  background-image: linear-gradient(135deg, #5b86ff, #4169f5);
+  box-shadow: 0 6px 16px rgba(65, 105, 245, 0.28);
+}
+.ai-btn-text {
+  font-size: 13px;
+  font-weight: bold;
+  color: #ffffff;
+}
+.quick-desc {
+  font-size: 9px;
+  color: #9aa8bf;
+  margin-top: 3px;
+  text-align: center;
+}
+.quick-title {
+  font-size: 12px;
+  color: #172b4d;
+  text-align: center;
+}
+.section-more-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+/* 爆款玩法：四张小卡 */
+.play-row {
+  display: flex;
+  flex-direction: row;
+  margin-bottom: 16px;
+  margin-bottom: 18px;
+}
+.play-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 8px 10px 8px;
+  border-radius: 14px;
+  background-color: #ffffff;
+  box-shadow: 0 6px 18px rgba(48, 104, 175, 0.07);
+  margin-right: 10px;
+}
+.play-last {
+  margin-right: 0;
+}
+.play-title {
+  font-size: 12px;
+  font-weight: bold;
+  color: #172b4d;
+  margin-top: 6px;
+}
+.play-desc {
+  font-size: 9px;
+  color: #9aa8bf;
+  margin-top: 3px;
+}
+/* AI 规划 banner */
+/* 精选攻略 */
+.guide-row {
+  display: flex;
+  flex-direction: row;
+  margin-bottom: 10px;
+}
+.guide-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  overflow: hidden;
+  background-color: #ffffff;
+  box-shadow: 0 6px 18px rgba(48, 104, 175, 0.07);
+  margin-right: 10px;
+  padding-bottom: 10px;
+  margin-right: 10px;
+}
+.guide-last {
+  margin-right: 0;
+}
+.guide-title {
+  font-size: 12px;
+  font-weight: bold;
+  color: #172b4d;
+  line-height: 17px;
+  padding: 8px 8px 0 8px;
+}
+.guide-note {
+  font-size: 9px;
+  line-height: 14px;
+  color: #8a99b3;
+  padding: 4px 8px 0 8px;
+}
+.guide-views {
+  font-size: 9px;
+  color: #a5b2c7;
+  padding: 6px 8px 0 8px;
+}
+
+/* ---------- 首页 v6（1:1 对齐设计稿） ---------- */
+
+.ai-card {
+  /* 上浮压 hero 只靠负 margin + DOM 顺序，不加 z-index：
+     Lynx 里 z-index 会把卡片提成独立图层，滚动时留在旧位置、盖住后面的卡片 */
+  margin: -40px 4px 18px 4px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background-color: #ffffff;
+  box-shadow: 0 10px 24px rgba(31, 71, 135, 0.14);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+.ai-icon-box {
+  width: 38px;
+  height: 38px;
+  border-radius: 13px;
+  background-image: linear-gradient(135deg, #5b86ff, #4169f5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 11px;
+}
+.ai-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #172b4d;
+}
+.ai-sub {
+  font-size: 11px;
+  color: #8a99b3;
+  margin-top: 3px;
+}
+.ai-go {
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  background-color: #f1f5fd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* 热门推荐卡片：评分 + 描述 */
+.city-rate-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-top: 4px;
+  overflow: hidden;
+}
+.city-rate {
+  font-size: 9px;
+  color: #f5a03c;
+}
+.city-visited {
+  font-size: 9px;
+  color: #a5b2c7;
+  margin-left: 3px;
+}
+.city-desc {
+  font-size: 10px;
+  color: #8a99b3;
+  margin-top: 3px;
+}
+/* 本周精选 */
+.weekly {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 10px;
+  border-radius: 16px;
+  background-color: #ffffff;
+  box-shadow: 0 6px 18px rgba(48, 104, 175, 0.08);
+  margin-bottom: 14px;
+  margin-bottom: 18px;
+}
+.weekly-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin-left: 10px;
+}
+.weekly-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #172b4d;
+}
+.weekly-tags {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  margin-top: 5px;
+}
+.weekly-tag {
+  padding: 2px 7px;
+  border-radius: 7px;
+  background-color: #f2f6ff;
+  margin: 0 6px 4px 0;
+}
+.weekly-tag-text {
+  font-size: 9px;
+  color: #6b7c99;
+}
+.weekly-desc {
+  font-size: 10px;
+  color: #8a99b3;
+  margin-top: 2px;
+}
+.weekly-go {
+  width: 26px;
+  height: 26px;
+  border-radius: 13px;
+  background-color: #f1f5fd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* AI 旅行助手 */
+
+/* ---------- 区块标题图标 + AI banner（按参考图） ---------- */
+.sec-title-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+.guide-views-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 6px 8px 0 8px;
+}
+/* AI 智能规划 banner：整块图做底 + 蓝色渐变蒙版 */
+.ai-banner-inner {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 14px 14px 16px 14px;
+}
+.ai-banner-chip {
+  align-self: flex-start;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background-color: rgba(255, 255, 255, 0.22);
+  margin-bottom: 8px;
+}
+.ai-banner-chip-text {
+  font-size: 10px;
+  color: #ffffff;
+}
+
+.ai-banner-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #ffffff;
+  line-height: 24px;
+}
+.ai-banner-btn {
+  align-self: flex-start;
+  margin-top: 10px;
+  padding: 7px 14px;
+  border-radius: 16px;
+  background-color: #ffffff;
+}
+.ai-banner-btn-text {
+  font-size: 12px;
+  font-weight: bold;
+  color: #4169f5;
+}
+
+.ai-banner {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  height: 162px;
+  border-radius: 18px;
+  overflow: hidden;
+  margin-bottom: 16px;
+  margin-bottom: 18px;
+}
+.ai-banner-mascot {
+  position: absolute;
+  right: 8px;
+  bottom: 0;
+  width: 112px;
+  height: 126px;
+}
+
+/* ---------- 纵向节奏统一（覆盖前面各段各自的 margin，避免有的挨着有的隔开） ---------- */
+.section-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin: 6px 2px 10px 2px;
+}
+.section-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #172b4d;
+}
+.section-more {
+  font-size: 11px;
+  color: #8a99b3;
+}
+/* AI 卡横向排布（去重时丢过一次，这里补回） */

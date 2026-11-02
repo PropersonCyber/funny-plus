@@ -1,0 +1,237 @@
+// 本模块专属样式（CSS Modules，类名会被哈希）
+
+.chips {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.page-sub {
+  font-size: 11px;
+  color: #7183a2;
+  margin-bottom: 10px;
+}
+
+.timeline-item {
+  display: flex;
+  flex-direction: row;
+  padding: 8px 0;
+  border-bottom: 1px solid #eef4ff;
+}
+
+.timeline-time {
+  width: 52px;
+  font-size: 12px;
+  font-weight: bold;
+  color: #2478f2;
+}
+
+.timeline-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.timeline-title {
+  font-size: 13px;
+  color: #172b4d;
+}
+
+.timeline-note {
+  font-size: 10px;
+  color: #7183a2;
+}
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 12px;
+}
+
+.tl-row {
+  display: flex;
+  flex-direction: row;
+}
+
+.tl-time {
+  width: 46px;
+  font-size: 12px;
+  font-weight: bold;
+  color: #172b4d;
+  padding-top: 4px;
+}
+
+.tl-rail {
+  width: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 6px;
+}
+
+.tl-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  background-color: #2478f2;
+}
+
+.tl-dot-meal {
+  background-color: #ff9a3d;
+}
+
+.tl-body {
+  flex: 1;
+  padding-bottom: 12px;
+}
+
+.tl-main {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  background-color: #ffffff;
+  border-radius: 16px;
+  padding: 8px;
+  box-shadow: 0 6px 24px rgba(48, 104, 175, 0.09);
+}
+
+.tl-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.tl-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #172b4d;
+}
+
+.tl-meta {
+  font-size: 10px;
+  color: #7183a2;
+  margin-top: 2px;
+}
+
+.tl-meal-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  background-color: #fff3e6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+}
+
+.tl-meal-text {
+  font-size: 18px;
+  color: #ff9a3d;
+}
+
+.tl-dot-arrive {
+  background-color: #20b98a;
+}
+
+.tl-arrive-icon {
+  background-color: #eafaf4;
+}
+
+/* 校验结果：error 必须改，warn 看情况，info 只是数据没核过 */
+.issue-card {
+  margin-bottom: 12px;
+}
+.issue-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  margin-top: 8px;
+}
+.issue-badge {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+.issue-badge-error {
+  color: #d93a3f;
+  background-color: #fdeceb;
+}
+.issue-badge-warn {
+  color: #b57318;
+  background-color: #fff3e2;
+}
+.issue-badge-info {
+  color: #2478f2;
+  background-color: #eef4ff;
+}
+.issue-text {
+  flex: 1;
+  font-size: 12px;
+  color: #4b5c78;
+  line-height: 18px;
+}
+
+/* 局部修改后的变更影响：用户下一步要判断的只有「多花多少」和「要不要重确认」 */
+.impact-card {
+  margin-bottom: 10px;
+  background-color: #eef7ff;
+}
+.impact-head {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.impact-close {
+  width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  background-color: #dcebff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 8px;
+}
+.impact-close-text {
+  font-size: 11px;
+  color: #7183a2;
+}
+.impact-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-top: 6px;
+}
+.impact-label {
+  font-size: 12px;
+  color: #6b7c96;
+  margin-right: 5px;
+}
+.impact-label-gap {
+  margin-left: 16px;
+}
+.impact-value {
+  font-size: 13px;
+  font-weight: bold;
+  color: #172b4d;
+}
+
+/* 本机存档提示：跟副标题同排感觉挤，单独一行弱化 */
+.save-hint {
+  font-size: 10px;
+  color: #8a99b3;
+  margin-top: 4px;
+}
+
+/* 头部右侧一组链接：对比 + 详情 */
+.head-links {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+.head-compare {
+  margin-right: 12px;
+}

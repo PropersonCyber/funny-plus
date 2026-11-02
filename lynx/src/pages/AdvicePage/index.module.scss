@@ -1,0 +1,178 @@
+// 本模块专属样式（CSS Modules，类名会被哈希）
+
+.advice-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.badge-soft {
+  font-size: 11px;
+  color: #2478f2;
+  background-color: #eef4ff;
+  border-radius: 9px;
+  padding: 3px 0;
+  /* 固定宽度 + 不收缩：否则会被左侧标题压成一条竖排 */
+  width: 52px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.advice-body {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.advice-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background-image: linear-gradient(135deg, #2478f2, #35c7e8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+}
+
+.advice-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.advice-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #172b4d;
+}
+
+.advice-price {
+  font-size: 12px;
+  font-weight: bold;
+  color: #2478f2;
+  margin-top: 2px;
+}
+
+.donut-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.legend {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  margin-left: 12px;
+}
+
+.legend-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 3px 0;
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  margin-right: 6px;
+}
+
+.legend-label {
+  flex: 1;
+  font-size: 11px;
+  color: #172b4d;
+}
+
+.legend-num {
+  font-size: 11px;
+  color: #7183a2;
+}
+
+/* 智能建议卡：可关闭，关掉后只留其它卡片 */
+.tip-close {
+  width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  background-color: #f1f5fb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.tip-close-text {
+  font-size: 13px;
+  color: #8a99b3;
+}
+
+.tip-hl {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  padding: 12px;
+  border-radius: 12px;
+  background-color: #fff6ea;
+  margin-bottom: 10px;
+}
+
+.tip-hl-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  background-color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 9px;
+  flex-shrink: 0;
+}
+
+.tip-hl-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.tip-hl-title {
+  font-size: 12px;
+  font-weight: bold;
+  color: #c47c1d;
+}
+
+.tip-hl-note {
+  font-size: 11px;
+  line-height: 17px;
+  color: #b08050;
+  margin-top: 3px;
+}
+
+.tip-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 6px 0;
+}
+
+.tip-check {
+  width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  background-color: #e8f8f1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.tip-text {
+  font-size: 12px;
+  color: #3c4d6b;
+}

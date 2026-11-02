@@ -1,0 +1,382 @@
+// 跨模块共享的原子样式（非 CSS Module，任何页面都能直接用）
+
+.section {
+  display: flex;
+  flex-direction: column;
+}
+
+.section-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #172b4d;
+}
+
+.section-more {
+  font-size: 12px;
+  color: #5b6b86;
+}
+
+.head-link {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  height: 30px;
+  padding: 0 8px 0 12px;
+  border-radius: 15px;
+  background-color: #eef4ff;
+}
+
+.head-link-text {
+  font-size: 13px;
+  color: #2478f2;
+}
+
+
+.card {
+  display: flex;
+  flex-direction: column;
+  padding: 14px 16px;
+  border-radius: 22px;
+  background-color: #ffffff;
+  box-shadow: 0 6px 24px rgba(48, 104, 175, 0.09);
+  margin-bottom: 12px;
+}
+
+.card-title {
+  font-size: 15px;
+  font-weight: bold;
+  color: #172b4d;
+  margin-bottom: 4px;
+}
+
+.card-note {
+  font-size: 12px;
+  color: #5b6b86;
+  line-height: 18px;
+  margin-top: 6px;
+}
+
+.badge-warning {
+  font-size: 10px;
+  color: #ff9a3d;
+  margin-bottom: 4px;
+}
+
+.stub-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.stub-icon {
+  width: 20px;
+  height: 20px;
+  margin-right: 8px;
+}
+
+.chip {
+  padding: 7px 12px;
+  border-radius: 999px;
+  background-color: #eef4ff;
+  margin: 0 8px 8px 0;
+}
+
+.chip-on {
+  background-color: #2478f2;
+}
+
+.chip-text {
+  font-size: 12px;
+  color: #172b4d;
+}
+
+.chip-text-on {
+  color: #ffffff;
+  font-weight: bold;
+}
+
+.day-tabs {
+  display: flex;
+  flex-direction: row;
+  margin-bottom: 12px;
+}
+
+.day-tab {
+  padding: 8px 14px;
+  border-radius: 12px;
+  background-color: #ffffff;
+  margin-right: 8px;
+}
+
+.day-tab-on {
+  background-color: #2478f2;
+}
+
+.day-tab-text {
+  font-size: 12px;
+  color: #172b4d;
+}
+
+.day-tab-text.on {
+  color: #ffffff;
+  font-weight: bold;
+}
+
+.btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  border-radius: 999px;
+  background-image: linear-gradient(100deg, #2478f2, #35bceb);
+  margin-top: 12px;
+}
+
+.btn-primary-grow {
+  flex: 2;
+  margin-top: 0;
+}
+
+.btn-primary-text {
+  font-size: 14px;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.btn-ghost {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  height: 44px;
+  border-radius: 999px;
+  background-color: #eef4ff;
+  margin-right: 10px;
+}
+
+.btn-ghost-text {
+  font-size: 14px;
+  color: #7183a2;
+}
+
+.screen-inner {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.page-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.page-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: #172b4d;
+}
+
+.bottom-bar {
+  display: flex;
+  flex-direction: row;
+  padding: 10px 16px 14px 16px;
+  background-color: #ffffff;
+  border-top: 1px solid #e7eefb;
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  /* shortcut: env(safe-area-inset-top) 在 Lynx 原生端拿不到值，先写死状态栏高度；
+     正式嵌壳时由宿主通过 globalProps 注入安全区 */
+  padding: 60px 16px 20px 16px;
+}
+
+/* 「头固定 + 内容滚动」的页：page 只有 padding 没有高度，
+   内层 scroll-view 拿不到取值范围就不会滚，这里把剩余高度接过来 */
+.page-shell {
+  flex: 1;
+  min-height: 0;
+}
+
+.tag-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.tag {
+  font-size: 9px;
+  color: #7183a2;
+  background-color: #f2f6ff;
+  border-radius: 6px;
+  padding: 2px 6px;
+  margin: 0 6px 4px 0;
+}
+
+.mock-note {
+  font-size: 9px;
+  color: #a5b2c7;
+  margin-top: 10px;
+}
+
+.budget-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+
+.budget-label {
+  flex: 1;
+  font-size: 11px;
+  color: #7183a2;
+  margin-right: 8px;
+}
+
+.budget-amount {
+  font-size: 11px;
+  font-weight: bold;
+  color: #172b4d;
+}
+
+.day-tab-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 12px;
+}
+
+.day-tab-card-on {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 12px;
+  background-color: #2478f2;
+}
+
+/* 选中态靠 `.day-tab-date.on` 这种组合选择器生效，两个类都必须是全局类名；
+   基础样式只要落到页面模块里就会被打哈希，组合规则直接失效 */
+.day-tab-date {
+  font-size: 9px;
+  color: #7183a2;
+}
+
+.day-tab-date.on {
+  color: #dbe8ff;
+}
+
+.msheet-seg-text {
+  font-size: 13px;
+  color: #4b5c78;
+}
+
+.msheet-seg-text.on {
+  font-weight: bold;
+  color: #172b4d;
+}
+
+.icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 17px;
+  background-color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 10px rgba(31, 71, 135, 0.1);
+  margin-right: 8px;
+}
+
+.ps-chip-text {
+  font-size: 12px;
+  color: #5b6b85;
+}
+
+.ps-chip-text.on {
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.ps-step-text {
+  font-size: 16px;
+  color: #4b5c78;
+}
+
+.ps-step-text.on {
+  color: #ffffff;
+}
+
+
+.page-sub-head {
+  font-size: 15px;
+  font-weight: bold;
+  color: #172b4d;
+}
+
+/* 底部弹层的抓手条：多个弹层共用 */
+.sheet-mask {
+  position: fixed;
+  z-index: 30;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(23, 43, 77, 0.45);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+.sheet {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 16px 24px 16px;
+  background-color: #ffffff;
+  border-top-left-radius: 28px;
+  border-top-right-radius: 28px;
+}
+.sheet-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: #172b4d;
+}
+.sheet-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  background-color: #eef4ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sheet-close-text {
+  font-size: 13px;
+  color: #7183a2;
+}
+
+.sheet-grabber {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background-color: #d7e0f0;
+  align-self: center;
+  margin-bottom: 8px;
+}

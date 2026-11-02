@@ -2,6 +2,28 @@
 
 按 `docs/proto.png` 实现，一份代码出 iOS / Android / Web。**业务逻辑不在这里重写**：`planner` / `budget` / `validate` / `places` 全部来自 `shared/engine`（纯 TS，无 DOM 依赖）。
 
+## 目录与样式约定
+
+一个模块 = 一个文件夹，`index.tsx` + `index.module.scss` 成对出现：
+
+```
+src/
+├── index.tsx                 # 入口，只挂 App
+├── App/{index.tsx,index.module.scss}      # 外壳：根布局 + tab 栏 + 子页路由
+├── pages/
+│   ├── HomePage/{index.tsx,index.module.scss}
+│   ├── MapPage/…  ItineraryPage/…  GuidePage/…  ProfilePage/…
+│   ├── PlanSheet/…  AdvicePage/…  TripDetailPage/…  AssistantPage/…
+└── styles/base.scss          # 跨模块共享的原子样式（普通 CSS，不哈希）
+```
+
+规则：
+- **页面样式走 CSS Modules**（`index.module.scss`）：类名会被哈希，页面之间不会再撞名。模块里只放本页面用的类。
+- **只有被两个及以上页面用到的原子类**（`.card` / `.chip` / `.btn-*` / `.page` / `.section-head` …）才放 `styles/base.scss`，它是全局 CSS，任何页面直接写类名即可。
+- TSX 里统一用 `cls('a b')` 拼类名：本模块有的类自动换成哈希名，`base.scss` 里的原样透出。
+- 样式统一 SCSS（`@rsbuild/plugin-sass` + `sass`），编译后仍是普通 CSS；Lynx 不支持的属性不要写。
+- `npm run check:css`（已挂在 `build` 前置）会做两件事：① tsx 引用的 class 必须都能在样式里找到；② 页面用到的类不许只定义在**别的页面**的模块里（那会被哈希成另一个名字，样式静默丢失）。
+
 ## 页面
 
 | Tab | 状态 |

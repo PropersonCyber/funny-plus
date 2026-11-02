@@ -1,0 +1,49 @@
+// 本模块专属样式（CSS Modules，类名会被哈希）
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: #f5f8ff;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  /* 不设 min-height:0 时，子级 scroll-view 的内容会把 .body 撑出屏幕，
+     溢出部分盖住 tab bar 的手势区域 */
+  min-height: 0;
+  overflow: hidden;
+}
+
+.tabbar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  height: 84px;
+  padding-bottom: 24px;
+  background-color: #ffffff;
+  border-top: 1px solid #eef2f9;
+  position: relative;
+  z-index: 10;
+}
+
+.tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.tab-label {
+  font-size: 10px;
+  color: #7183a2;
+  margin-top: 2px;
+}
+
+.tab-label-on {
+  color: #2478f2;
+  font-weight: bold;
+}

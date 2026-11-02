@@ -10,6 +10,8 @@ const MAX_WALK_MIN = 150
 
 export function validatePlan(plan: Plan, demand: Demand): PlanIssue[] {
   const issues: PlanIssue[] = []
+  // 每个景点都发一条「需再确认」会把提示卡刷成流水账，攒起来最后合成一条
+  const unconfirmed: string[] = []
 
   plan.days.forEach((day) => {
     const span = daySpan(day)
@@ -21,7 +23,7 @@ export function validatePlan(plan: Plan, demand: Demand): PlanIssue[] {
         message: `第 ${day.index} 天总时长 ${fmt(span)}，超过 12 小时上限`
       })
     }
-    day.items.forEach((item) => checkItem(item, day.index, issues))
+    day.items.forEach((item) => checkItem(item, day.index, issues, unconfirmed))
 
     const walk = walkMinutes(day)
     if (walk > MAX_WALK_MIN) {
@@ -54,10 +56,21 @@ export function validatePlan(plan: Plan, demand: Demand): PlanIssue[] {
     issues.push({ code: 'group-vehicle', level: 'info', message: '需确认车辆核载、行李空间与住宿分房' })
   }
 
+  if (unconfirmed.length === 1) {
+    issues.push({ code: 'needs-confirm', level: 'info', message: `「${unconfirmed[0]}」的预约要求与开放时间需出发前再确认` })
+  } else if (unconfirmed.length > 1) {
+    const head = unconfirmed.slice(0, 2).map((n) => `「${n}」`).join('')
+    issues.push({
+      code: 'needs-confirm',
+      level: 'info',
+      message: `${head}等 ${unconfirmed.length} 个景点的预约要求与开放时间需出发前再确认`
+    })
+  }
+
   return issues
 }
 
-function checkItem(item: ItineraryItem, dayIndex: number, issues: PlanIssue[]) {
+function checkItem(item: ItineraryItem, dayIndex: number, issues: PlanIssue[], unconfirmed: string[]) {
   if (item.startMin < DAY_START) {
     issues.push({ code: 'too-early', level: 'warn', dayIndex, message: `「${item.title}」开始时间早于 08:30` })
   }
@@ -76,12 +89,7 @@ function checkItem(item: ItineraryItem, dayIndex: number, issues: PlanIssue[]) {
     })
   }
   // 门票与开放时间都可能变，安排进得去也仍要用户确认（PRD 4.3）
-  issues.push({
-    code: 'needs-confirm',
-    level: 'info',
-    dayIndex,
-    message: `「${place.name}」的预约要求与开放时间需出发前再确认`
-  })
+  unconfirmed.push(place.name)
 }
 
 export const daySpan = (day: TripDay): number =>

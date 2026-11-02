@@ -1,0 +1,178 @@
+// 本模块专属样式（CSS Modules，类名会被哈希）
+
+.ability-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 3px 0;
+}
+
+.ability-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 3px;
+  background-color: #2478f2;
+  margin-right: 6px;
+}
+
+.ability-text {
+  font-size: 12px;
+  color: #172b4d;
+}
+
+.chat-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  margin-bottom: 10px;
+}
+
+.chat-right {
+  justify-content: flex-end;
+}
+
+.bubble {
+  max-width: 250px;
+  padding: 10px 12px;
+  border-radius: 16px;
+}
+
+.bubble-user {
+  background-color: #2478f2;
+  border-bottom-right-radius: 6px;
+}
+
+.bubble-ai {
+  background-color: #ffffff;
+  border-bottom-left-radius: 6px;
+  box-shadow: 0 6px 24px rgba(48,104,175,0.09);
+}
+
+.bubble-title {
+  font-size: 12px;
+  font-weight: bold;
+  color: #20b98a;
+  margin-bottom: 4px;
+}
+
+.bubble-text {
+  font-size: 12px;
+  color: #172b4d;
+}
+
+.bubble-text-user {
+  color: #ffffff;
+}
+
+.bubble-action {
+  margin-top: 8px;
+  align-self: flex-start;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background-color: #eef4ff;
+}
+
+.bubble-action-text {
+  font-size: 10px;
+  color: #2478f2;
+}
+
+.chat-input {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 10px 16px 16px 16px;
+  background-color: #ffffff;
+  border-top: 1px solid #e7eefb;
+}
+
+.chat-input-box {
+  flex: 1;
+  height: 38px;
+  border-radius: 999px;
+  background-color: #f2f6ff;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  margin-right: 10px;
+}
+
+.chat-placeholder {
+  font-size: 12px;
+  color: #a5b2c7;
+}
+
+.chat-send {
+  width: 38px;
+  height: 38px;
+  border-radius: 19px;
+  background-color: #2478f2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.recent {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.recent-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.recent-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #172b4d;
+}
+
+.route-summary {
+  font-size: 10px;
+  color: #7183a2;
+  margin-bottom: 6px;
+}
+
+.play-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #eef4ff;
+}
+
+.play-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background-color: #eef4ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+}
+
+.guide-banner {
+  padding: 10px 14px;
+  border-radius: 14px;
+  background-color: #eef4ff;
+  margin-bottom: 10px;
+}
+
+.chat-mic {
+  width: 38px;
+  height: 38px;
+  border-radius: 19px;
+  background-color: #eef4ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+}
+
+.chat-mic-on {
+  background-color: #2478f2;
+}

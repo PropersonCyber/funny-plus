@@ -427,5 +427,89 @@
     "verifiedAt": "2026-09-16",
     "validUntil": null,
     "trust": "experience"
+  },
+  {
+    "id": "f-bj-1",
+    "city": "北京",
+    "category": "预约与门票",
+    "content": "故宫需提前 7 天在官方小程序实名预约，当日不售票，周一闭馆。",
+    "scope": "北京 · 故宫博物院",
+    "source": "故宫博物院官网",
+    "verifiedAt": "2026-10-12",
+    "validUntil": "2027-06-30",
+    "trust": "official"
+  },
+  {
+    "id": "f-bj-2",
+    "city": "北京",
+    "category": "预约与门票",
+    "content": "天坛公园大门票与祈年殿等景点票分开卖，只买大门票进不了祈年殿。",
+    "scope": "北京 · 天坛公园",
+    "source": "公园官方售票公告",
+    "verifiedAt": "2026-10-08",
+    "validUntil": "2027-06-30",
+    "trust": "official"
+  },
+  {
+    "id": "f-bj-3",
+    "city": "北京",
+    "category": "交通与路线",
+    "content": "故宫只能从午门进、神武门出，走到出口后离最近地铁站约 900 米。",
+    "scope": "北京 · 故宫博物院",
+    "source": "现场实测",
+    "verifiedAt": "2026-09-26",
+    "trust": "credible"
+  },
+  {
+    "id": "f-bj-4",
+    "city": "北京",
+    "category": "天气与人流",
+    "content": "南锣鼓巷 16:00 后人流密度最高，两侧小店排队时间翻倍，建议上午去。",
+    "scope": "北京 · 南锣鼓巷",
+    "source": "用户填报",
+    "verifiedAt": "2026-09-30",
+    "trust": "experience"
+  },
+  {
+    "id": "f-bj-5",
+    "city": "北京",
+    "category": "额外消费",
+    "content": "什刹海人力三轮车按圈报价且可议价，上车前必须确认总价和路线时长。",
+    "scope": "北京 · 什刹海",
+    "source": "用户填报",
+    "verifiedAt": "2026-09-22",
+    "trust": "experience"
+  },
+  {
+    "id": "f-bj-6",
+    "city": "北京",
+    "category": "安全与健康",
+    "content": "颐和园环湖一圈约 8 公里，夏季午后无遮阴路段多，带足饮水。",
+    "scope": "北京 · 颐和园",
+    "source": "园区导览图",
+    "verifiedAt": "2026-10-02",
+    "validUntil": "2027-04-30",
+    "trust": "credible"
+  },
+  {
+    "id": "f-bj-7",
+    "city": "北京",
+    "category": "老人与小孩",
+    "content": "北京动物园熊猫馆需单买联票，带小孩建议早上 9 点前入园避开人流。",
+    "scope": "北京 · 北京动物园",
+    "source": "园区公告",
+    "verifiedAt": "2026-09-18",
+    "validUntil": "2027-03-31",
+    "trust": "official"
+  },
+  {
+    "id": "f-bj-8",
+    "city": "北京",
+    "category": "交通与路线",
+    "content": "798 艺术区离最近地铁站约 1.2 公里，园区内没有共享单车停放点。",
+    "scope": "北京 · 798 艺术区",
+    "source": "现场实测",
+    "verifiedAt": "2026-09-15",
+    "trust": "credible"
   }
 ]

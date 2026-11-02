@@ -1,0 +1,450 @@
+// 本模块专属样式（CSS Modules，类名会被哈希）
+
+.guide-banner-text {
+  font-size: 12px;
+  color: #2478f2;
+}
+
+.map-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.map-city {
+  font-size: 15px;
+  font-weight: bold;
+  color: #172b4d;
+}
+
+.map-note {
+  font-size: 10px;
+  line-height: 15px;
+  color: #a5b2c7;
+  margin: 8px 0 12px 0;
+}
+
+.cat-scroll {
+  height: 40px;
+  margin-bottom: 12px;
+}
+
+.cat-row {
+  display: flex;
+  flex-direction: row;
+}
+
+.fact-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.fact-cat-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  /* 分类名再长也不能把左侧状态徽标挤没 */
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.fact-cat-badge {
+  /* 固定宽度 + 不参与收缩：否则会被右边的长分类名挤成一条竖线，字全看不见 */
+  width: 44px;
+  padding: 3px 0;
+  border-radius: 7px;
+  margin-right: 8px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.fact-cat-text {
+  font-size: 10px;
+  font-weight: bold;
+  color: #ffffff;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.lv-important {
+  background-color: #f2665e;
+}
+
+.lv-normal {
+  background-color: #35c08a;
+}
+
+.lv-warn {
+  background-color: #f5a03c;
+}
+
+.lv-pending {
+  background-color: #a5b2c7;
+}
+
+.fact-cat {
+  font-size: 13px;
+  font-weight: bold;
+  color: #172b4d;
+  flex-shrink: 1;
+}
+
+.fact-trust {
+  font-size: 10px;
+  color: #8a99b3;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.fact-content {
+  font-size: 13px;
+  line-height: 20px;
+  color: #2a3a57;
+  margin-bottom: 6px;
+}
+
+.fact-scope {
+  font-size: 11px;
+  color: #7183a2;
+  margin-bottom: 8px;
+}
+
+.fact-foot {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.fact-meta {
+  font-size: 10px;
+  color: #a5b2c7;
+}
+
+.guid-banner {
+  padding: 10px 14px;
+  border-radius: 14px;
+  background-color: #eef4ff;
+  margin-bottom: 10px;
+}
+
+.guide-foot {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.guide-foot-note {
+  flex: 1;
+  margin-right: 8px;
+}
+
+/* 条目卡片：左图标 + 右内容，底部一条来源/有效期 */
+.gd-card {
+  padding: 14px;
+}
+.gd-head {
+  display: flex;
+  flex-direction: row;
+}
+.gd-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  background-color: #f4f8ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+}
+.gd-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.gd-title-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.gd-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #172b4d;
+  margin-right: 8px;
+}
+.gd-content {
+  font-size: 13px;
+  line-height: 20px;
+  color: #4b5c78;
+}
+.gd-foot {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #f1f5fb;
+}
+
+/* ---------- 景点详情版避坑页（参考图） ---------- */
+.gd-page {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 24px;
+}
+.gd-hero {
+  width: 100%;
+  height: 300px;
+  overflow: hidden;
+}
+.gd-sheet {
+  display: flex;
+  flex-direction: column;
+  margin-top: -28px;
+  margin-left: 10px;
+  margin-right: 10px;
+  padding: 16px 14px 18px 14px;
+  border-radius: 22px;
+  background-color: #ffffff;
+  box-shadow: 0 8px 24px rgba(31, 71, 135, 0.12);
+}
+.gd-title-row2 {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+.gd-spot {
+  font-size: 21px;
+  font-weight: bold;
+  color: #172b4d;
+}
+.gd-rating {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-top: 6px;
+}
+.gd-star {
+  font-size: 14px;
+  color: #f5a03c;
+  margin-right: 4px;
+}
+.gd-score {
+  font-size: 14px;
+  font-weight: bold;
+  color: #f5a03c;
+  margin-right: 6px;
+}
+.gd-score-note {
+  font-size: 11px;
+  color: #8a99b3;
+}
+.gd-tags {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.gd-tag {
+  padding: 5px 10px;
+  border-radius: 10px;
+  background-color: #eef4ff;
+  margin: 0 8px 8px 0;
+}
+.gd-tag-text {
+  font-size: 11px;
+  color: #2478f2;
+}
+.gd-avoid {
+  display: flex;
+  flex-direction: column;
+  margin-top: 6px;
+  padding: 12px 12px 4px 12px;
+  border-radius: 18px;
+  background-color: #f2faf5;
+}
+.gd-avoid-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.gd-avoid-title {
+  flex: 1;
+  font-size: 16px;
+  font-weight: bold;
+  color: #172b4d;
+}
+.gd-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  padding: 9px 0;
+}
+.gd-row-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 9px;
+}
+.gd-row-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.gd-row-title {
+  font-size: 13px;
+  font-weight: bold;
+  color: #172b4d;
+}
+.gd-row-desc {
+  font-size: 11px;
+  line-height: 17px;
+  color: #6b7c99;
+  margin-top: 2px;
+}
+.gd-cta {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 0 10px 0;
+}
+.gd-cta-text {
+  font-size: 12px;
+  color: #2478f2;
+}
+.gd-about-title {
+  font-size: 15px;
+  font-weight: bold;
+  color: #172b4d;
+  margin: 16px 0 6px 0;
+}
+.gd-about {
+  font-size: 12px;
+  line-height: 19px;
+  color: #5b6b85;
+}
+
+/* ---------- 完整列表版（点 CTA 之后） ---------- */
+.gd-list-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.gd-back {
+  width: 34px;
+  height: 34px;
+  border-radius: 17px;
+  background-color: #eef4ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+}
+.gd-list-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #172b4d;
+}
+
+/* 行程里的景点切换条：只留缩略图和选中环，不加边框底色 */
+.gd-spots {
+  height: 96px;
+  margin-bottom: 4px;
+}
+
+.gd-spot-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+}
+
+.gd-spot-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-right: 12px;
+}
+
+.gd-spot-ring {
+  width: 52px;
+  height: 52px;
+  border-radius: 26px;
+  border-width: 2px;
+  border-style: solid;
+  border-color: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gd-spot-ring-on {
+  border-color: #2478f2;
+}
+
+.gd-spot-thumb {
+  width: 46px;
+  height: 46px;
+  border-radius: 23px;
+}
+
+.gd-spot-name {
+  font-size: 10px;
+  line-height: 1.35;
+  color: #8a99b3;
+  margin-top: 5px;
+  max-width: 60px;
+  text-align: center;
+}
+
+.gd-spot-name-on {
+  color: #2478f2;
+  font-weight: bold;
+}
+
+/* 避坑反馈：本机记录，两个 chip 并排 */
+.gd-feedback {
+  display: flex;
+  flex-direction: row;
+  margin-top: 8px;
+}
+
+.fb-chip {
+  height: 26px;
+  padding: 0 12px;
+  margin-right: 8px;
+  border-radius: 13px;
+  background-color: #eef2f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fb-chip-on {
+  background-color: #e4efff;
+}
+
+.fb-chip-text {
+  font-size: 11px;
+  color: #7183a2;
+}
+
+.fb-chip-text.on {
+  color: #2478f2;
+  font-weight: bold;
+}

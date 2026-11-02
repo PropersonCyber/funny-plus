@@ -2,7 +2,7 @@ import '@lynx-js/preact-devtools';
 import '@lynx-js/react/debug';
 import { root } from '@lynx-js/react';
 
-import { App } from './App.js';
+import { App } from './App/index.js';
 
 root.render(<App />);
 
