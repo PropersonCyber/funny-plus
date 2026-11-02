@@ -20,3 +20,7 @@ ios/FunnyPlus/FunnyPlus/web/static/
 
 # ios/webapp/build.mjs 的输出目录
 ios/webapp/out/
+
+# 设计基准图（原型稿 / 宣传稿 / 界面设计稿）：8.5MB，只做本地视觉参照，不进仓
+# 注意 docs/brand/（AppIcon、logo 源图）与 pitch/ 仍进仓
+docs/*.png
