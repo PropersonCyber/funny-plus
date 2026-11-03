@@ -3,6 +3,7 @@ import { useState } from '@lynx-js/react';
 import heroImg from '../../assets/gen/hero.jpg';
 import chengdu from '../../assets/gen/chengdu.jpg';
 import { MOCK } from '../../mock.js';
+import { toast } from '../../toast.js';
 import { svgIcon } from '../../icons.js';
 import type { Demand, Plan } from '../../data.js';
 import styles from './index.module.scss';
@@ -22,6 +23,9 @@ type Props = {
 export function TripDetailPage({ demand, plans, onBack, onNavigate, onEdit }: Props) {
   const [dayIdx, setDayIdx] = useState(0);
   const plan = plans[0];
+  // 日期只有 mock 一份，天数以真实行程为准：写死 3 天时 1 天行程也能点出第 3 天
+  const dayCount = plan?.days.length ?? 1;
+  const summary = MOCK.tripDetail.daySummaries[dayIdx] ?? MOCK.tripDetail.daySummaries[0];
 
   return (
     <view className={cls('screen-inner')}>
@@ -32,7 +36,7 @@ export function TripDetailPage({ demand, plans, onBack, onNavigate, onEdit }: Pr
               <svg content={svgIcon('chevronLeft', '#2A3A57')} style={{ width: '18px', height: '18px' }} />
             </view>
             <text className={cls('page-sub-head')}>行程详情</text>
-            <view className={cls('icon-btn')}>
+            <view className={cls('icon-btn')} bindtap={() => toast('分享本期未开放')}>
               <svg content={svgIcon('share', '#2A3A57')} style={{ width: '17px', height: '17px' }} />
             </view>
           </view>
@@ -50,7 +54,7 @@ export function TripDetailPage({ demand, plans, onBack, onNavigate, onEdit }: Pr
                 {MOCK.trip.style.map((t) => (
                   <text key={t} className={cls('tag tag-inverse')}>{t}</text>
                 ))}
-                <text className={cls('tag tag-inverse')}>编辑</text>
+                <text className={cls('tag tag-inverse')} bindtap={onEdit}>编辑</text>
               </view>
             </view>
           </view>
@@ -67,11 +71,11 @@ export function TripDetailPage({ demand, plans, onBack, onNavigate, onEdit }: Pr
 
           <view className={cls('section-head')}>
             <text className={cls('section-title')}>行程概览</text>
-            <text className={cls('section-more')}>共 {MOCK.tripDetail.daySummaries.length} 天</text>
+            <text className={cls('section-more')}>共 {dayCount} 天</text>
           </view>
 
           <view className={cls('day-tabs')}>
-            {MOCK.days.map((d, i) => (
+            {MOCK.days.slice(0, dayCount).map((d, i) => (
               <view
                 key={d.index}
                 className={cls(i === dayIdx ? 'day-tab day-tab-card-on' : 'day-tab day-tab-card')}
@@ -86,9 +90,9 @@ export function TripDetailPage({ demand, plans, onBack, onNavigate, onEdit }: Pr
             <view className={cls('summary-row')}>
               <text className={cls('summary-day')}>Day {dayIdx + 1}</text>
               <view className={cls('summary-main')}>
-                <text className={cls('summary-title')}>{MOCK.tripDetail.daySummaries[dayIdx].title}</text>
+                <text className={cls('summary-title')}>{summary.title}</text>
                 <text className={cls('summary-meta')}>
-                  {MOCK.tripDetail.daySummaries[dayIdx].price} · {MOCK.tripDetail.daySummaries[dayIdx].duration}
+                  {summary.price} · {summary.duration}
                 </text>
               </view>
               <image
@@ -127,7 +131,7 @@ export function TripDetailPage({ demand, plans, onBack, onNavigate, onEdit }: Pr
           <text className={cls('btn-ghost-text')}>重新规划</text>
         </view>
         <view className={cls('btn-primary btn-primary-grow')} bindtap={onNavigate}>
-          <text className={cls('btn-primary-text')}>开始导航</text>
+          <text className={cls('btn-primary-text')}>查看路线图</text>
         </view>
       </view>
     </view>

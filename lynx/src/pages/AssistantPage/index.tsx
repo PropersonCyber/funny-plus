@@ -2,6 +2,7 @@ import { useCallback, useState } from '@lynx-js/react';
 
 import mascotAi from '../../assets/ip/mascot-ai.png';
 import { MOCK } from '../../mock.js';
+import { toast } from '../../toast.js';
 import { svgIcon } from '../../icons.js';
 import styles from './index.module.scss';
 import { makeCls } from '../../styles/cls.js';
@@ -75,7 +76,8 @@ export function AssistantPage({ onBack, onApply }: Props) {
       </scroll-view>
 
       <view className={cls('chat-input')}>
-        <view className={cls('chat-input-box')}>
+        {/* 输入区是真的占位：点了给一句实话，别让它看着能打字却什么都不发生 */}
+        <view className={cls('chat-input-box')} bindtap={() => toast('咕噜还没接入模型，点上面的建议可以直接落到行程')}>
           <text className={cls('chat-placeholder')}>
             {listening ? '聆听中… 说完再点一下麦克风' : MOCK.assistant.placeholder}
           </text>
@@ -86,7 +88,7 @@ export function AssistantPage({ onBack, onApply }: Props) {
         >
           <svg content={micSvg(listening ? '#FFFFFF' : '#2478F2')} style={{ width: '17px', height: '17px' }} />
         </view>
-        <view className={cls('chat-send')}>
+        <view className={cls('chat-send')} bindtap={() => toast('咕噜还没接入模型，点上面的建议可以直接落到行程')}>
           <svg content={svgIcon('route', '#FFFFFF')} style={{ width: '16px', height: '16px' }} />
         </view>
       </view>

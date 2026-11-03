@@ -8,12 +8,15 @@ import { AdvicePage } from '../pages/AdvicePage/index.js';
 import { TripDetailPage } from '../pages/TripDetailPage/index.js';
 import { AssistantPage } from '../pages/AssistantPage/index.js';
 import { GuidePage } from '../pages/GuidePage/index.js';
+import { GuideDetailPage } from '../pages/GuideDetailPage/index.js';
 import { ProfilePage } from '../pages/ProfilePage/index.js';
 import { PlanSheet } from '../pages/PlanSheet/index.js';
 import { CityPage } from '../pages/CityPage/index.js';
 import { CITIES, DEFAULT_DEMAND, planFor } from '../data.js';
-import { loadSaved, saveTrip } from '../storage.js';
+import { MOCK } from '../mock.js';
+import { hydrate, loadSaved, saveTrip } from '../storage.js';
 import { track } from '../track.js';
+import { ToastHost } from '../toast.js';
 
 /** 只列有地点数据可用的城市，别让用户切过去看到空方案 */
 import { tabSvg } from '../icons.js';
@@ -36,30 +39,49 @@ const TABS = [
 type TabId = (typeof TABS)[number]['id'];
 
 export function App() {
-  // 本机存档只读一次：有存档就接着上次的，没有才用默认需求
-  const [boot] = useState(() => loadSaved());
+  // 本机存档要先等持久层读完（IndexedDB / 注入桥都是异步），没读完就渲染会闪一下默认数据
+  const [booted, setBooted] = useState(false);
   const [tab, setTab] = useState<TabId>('home');
-  const [demand, setDemand] = useState<Demand>(boot?.demand ?? DEFAULT_DEMAND);
-  const [plans, setPlans] = useState<Plan[]>(() => boot?.plans ?? planFor(DEFAULT_DEMAND));
-  const [savedAt, setSavedAt] = useState<string | null>(boot?.savedAt ?? null);
+  const [demand, setDemand] = useState<Demand>(DEFAULT_DEMAND);
+  const [plans, setPlans] = useState<Plan[]>(() => planFor(DEFAULT_DEMAND));
   const [sheetOpen, setSheetOpen] = useState(false);
   // 局部修改只换掉被改的那一套方案，其它方案留着做对比
   const [impact, setImpact] = useState<ChangeImpact | null>(null);
   // 设计稿里的「智能建议」不是 tab，是从首页快捷入口进的子页
-  const [route, setRoute] = useState<'advice' | 'detail' | 'assistant' | 'city' | null>(null);
+  const [route, setRoute] = useState<'advice' | 'detail' | 'assistant' | 'city' | 'guide' | null>(null);
+  // 首页「精选攻略」哪一张被点开了
+  const [guideIndex, setGuideIndex] = useState(0);
 
   // 需求或行程一变就写本机，写成功才更新「已保存」时间
   useEffect(() => {
-    const at = saveTrip(demand, plans);
-    if (!at) return;
-    setSavedAt(at);
+    let alive = true;
+    hydrate().then(() => {
+      if (!alive) return;
+      const saved = loadSaved();
+      if (saved) {
+        setDemand(saved.demand);
+        setPlans(saved.plans);
+      }
+      setBooted(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    // 存档还没读出来就写，会把上次的行程覆盖成默认需求
+    if (!booted) return;
+    if (!saveTrip(demand, plans)) return;
     track('trip_saved', { destination: demand.destination, dayCount: demand.dayCount, plans: plans.length });
-  }, [demand, plans]);
+  }, [booted, demand, plans]);
 
   const onPlanned = useCallback((nextDemand: Demand, nextPlans: Plan[]) => {
     setDemand(nextDemand);
     setPlans(nextPlans);
     setSheetOpen(false);
+    // 从智能建议/行程详情里打开表单时，route 还指着子页；不关掉会生成完停在原子页
+    setRoute(null);
     setTab('itinerary');
   }, []);
 
@@ -85,6 +107,9 @@ export function App() {
     setRoute(null);
     setTab('home');
   }, []);
+
+  // 持久层没读完先不渲染：闪一下默认行程再跳成存档，比空一下很难接受
+  if (!booted) return <view className={cls('screen')} />;
 
   return (
     <view className={cls('screen')}>
@@ -112,6 +137,21 @@ export function App() {
               setTab('itinerary');
             }}
           />
+        ) : route === 'guide' ? (
+          <GuideDetailPage
+            guide={MOCK.guides[guideIndex] ?? MOCK.guides[0]}
+            onBack={() => setRoute(null)}
+            // 攻略属于某个城市：先切城市（会重算行程）再开表单，不留给用户一份牛头不对马嘴的方案
+            onPlan={(city) => {
+              onCity(city);
+              setSheetOpen(true);
+              track('guide_to_plan', { city });
+            }}
+            onMap={() => {
+              setRoute(null);
+              setTab('map');
+            }}
+          />
         ) : route === 'advice' ? (
           <AdvicePage
             demand={demand}
@@ -127,6 +167,11 @@ export function App() {
             onTab={(t) => { setRoute(null); setTab(t); }}
             onAdvice={() => setRoute('advice')}
             onAssistant={() => setRoute('assistant')}
+            onGuide={(i) => {
+              setGuideIndex(i);
+              setRoute('guide');
+              track('guide_open', { index: i });
+            }}
           />
         ) : tab === 'itinerary' ? (
           <ItineraryPage
@@ -138,7 +183,6 @@ export function App() {
             onRevise={onRevise}
             impact={impact}
             onDismissImpact={() => setImpact(null)}
-            savedAt={savedAt}
           />
         ) : tab === 'map' ? (
           <MapPage demand={demand} plans={plans} onPlan={openSheet} />
@@ -146,7 +190,6 @@ export function App() {
           <GuidePage city={demand.destination} plans={plans} />
         ) : (
           <ProfilePage
-            savedAt={savedAt}
             trip={plans[0]}
             onOpenTrip={() => setTab('itinerary')}
           />
@@ -183,6 +226,8 @@ export function App() {
           onPlanned={onPlanned}
         />
       ) : null}
+
+      <ToastHost />
     </view>
   );
 }

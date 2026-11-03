@@ -3,11 +3,13 @@ import { useCallback, useMemo, useState } from '@lynx-js/react';
 import mapArt from '../../assets/gen/map-bg.jpg';
 import mascotPeek from '../../assets/ip/mascot-peek.png';
 import emptyState from '../../assets/ip/empty-state.png';
+import markerBase from '../../assets/map/marker-base.png';
 import { svgIcon, MAP_ART, COLOR } from '../../icons.js';
 import { MOCK } from '../../mock.js';
 import type { Demand, Plan } from '../../data.js';
 import { distanceKm, placeById } from '../../data.js';
 import { track } from '../../track.js';
+import { toast } from '../../toast.js';
 import styles from './index.module.scss';
 import { makeCls } from '../../styles/cls.js';
 
@@ -33,8 +35,6 @@ type Stop = {
   dist: string;
   /** 挪不开位置了，只留圆形缩略图，不显示文字 */
   crowded: boolean;
-  /** 靠近右边缘：气泡向左展开，否则文字被屏幕裁掉 */
-  flip: boolean;
 };
 
 const VIEWS = [
@@ -91,14 +91,14 @@ export function MapPage({ demand, plans, onPlan }: Props) {
     // 这里按固定候选位逐个试（横向留出右侧文字标签的宽度），全试完还挤就只留圆点。
     const placed: { x: number; y: number }[] = [];
     return list.map((s, idx) => {
-      const rawX = clamp(20 + ((s.place.lng - minLng) / spanLng) * 40, 16, 60);
+      const rawX = clamp(20 + ((s.place.lng - minLng) / spanLng) * 40, 16, 56);
       const rawY = clamp(20 + ((maxLat - s.place.lat) / spanLat) * 30, 16, 52);
       let x = rawX;
       let y = rawY;
       let crowded = false;
       let ok = false;
       for (const [dx, dy] of SPREAD) {
-        const cx = clamp(rawX + dx, 10, 62);
+        const cx = clamp(rawX + dx, 10, 56);
         const cy = clamp(rawY + dy, 10, 56);
         if (!placed.some((p) => Math.abs(p.x - cx) < MINDX && Math.abs(p.y - cy) < MINDY)) {
           x = cx;
@@ -111,7 +111,7 @@ export function MapPage({ demand, plans, onPlan }: Props) {
         // 点太密挪不开：退到「离已有点最远」的格点，圆点好歹分得开，标签收起来
         crowded = true;
         let bestD = -1;
-        for (let gx = 12; gx <= 60; gx += 12) {
+        for (let gx = 12; gx <= 56; gx += 12) {
           for (let gy = 14; gy <= 54; gy += 10) {
             const d = Math.min(...placed.map((p) => Math.abs(p.x - gx) + Math.abs(p.y - gy)));
             if (d > bestD) {
@@ -136,8 +136,6 @@ export function MapPage({ demand, plans, onPlan }: Props) {
         ticket: s.place.ticket,
         dist: prev ? fmtDist(distanceKm(s.place, prev)) : '',
         crowded,
-        // 靠右边缘时气泡改向左展开，否则文字会顶出屏幕被裁掉
-        flip: x > 58,
       };
     });
   }, [plan, dayNo]);
@@ -198,7 +196,14 @@ export function MapPage({ demand, plans, onPlan }: Props) {
             </view>
           ))}
         </view>
-        <view className={cls('map-top-pill map-top-icon')}>
+        {/* 地图里没有可搜的东西，搜不到就去景点列表找：比弹个空搜索框诚实 */}
+        <view
+          className={cls('map-top-pill map-top-icon')}
+          bindtap={() => {
+            setView('spots');
+            toast('地图内不做搜索，已切到景点列表');
+          }}
+        >
           <svg content={svgIcon('search', '#3F5980')} style={{ width: '17px', height: '17px' }} />
         </view>
       </view>
@@ -213,23 +218,27 @@ export function MapPage({ demand, plans, onPlan }: Props) {
         // 圆图和文字会整个消失（web 端 shrink-to-fit 不会，所以只在真机上暴露）
         <view
           key={s.order}
-          className={cls(mkClass(picked, s)) + (s.flip ? ' ' + cls('mk-flip') : '')}
-          style={s.flip ? { right: `${100 - s.x}%`, bottom: `${100 - s.y}%` } : { left: `${s.x}%`, bottom: `${100 - s.y}%` }}
+          className={cls(mkClass(picked, s))}
+          style={{ left: `${s.x}%`, bottom: `${100 - s.y}%` }}
           bindtap={() => {
             const next = picked === s.order ? null : s.order;
             setPicked(next);
             if (next !== null) track('poi_detail_open', { order: next, source: 'marker' });
           }}
         >
-          <view className={cls('mk-photo')}>
+          {/* 圆图和尖角用同一张 PNG 底盘（marker-base）：圆环 + 水滴是一体的形状，
+              用 CSS 分别画圆和三角时，两者只在单点相切、必然露出接缝。
+              底盘只负责白环和尖角，照片另外塞进中间的镂空孔 */}
+          <view className={cls('mk-badge')}>
+            <image className={cls('mk-base')} src={markerBase} mode="scaleToFill" />
             <image
+              className={cls('mk-thumb')}
               src={MAP_ART.thumbs[(s.order - 1) % MAP_ART.thumbs.length]}
               mode="aspectFill"
-              style={{ width: '46px', height: '46px' }}
             />
           </view>
           {/* 位置太密时只留圆图；点开后其它点也收起来，避免标签互相压 */}
-          {s.crowded || (picked !== null && picked !== s.order) ? null : (
+          {isCollapsed(picked, s) ? null : (
             <view className={cls('mk-info')}>
               <text className={cls('mk-name')}>{s.name}</text>
               {s.dist ? (
@@ -240,16 +249,14 @@ export function MapPage({ demand, plans, onPlan }: Props) {
               ) : null}
             </view>
           )}
-          {/* 气泡下方的尖角：指向实际坐标点，参考图是「水滴」而不是平底胶囊 */}
-          {s.crowded || (picked !== null && picked !== s.order) ? null : <view className={cls('mk-tail')} />}
         </view>
       ))}
 
       <view className={cls('map-fab-col')}>
-        <view className={cls('map-fab')}>
+        <view className={cls('map-fab')} bindtap={() => toast('定位能力未接入，先按行程城市展示')}>
           <svg content={svgIcon('locate', '#2A3A57')} style={{ width: '20px', height: '20px' }} />
         </view>
-        <view className={cls('map-fab')}>
+        <view className={cls('map-fab')} bindtap={() => toast('更多操作本期未开放')}>
           <text className={cls('map-fab-dots')}>•••</text>
         </view>
       </view>
@@ -367,7 +374,7 @@ export function MapPage({ demand, plans, onPlan }: Props) {
         ) : (
           <scroll-view className={cls('sheet-list')} scroll-y>
             {MOCK.playStyles.map((p) => (
-              <view key={p.title} className={cls('sp-row')}>
+              <view key={p.title} className={cls('sp-row')} bindtap={() => toast('玩法详情本期未开放')}>
                 <view className={cls('sp-icon')}>
                   <svg content={svgIcon(p.icon, '#2478F2')} style={{ width: '18px', height: '18px' }} />
                 </view>
@@ -408,11 +415,17 @@ function smoothPath(pts: { x: number; y: number }[]): string {
   return d;
 }
 
+/** 收起成圆点：位置太密的点，或已经选中了别的点（此时只留 badge，不展示名字和距离） */
+function isCollapsed(picked: number | null, s: Stop): boolean {
+  return s.crowded || (picked !== null && picked !== s.order);
+}
+
 /** 打开某个点后其它点只留圆点：一行全是标签时反而看不清谁是谁 */
 function mkClass(picked: number | null, s: Stop): string {
   const on = picked === s.order ? ' mk-on' : '';
   const dim = picked !== null && picked !== s.order ? ' mk-dim' : '';
-  return `mk${on}${dim}`;
+  const collapse = isCollapsed(picked, s) ? ' mk-collapsed' : '';
+  return `mk${on}${dim}${collapse}`;
 }
 
 /** 1 公里以下按米显示，别让近处的点也写成 0.3km */

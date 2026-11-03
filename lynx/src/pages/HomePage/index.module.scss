@@ -320,40 +320,17 @@
 .hero {
   position: relative;
   width: 100%;
-  height: 262px;
+  height: 340px;
   overflow: hidden;
 }
-.hero-copy {
+/* banner 素材底部直接接页面白：不虚化的话会留一条硬边 */
+.hero-fade {
   position: absolute;
-  left: 18px;
-  top: 84px;
-  display: flex;
-  flex-direction: column;
-}
-.hero-title {
-  font-size: 21px;
-  font-weight: bold;
-  color: #ffffff;
-  line-height: 31px;
-  letter-spacing: 1px;
-  text-shadow: 0 2px 8px rgba(14, 45, 92, 0.55);
-}
-.hero-mascot {
-  position: absolute;
-  right: 10px;
+  left: 0;
   bottom: 0;
-  width: 128px;
-  height: 160px;
-}
-/* 卡片压在吉祥物腿上，看起来像他站在卡片后面 */
-
-/* 趴在 AI 卡片上沿的吉祥物：底部与卡片顶边重合，卡片不裁切 */
-.card-mascot {
-  position: absolute;
-  right: 14px;
-  top: -70px;
-  width: 96px;
-  height: 88px;
+  width: 100%;
+  height: 96px;
+  background-image: linear-gradient(180deg, rgba(245, 248, 255, 0) 0%, #f5f8ff 100%);
 }
 .city-card-last {
   margin-right: 0;

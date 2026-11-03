@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from '@lynx-js/react';
+import { useCallback, useEffect, useMemo, useState } from '@lynx-js/react';
 
 import spotKuanzhai from '../../assets/gen/spot-kuanzhai.jpg';
 import spotWuhou from '../../assets/gen/spot-wuhou.jpg';
@@ -9,9 +9,10 @@ import spotDufu from '../../assets/gen/dufu.jpg';
 import cityChengdu from '../../assets/gen/chengdu.jpg';
 import cityChongqing from '../../assets/gen/chongqing.jpg';
 import { svgIcon, QICON } from '../../icons.js';
-import { myVerdict, saveVerdict, VERDICT_LABEL } from '../../feedback.js';
-import type { Verdict } from '../../feedback.js';
+import { myVerdict, saveVerdict, VERDICT_LABEL, fetchSummaries, submitVerdict } from '../../feedback.js';
+import type { Verdict, Summary } from '../../feedback.js';
 import { track } from '../../track.js';
+import { toast } from '../../toast.js';
 import { factsOf, placeById } from '../../data.js';
 import type { Plan } from '../../data.js';
 import styles from './index.module.scss';
@@ -85,11 +86,31 @@ export function GuidePage({ city, plans }: Props) {
   const [spotId, setSpotId] = useState<string | null>(null);
   // 本机反馈：key 是 factId，提交后立刻回显「你反馈过」
   const [verdicts, setVerdicts] = useState<Record<string, Verdict>>({});
+  // 跨设备聚合计数：服务端才算得出来，拿不到就空着，不编数字
+  const [counts, setCounts] = useState<Record<string, Summary>>({});
+
+  useEffect(() => {
+    let alive = true;
+    fetchSummaries()
+      .then((next) => {
+        if (alive) setCounts(next);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const onVerdict = useCallback((factId: string, verdict: Verdict) => {
     const saved = saveVerdict(factId, verdict);
     setVerdicts((prev) => ({ ...prev, [factId]: saved ?? prev[factId] ?? verdict }));
     track('fact_feedback', { factId, verdict, saved: saved !== null });
+    // 先落本机保证断网也能回显，再交服务端；计数以服务端返回值为准，不自己 +1
+    submitVerdict(factId, verdict)
+      .then((summary) => setCounts((prev) => ({ ...prev, [factId]: summary })))
+      .catch((e) => {
+        toast(e instanceof Error && e.message ? e.message : '反馈没提交上去，稍后再试');
+      });
   }, []);
 
   const facts = useMemo(() => factsOf(city), [city]);
@@ -203,6 +224,12 @@ export function GuidePage({ city, plans }: Props) {
                     </view>
                   );
                 })}
+                {/* 聚合计数只有服务端算得出来；一条都没有时不占位 */}
+                {counts[f.id] && (counts[f.id].met > 0 || counts[f.id].notApplicable > 0) ? (
+                  <text className={cls('fb-count')}>
+                    {counts[f.id].met} 人遇到过 · {counts[f.id].notApplicable} 人说不适用
+                  </text>
+                ) : null}
               </view>
             </view>
           ))}
@@ -220,7 +247,7 @@ export function GuidePage({ city, plans }: Props) {
         </view>
 
         <view className={cls('gd-sheet')}>
-          <view className={cls('gd-title-row2')}>
+          <view className={cls('gd-title-row2')} bindtap={() => toast('景点详情页本期未开放')}>
             <text className={cls('gd-spot')}>{spotName}</text>
             <svg content={svgIcon('chevronRight', '#A5B2C7')} style={{ width: '18px', height: '18px' }} />
           </view>
@@ -262,10 +289,10 @@ export function GuidePage({ city, plans }: Props) {
           ) : null}
 
           <view className={cls('gd-avoid')}>
+            {/* 卡片底部已有「查看完整避坑指南」，标题行再挂个箭头是重复入口，别留 */}
             <view className={cls('gd-avoid-head')}>
               <svg content={svgIcon('shield', '#1E9E6A')} style={{ width: '17px', height: '17px', marginRight: '6px' }} />
               <text className={cls('gd-avoid-title')}>出发前避坑</text>
-              <svg content={svgIcon('chevronRight', '#A5B2C7')} style={{ width: '16px', height: '16px' }} />
             </view>
             {rows.map((r) => (
               <view key={r.key} className={cls('gd-row')}>

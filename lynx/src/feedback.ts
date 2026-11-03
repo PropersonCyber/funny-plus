@@ -1,4 +1,5 @@
 import { readLocal, writeLocal } from './storage.js';
+import { api, deviceId } from './api.js';
 
 /**
  * 避坑反馈：本机记录「我也遇到了 / 不适用」。
@@ -38,3 +39,23 @@ export const VERDICT_LABEL: Record<Verdict, string> = {
   met: '我也遇到了',
   'not-applicable': '不适用'
 };
+
+export type Summary = { factId: string; met: number; notApplicable: number; mine: Verdict | null };
+
+/** 聚合计数：服务端失败就当没拿到，界面不编数字 */
+export async function fetchSummaries(): Promise<Record<string, Summary>> {
+  const body = await api.get<{ items: Summary[] }>(`/api/facts/feedback?clientId=${encodeURIComponent(deviceId())}`);
+  const out: Record<string, Summary> = {};
+  for (const s of body.items) out[s.factId] = s;
+  return out;
+}
+
+/** 提交反馈；返回服务端算好的最新计数，界面直接用它，不再自增 */
+export async function submitVerdict(factId: string, verdict: Verdict): Promise<Summary> {
+  const body = await api.post<{ item: Summary }>('/api/facts/feedback', {
+    factId,
+    verdict,
+    clientId: deviceId()
+  });
+  return body.item;
+}

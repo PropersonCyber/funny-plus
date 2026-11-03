@@ -33,7 +33,8 @@ export const MOCK = {
 
   // 首页「精选攻略」：真实用户路线，浏览量也是 mock
   guides: [
-    { title: '成都 3 天 2 晚必打卡清单', note: '吃喝玩乐全攻略，附避坑指南', views: '12.3 万', image: 'chengdu' },
+    // 攻略与 A 版范围（1–2 天）对齐：攻略页的路线一览是按 2 天算的，标题写 3 天会自相矛盾
+    { title: '成都 2 天 1 晚必打卡清单', note: '吃喝玩乐全攻略，附避坑指南', views: '12.3 万', image: 'chengdu' },
     { title: '重庆解放碑周边美食地图', note: '本地人推荐的 10 家必吃餐厅', views: '8.6 万', image: 'chongqing' },
     { title: '大理环洱海怎么玩？', note: '最全路线 + 拍照点 + 避坑提醒', views: '6.4 万', image: 'dali' },
   ],

@@ -5,6 +5,8 @@
   flex-direction: column;
   height: 100vh;
   background-color: #f5f8ff;
+  /* ToastHost 用 absolute 贴底，需要一个已定位的祖先 */
+  position: relative;
 }
 
 .body {

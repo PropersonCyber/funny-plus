@@ -55,7 +55,8 @@ export function AdvicePage({ demand, plans, onBack, onPlan }: Props) {
           </view>
         </view>
 
-        <text className={cls('card-note')}>基于你的需求，提供专业出行建议</text>
+        {/* 副标题与第一张卡片：card-note 自带 margin-top，紧贴下一张卡像糊在一起 */}
+        <text className={cls('card-note advice-sub')}>基于你的需求，提供专业出行建议</text>
 
         {tipsOpen ? (
           <view className={cls('card')}>

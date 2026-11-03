@@ -198,14 +198,9 @@
   background-color: rgba(245, 248, 255, 0.45);
 }
 
-/* 我的行程：标题 + 存档时间两行并排图标 */
+/* 我的行程：标题 + 图标两行并排 */
 .save-main {
   display: flex;
   flex-direction: column;
   flex: 1;
-}
-.save-note {
-  font-size: 10px;
-  color: #8a99b3;
-  margin-top: 2px;
 }

@@ -1,5 +1,11 @@
 // 本模块专属样式（CSS Modules，类名会被哈希）
 
+/* .page 的 20px 底部内边距会变成滚动区与底部按钮栏之间的一条空白带，
+   行程页内容本来就顶到边滚，这里不要它 */
+.itn-page {
+  padding-bottom: 0;
+}
+
 .chips {
   display: flex;
   flex-direction: row;
@@ -217,13 +223,6 @@
   font-size: 13px;
   font-weight: bold;
   color: #172b4d;
-}
-
-/* 本机存档提示：跟副标题同排感觉挤，单独一行弱化 */
-.save-hint {
-  font-size: 10px;
-  color: #8a99b3;
-  margin-top: 4px;
 }
 
 /* 头部右侧一组链接：对比 + 详情 */

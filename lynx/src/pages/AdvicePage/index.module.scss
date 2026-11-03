@@ -1,5 +1,10 @@
 // 本模块专属样式（CSS Modules，类名会被哈希）
 
+/* 页面副标题不是卡内附文，单独给个下间距；只管 margin-bottom，不碰 .card-note 其它属性 */
+.advice-sub {
+  margin-bottom: 12px;
+}
+
 .advice-head {
   display: flex;
   flex-direction: row;

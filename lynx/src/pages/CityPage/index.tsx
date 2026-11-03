@@ -1,6 +1,7 @@
 import { useCallback, useState } from '@lynx-js/react';
 
 import { svgIcon } from '../../icons.js';
+import { toast } from '../../toast.js';
 import styles from './index.module.scss';
 import { makeCls } from '../../styles/cls.js';
 
@@ -60,7 +61,7 @@ export function CityPage({ city, cities, onPick, onBack }: Props) {
       <text className={cls('city-sec')}>热门城市</text>
       <view className={cls('city-hot')}>
         {HOT.map((h) => (
-          <view key={h} className={cls('city-hot-chip')}>
+          <view key={h} className={cls('city-hot-chip')} bindtap={() => toast(`${h} 还没有地点数据`)}>
             <text className={cls('city-hot-text')}>{h}</text>
           </view>
         ))}

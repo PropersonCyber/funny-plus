@@ -1,0 +1,104 @@
+// 本模块专属样式（CSS Modules，类名会被哈希）
+
+/* 比规划弹窗再高一层的遮罩：两个 sheet 叠着时点遮罩只关选择器 */
+.pk-mask {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  background-color: rgba(16, 28, 51, 0.42);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.pk-sheet {
+  display: flex;
+  flex-direction: column;
+  background-color: #ffffff;
+  border-top-left-radius: 22px;
+  border-top-right-radius: 22px;
+  padding-bottom: 26px;
+}
+
+.pk-grabber {
+  align-self: center;
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background-color: #e3eaf6;
+  margin: 8px 0 4px 0;
+}
+
+.pk-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 16px 8px 16px;
+}
+
+.pk-title {
+  font-size: 15px;
+  font-weight: bold;
+  color: #172b4d;
+}
+
+.pk-close {
+  width: 26px;
+  height: 26px;
+  border-radius: 13px;
+  background-color: #f1f5fd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pk-close-text {
+  font-size: 12px;
+  color: #7b8aa5;
+}
+
+/* 选项少时不要撑满屏：最多 5 行多一点，再多就在框里滚 */
+.pk-list {
+  max-height: 360px;
+  padding: 0 12px;
+}
+
+.pk-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 13px 12px;
+  border-radius: 14px;
+  margin-bottom: 6px;
+  background-color: #f7f9fd;
+}
+
+.pk-row-on {
+  background-color: #eaf1ff;
+}
+
+.pk-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.pk-label {
+  font-size: 14px;
+  color: #22304a;
+}
+
+.pk-label-on {
+  font-weight: bold;
+  color: #2478f2;
+}
+
+.pk-note {
+  font-size: 11px;
+  color: #8a99b3;
+  margin-top: 2px;
+}

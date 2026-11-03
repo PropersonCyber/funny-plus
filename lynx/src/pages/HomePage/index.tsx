@@ -1,6 +1,5 @@
 import { useCallback, useState } from '@lynx-js/react';
 
-import heroImg from '../../assets/gen/hero.jpg';
 import heroBanner from '../../assets/gen/hero-banner.jpg';
 import aiBanner from '../../assets/gen/ai-banner.jpg';
 import chengdu from '../../assets/gen/chengdu.jpg';
@@ -9,11 +8,11 @@ import chongqing from '../../assets/gen/chongqing.jpg';
 import dali from '../../assets/gen/dali.jpg';
 import mascotAi from '../../assets/ip/mascot-ai.png';
 import mascotExplore from '../../assets/ip/mascot-explore.png';
-import mascotHero from '../../assets/ip/mascot-hero.png';
 import { MAP_ART } from '../../icons.js';
 import { svgIcon, COLOR, QICON } from '../../icons.js';
 import { filledIcon } from '../../icons-filled.js';
 import { MOCK } from '../../mock.js';
+import { toast } from '../../toast.js';
 import styles from './index.module.scss';
 import { makeCls } from '../../styles/cls.js';
 
@@ -26,6 +25,8 @@ type Props = {
   onTab: (tab: 'map' | 'itinerary' | 'guide' | 'profile') => void;
   onAdvice: () => void;
   onAssistant: () => void;
+  /** 首页「精选攻略」卡片：进攻略详情页 */
+  onGuide: (index: number) => void;
 };
 
 const PLAY_IMG = MAP_ART.thumbs;
@@ -35,12 +36,12 @@ const CITY_IMG: Record<string, string> = { chengdu, chongqing, dali, beijing };
 
 const QUICK = [
   { id: 'city', title: '热门目的地', img: QICON.pin, tint: 'rgba(245,160,60,0.16)' },
-  { id: 'map', title: '动漫地图', img: QICON.map, tint: 'rgba(139,124,255,0.16)' },
+  { id: 'advice', title: '智能建议', img: QICON.spark, tint: 'rgba(139,124,255,0.16)' },
   { id: 'guide', title: '旅行避坑', img: QICON.shield, tint: 'rgba(53,192,138,0.16)' },
   { id: 'itinerary', title: '行程规划', img: QICON.calendar, tint: 'rgba(36,120,242,0.12)' },
 ] as const;
 
-export function HomePage({ city, onPickCity, onPlan, onTab, onAdvice, onAssistant }: Props) {
+export function HomePage({ city, onPickCity, onPlan, onTab, onAdvice, onAssistant, onGuide }: Props) {
   // 当前城市排在最前，帮用户确认「切过去了」
   const cityList = MOCK.cities.slice().sort((a, b) => (b.id === city ? 1 : 0) - (a.id === city ? 1 : 0));
   // 内容没顶上来到状态栏时，定位条保持透明；滚过一点才显示底衬
@@ -50,14 +51,15 @@ export function HomePage({ city, onPickCity, onPlan, onTab, onAdvice, onAssistan
     setStuck(y > 8);
   }, []);
 
+  // 「动漫地图」原本占这一格，但底部 tab 已有地图；把死页面「智能建议」接在这
   const onQuick = useCallback(
     (id: string) => {
-      if (id === 'map') onTab('map');
+      if (id === 'city') onPickCity();
+      else if (id === 'advice') onAdvice();
       else if (id === 'guide') onTab('guide');
-      else if (id === 'itinerary') onPlan();
       else onPlan();
     },
-    [onPlan, onTab],
+    [onAdvice, onPickCity, onPlan, onTab],
   );
 
   return (
@@ -65,12 +67,13 @@ export function HomePage({ city, onPickCity, onPlan, onTab, onAdvice, onAssistan
       <scroll-view className={cls('scroll')} scroll-y bindscroll={onScroll}>
         <view className={cls('home')}>
           <view className={cls('hero')}>
-          <image
-            src={heroBanner}
-            mode="aspectFill"
-            style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '262px' }}
-          />
-        </view>
+            <image
+              src={heroBanner}
+              mode="aspectFill"
+              style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '340px' }}
+            />
+            <view className={cls('hero-fade')} />
+          </view>
 
         <view className={cls('home-in')}>
           <view className={cls('ai-card')} bindtap={onPlan}>
@@ -102,7 +105,7 @@ export function HomePage({ city, onPickCity, onPlan, onTab, onAdvice, onAssistan
               <image src={QICON.flame} mode="aspectFit" style={{ width: '16px', height: '16px', marginRight: '5px' }} />
               <text className={cls('section-title')}>热门推荐</text>
             </view>
-            <view className={cls('section-more-row')}>
+            <view className={cls('section-more-row')} bindtap={() => toast('更多城市与推荐本期未开放')}>
               <text className={cls('section-more')}>查看更多</text>
               <svg content={svgIcon('chevronRight', '#A5B2C7')} style={{ width: '12px', height: '12px', marginLeft: '2px' }} />
             </view>
@@ -113,7 +116,7 @@ export function HomePage({ city, onPickCity, onPlan, onTab, onAdvice, onAssistan
               <view
                 key={c.id}
                 className={cls(i === cityList.length - 1 ? 'city-card city-card-last' : 'city-card')}
-                bindtap={onPlan}
+                bindtap={onPickCity}
               >
                 <image
                   src={CITY_IMG[c.image]}
@@ -138,13 +141,13 @@ export function HomePage({ city, onPickCity, onPlan, onTab, onAdvice, onAssistan
               <image src={QICON.flame} mode="aspectFit" style={{ width: '16px', height: '16px', marginRight: '5px' }} />
               <text className={cls('section-title')}>本周精选 · 2天1晚短途游</text>
             </view>
-            <view className={cls('section-more-row')}>
+            <view className={cls('section-more-row')} bindtap={() => toast('精选只有这一条，换一批本期未开放')}>
               <text className={cls('section-more')}>换一批</text>
               <svg content={svgIcon('refresh', '#A5B2C7')} style={{ width: '13px', height: '13px' }} />
             </view>
           </view>
 
-          <view className={cls('weekly')} bindtap={onPlan}>
+          <view className={cls('weekly')} bindtap={() => toast('精选行程详情本期未开放，先看下面的行程')}>
             <image src={CITY_IMG[MOCK.weekly.image]} mode="aspectFill" style={{ width: '96px', height: '76px', borderRadius: '12px' }} />
             <view className={cls('weekly-main')}>
               <text className={cls('weekly-title')}>{MOCK.weekly.title}</text>
@@ -167,7 +170,7 @@ export function HomePage({ city, onPickCity, onPlan, onTab, onAdvice, onAssistan
               <image src={QICON.backpack} mode="aspectFit" style={{ width: '16px', height: '16px', marginRight: '5px' }} />
               <text className={cls('section-title')}>爆款玩法</text>
             </view>
-            <view className={cls('section-more-row')}>
+            <view className={cls('section-more-row')} bindtap={() => toast('更多玩法本期未开放')}>
               <text className={cls('section-more')}>更多玩法</text>
               <svg content={svgIcon('chevronRight', '#A5B2C7')} style={{ width: '12px', height: '12px', marginLeft: '2px' }} />
             </view>
@@ -177,7 +180,7 @@ export function HomePage({ city, onPickCity, onPlan, onTab, onAdvice, onAssistan
               <view
                 key={p.title}
                 className={cls(i === MOCK.hotPlays.length - 1 ? 'play-card play-last' : 'play-card')}
-                bindtap={onPlan}
+                bindtap={() => toast('玩法详情本期未开放')}
               >
                 <image src={PLAY_IMG[i % PLAY_IMG.length]} mode="aspectFit" style={{ width: '100%', height: '56px' }} />
                 <text className={cls('play-title')}>{p.title}</text>
@@ -207,7 +210,7 @@ export function HomePage({ city, onPickCity, onPlan, onTab, onAdvice, onAssistan
               <image src={QICON.book} mode="aspectFit" style={{ width: '16px', height: '16px', marginRight: '5px' }} />
               <text className={cls('section-title')}>精选攻略</text>
             </view>
-            <view className={cls('section-more-row')}>
+            <view className={cls('section-more-row')} bindtap={() => toast('攻略详情本期未开放')}>
               <text className={cls('section-more')}>查看更多</text>
               <svg content={svgIcon('chevronRight', '#A5B2C7')} style={{ width: '12px', height: '12px', marginLeft: '2px' }} />
             </view>
@@ -217,6 +220,7 @@ export function HomePage({ city, onPickCity, onPlan, onTab, onAdvice, onAssistan
               <view
                 key={g.title}
                 className={cls(i === MOCK.guides.length - 1 ? 'guide-card guide-last' : 'guide-card')}
+                bindtap={() => onGuide(i)}
               >
                 <image src={CITY_IMG[g.image]} mode="aspectFill" style={{ width: '100%', height: '82px' }} />
                 <text className={cls('guide-title')}>{g.title}</text>
@@ -245,7 +249,8 @@ export function HomePage({ city, onPickCity, onPlan, onTab, onAdvice, onAssistan
           <text className={cls('loc-city')}>{city}</text>
         </view>
         <view className={cls('loc-tools')}>
-          <view className={cls('loc-scan')} bindtap={onPlan}>
+          {/* 搜索入口：本期唯一能搜的是城市，直接进城市页那个真搜索框，别再开到规划弹窗 */}
+          <view className={cls('loc-scan')} bindtap={onPickCity}>
             <svg content={svgIcon('search', '#1B4F8F')} style={{ width: '20px', height: '20px' }} />
           </view>
         </view>

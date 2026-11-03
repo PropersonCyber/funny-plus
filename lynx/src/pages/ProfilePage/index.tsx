@@ -1,5 +1,6 @@
 import { svgIcon } from '../../icons.js';
 import { MOCK } from '../../mock.js';
+import { toast } from '../../toast.js';
 import type { Plan } from '../../data.js';
 import avatarImg from '../../assets/ip/avatar.jpg';
 import styles from './index.module.scss';
@@ -8,13 +9,13 @@ import { makeCls } from '../../styles/cls.js';
 const cls = makeCls(styles);
 
 type Props = {
-  /** 本机存档时间；null 表示这次会话还没写成功 */
-  savedAt: string | null;
   trip: Plan | undefined;
   onOpenTrip: () => void;
 };
 
-export function ProfilePage({ savedAt, trip, onOpenTrip }: Props) {
+export function ProfilePage({ trip, onOpenTrip }: Props) {
+  // 「我的行程」上面那行已经能点了，菜单里那条是重复项
+  const menu = MOCK.profile.menu.filter((m) => m.title !== '我的行程');
   return (
     <scroll-view className={cls('scroll')} scroll-y>
       <view className={cls('me')}>
@@ -49,7 +50,7 @@ export function ProfilePage({ savedAt, trip, onOpenTrip }: Props) {
               <text className={cls('member-title')}>开通会员</text>
               <text className={cls('member-sub')}>{MOCK.profile.member}</text>
             </view>
-            <view className={cls('member-btn')}>
+            <view className={cls('member-btn')} bindtap={() => toast('会员本期未开放')}>
               <text className={cls('member-btn-text')}>立即开通</text>
             </view>
           </view>
@@ -64,16 +65,14 @@ export function ProfilePage({ savedAt, trip, onOpenTrip }: Props) {
                 <text className={cls('menu-title')}>
                   {trip ? `${trip.destination} · ${trip.days.length} 天行程` : '我的行程'}
                 </text>
-                <text className={cls('save-note')}>
-                  {savedAt ? `已存本机 · ${clockText(savedAt)}` : '当前环境无存储权限，行程只在本次会话内'}
-                </text>
               </view>
               <svg content={svgIcon('chevronRight', '#C7D2E3')} style={{ width: '13px', height: '13px' }} />
             </view>
-            {MOCK.profile.menu.map((m, i) => (
+            {menu.map((m, i) => (
               <view
                 key={m.title}
-                className={cls(i === MOCK.profile.menu.length - 1 ? 'menu-row menu-row-last' : 'menu-row')}
+                className={cls(i === menu.length - 1 ? 'menu-row menu-row-last' : 'menu-row')}
+                bindtap={() => toast(`${m.title}本期未开放`)}
               >
                 <svg
                   content={svgIcon(m.icon, '#3F5980')}
@@ -90,12 +89,4 @@ export function ProfilePage({ savedAt, trip, onOpenTrip }: Props) {
       </view>
     </scroll-view>
   );
-}
-
-/** 存档时间只到分钟，够判断「是不是这次存的」 */
-function clockText(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '时间未知';
-  const pad = (n: number) => (n < 10 ? `0${n}` : String(n));
-  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }

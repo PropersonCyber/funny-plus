@@ -3,11 +3,7 @@ import { useCallback, useState } from '@lynx-js/react';
 import chengdu from '../../assets/gen/chengdu.jpg';
 import chongqing from '../../assets/gen/chongqing.jpg';
 import beijing from '../../assets/gen/beijing.jpg';
-import spotKuanzhai from '../../assets/gen/spot-kuanzhai.jpg';
-import spotWuhou from '../../assets/gen/spot-wuhou.jpg';
-import spotPanda from '../../assets/gen/panda.jpg';
-import spotJinli from '../../assets/gen/jinli.jpg';
-import spotChunxi from '../../assets/gen/chunxi.jpg';
+import { spotImg } from '../../spot-img.js';
 import { MOCK } from '../../mock.js';
 import { svgIcon } from '../../icons.js';
 import type { ChangeImpact, Demand, Plan } from '../../data.js';
@@ -29,8 +25,6 @@ type Props = {
   /** 上一次局部修改的变更影响；切天不消失，方便对照 */
   impact: ChangeImpact | null;
   onDismissImpact: () => void;
-  /** 本机存档时间，显示在标题下，让用户知道刷新不会丢 */
-  savedAt: string | null;
 };
 
 const CITY_IMG: Record<string, string> = { 成都: chengdu, 重庆: chongqing, 北京: beijing };
@@ -44,17 +38,9 @@ const ISSUE_CLASS: Record<string, string> = {
   info: 'issue-badge issue-badge-info',
 };
 
-// 有专属插画的景点用专属图，其它退回城市图
-const SPOT_IMG: Record<string, string> = {
-  宽窄巷子: spotKuanzhai,
-  武侯祠: spotWuhou,
-  大熊猫繁育研究基地: spotPanda,
-  锦里: spotJinli,
-  太古里: spotChunxi,
-  人民公园: spotChunxi,
-};
+// 有专属插画的景点用专属图，其它退回城市图（映射在 spot-img.ts，攻略页也用同一份）
 
-export function ItineraryPage({ demand, plans, onPlan, onMap, onDetail, onRevise, impact, onDismissImpact, savedAt }: Props) {
+export function ItineraryPage({ demand, plans, onPlan, onMap, onDetail, onRevise, impact, onDismissImpact }: Props) {
   const [planIndex, setPlanIndex] = useState(0);
   const [dayIndex, setDayIndex] = useState(1);
   const [revising, setRevising] = useState(false);
@@ -90,7 +76,7 @@ export function ItineraryPage({ demand, plans, onPlan, onMap, onDetail, onRevise
 
   return (
     <view className={cls('screen-inner')}>
-      <view className={cls('page page-shell')}>
+      <view className={cls('page page-shell itn-page')}>
         <view className={cls('page-head')}>
           <text className={cls('page-title')}>{demand.destination} · {demand.dayCount} 天{demand.dayCount > 1 ? '2 晚' : ''}</text>
           <view className={cls('head-links')}>
@@ -113,9 +99,6 @@ export function ItineraryPage({ demand, plans, onPlan, onMap, onDetail, onRevise
         </view>
         <text className={cls('page-sub')}>
           {MOCK.trip.dateRange} · {demand.party} 人 · 人均 ¥{plan.budget.perPerson}
-        </text>
-        <text className={cls('save-hint')}>
-          {savedAt ? `已存本机 · ${savedClock(savedAt)}` : '未存到本机 — 当前渲染环境不提供存储接口，刷新会丢'}
         </text>
 
         {plans.length > 1 ? (
@@ -212,7 +195,7 @@ export function ItineraryPage({ demand, plans, onPlan, onMap, onDetail, onRevise
                   <view className={cls('tl-main')}>
                     {item.kind === 'place' ? (
                       <image
-                        src={SPOT_IMG[item.title] ?? cityCover}
+                        src={spotImg(item.title, cityCover)}
                         mode="aspectFill"
                         style={{ width: '56px', height: '56px', borderRadius: '10px', marginRight: '10px' }}
                       />
@@ -301,13 +284,6 @@ function fmtDelta(n: number, unit: string): string {
 function fmtMoney(n: number): string {
   if (n === 0) return '没变';
   return `${n > 0 ? '+' : ''}¥${n}`;
-}
-
-function savedClock(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '时间未知';
-  const pad = (n: number) => (n < 10 ? `0${n}` : String(n));
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 function clock(minutes: number): string {

@@ -3,6 +3,8 @@ import { useCallback, useState } from '@lynx-js/react';
 import { BUDGET_LABEL, CITIES, planFor } from '../../data.js';
 import { track } from '../../track.js';
 import { svgIcon } from '../../icons.js';
+import { PickerSheet } from '../PickerSheet/index.js';
+import type { PickerOption } from '../PickerSheet/index.js';
 import mascotStart from '../../assets/ip/mascot-start.png';
 import type { Demand, Plan } from '../../data.js';
 import styles from './index.module.scss';
@@ -17,6 +19,15 @@ type Props = {
 };
 
 const BUDGETS: Demand['budgetLevel'][] = ['low', 'mid', 'high', 'flexible'];
+
+// 单选维度的选择器配置集中在这里：以后加城市/加预算档只改数据，不动布局
+type PickerKey = 'destination' | 'dayCount' | 'budgetLevel' | 'transport';
+const PICKER_TITLE: Record<PickerKey, string> = {
+  destination: '目的地',
+  dayCount: '玩几天',
+  budgetLevel: '人均预算',
+  transport: '交通方式',
+};
 // 只放引擎真能映射到地点 tags 的偏好（planner PREF_TAGS），映射不上的选了也是白选
 const PREFERENCES = ['美食探店', '经典打卡', '拍照出片', '亲子慢游', '夜景江湖'];
 // compare = 同一套需求出公交/包车/自驾三套，这是方案对比唯一入口
@@ -27,10 +38,23 @@ const TRANSPORTS: { value: Demand['transport']; label: string }[] = [
   { value: 'compare', label: '三种对比' },
 ];
 
+const PICKER_OPTIONS: Record<PickerKey, PickerOption[]> = {
+  destination: CITIES.map((c) => ({ value: c, label: c })),
+  dayCount: [1, 2].map((d) => ({ value: String(d), label: `${d} 天` })),
+  budgetLevel: BUDGETS.map((b) => ({ value: b, label: BUDGET_LABEL[b] })),
+  transport: TRANSPORTS.map((t) => ({
+    value: t.value,
+    label: t.label,
+    ...(t.value === 'compare' ? { note: '同一需求出公交 / 自驾 / 包车三套' } : {}),
+  })),
+};
+
 /** 底部弹窗：每行一个决策项，行内左图标右控件；只放引擎真吃得下的四维 */
 export function PlanSheet({ demand, onClose, onPlanned }: Props) {
   const [draft, setDraft] = useState<Demand>(demand);
   const [error, setError] = useState('');
+  // 单选维度走底部选择器：选项加多少都不会把弹窗撑高
+  const [picker, setPicker] = useState<PickerKey | null>(null);
 
   const patch = useCallback((next: Partial<Demand>) => {
     setDraft((prev) => ({ ...prev, ...next }));
@@ -44,6 +68,26 @@ export function PlanSheet({ demand, onClose, onPlanned }: Props) {
         : [...prev.preferences, p],
     }));
   }, []);
+
+  // 选择器回填：天数要转回 number，枚举维度按原类型追加
+  const onPickValue = useCallback(
+    (v: string) => {
+      if (picker === 'dayCount') patch({ dayCount: Number(v) });
+      else if (picker === 'budgetLevel') patch({ budgetLevel: v as Demand['budgetLevel'] });
+      else if (picker === 'transport') patch({ transport: v as Demand['transport'] });
+      else if (picker === 'destination') patch({ destination: v });
+    },
+    [picker, patch],
+  );
+
+  const pickerValue =
+    picker === 'dayCount'
+      ? String(draft.dayCount)
+      : picker === 'budgetLevel'
+        ? draft.budgetLevel
+        : picker === 'transport'
+          ? draft.transport
+          : draft.destination;
 
   const submit = useCallback(() => {
     'background only';
@@ -88,16 +132,9 @@ export function PlanSheet({ demand, onClose, onPlanned }: Props) {
               <svg content={svgIcon('pin', '#F5A03C')} style={{ width: '16px', height: '16px' }} />
             </view>
             <text className={cls('ps-label')}>目的地</text>
-            <view className={cls('ps-chips')}>
-              {CITIES.map((c) => (
-                <view
-                  key={c}
-                  className={cls(draft.destination === c ? 'ps-chip ps-chip-on' : 'ps-chip')}
-                  bindtap={() => patch({ destination: c })}
-                >
-                  <text className={cls(draft.destination === c ? 'ps-chip-text on' : 'ps-chip-text')}>{c}</text>
-                </view>
-              ))}
+            <view className={cls('ps-select')} bindtap={() => setPicker('destination')}>
+              <text className={cls('ps-select-text')}>{draft.destination}</text>
+              <svg content={svgIcon('chevronRight', '#8A99B3')} style={{ width: '14px', height: '14px' }} />
             </view>
           </view>
 
@@ -106,16 +143,9 @@ export function PlanSheet({ demand, onClose, onPlanned }: Props) {
               <svg content={svgIcon('itinerary', '#2478F2')} style={{ width: '16px', height: '16px' }} />
             </view>
             <text className={cls('ps-label')}>天数</text>
-            <view className={cls('ps-chips')}>
-              {[1, 2].map((d) => (
-                <view
-                  key={d}
-                  className={cls(draft.dayCount === d ? 'ps-chip ps-chip-on' : 'ps-chip')}
-                  bindtap={() => patch({ dayCount: d })}
-                >
-                  <text className={cls(draft.dayCount === d ? 'ps-chip-text on' : 'ps-chip-text')}>{d} 天</text>
-                </view>
-              ))}
+            <view className={cls('ps-select')} bindtap={() => setPicker('dayCount')}>
+              <text className={cls('ps-select-text')}>{draft.dayCount} 天</text>
+              <svg content={svgIcon('chevronRight', '#8A99B3')} style={{ width: '14px', height: '14px' }} />
             </view>
           </view>
 
@@ -140,18 +170,9 @@ export function PlanSheet({ demand, onClose, onPlanned }: Props) {
               <svg content={svgIcon('budget', '#8B7CFF')} style={{ width: '16px', height: '16px' }} />
             </view>
             <text className={cls('ps-label')}>人均预算</text>
-            <view className={cls('ps-chips ps-chips-wrap')}>
-              {BUDGETS.map((b) => (
-                <view
-                  key={b}
-                  className={cls(draft.budgetLevel === b ? 'ps-chip ps-chip-on' : 'ps-chip')}
-                  bindtap={() => patch({ budgetLevel: b })}
-                >
-                  <text className={cls(draft.budgetLevel === b ? 'ps-chip-text on' : 'ps-chip-text')}>
-                    {BUDGET_LABEL[b]}
-                  </text>
-                </view>
-              ))}
+            <view className={cls('ps-select')} bindtap={() => setPicker('budgetLevel')}>
+              <text className={cls('ps-select-text')}>{BUDGET_LABEL[draft.budgetLevel]}</text>
+              <svg content={svgIcon('chevronRight', '#8A99B3')} style={{ width: '14px', height: '14px' }} />
             </view>
           </view>
 
@@ -160,17 +181,20 @@ export function PlanSheet({ demand, onClose, onPlanned }: Props) {
               <svg content={svgIcon('sparkles', '#F5A03C')} style={{ width: '16px', height: '16px' }} />
             </view>
             <text className={cls('ps-label')}>偏好</text>
-            <view className={cls('ps-chips ps-chips-wrap')}>
-              {PREFERENCES.map((p) => (
-                <view
-                  key={p}
-                  className={cls(draft.preferences.includes(p) ? 'ps-chip ps-chip-on' : 'ps-chip')}
-                  bindtap={() => togglePref(p)}
-                >
-                  <text className={cls(draft.preferences.includes(p) ? 'ps-chip-text on' : 'ps-chip-text')}>{p}</text>
-                </view>
-              ))}
-            </view>
+            {/* 多选用滚轮不直观，保留 chip 但只占一行：横滑，不换行撑高弹窗 */}
+            <scroll-view className={cls('ps-pref-scroll')} scroll-x>
+              <view className={cls('ps-pref-row')}>
+                {PREFERENCES.map((p) => (
+                  <view
+                    key={p}
+                    className={cls(draft.preferences.includes(p) ? 'ps-chip ps-chip-on' : 'ps-chip')}
+                    bindtap={() => togglePref(p)}
+                  >
+                    <text className={cls(draft.preferences.includes(p) ? 'ps-chip-text on' : 'ps-chip-text')}>{p}</text>
+                  </view>
+                ))}
+              </view>
+            </scroll-view>
           </view>
 
           <view className={cls('ps-row')}>
@@ -178,16 +202,9 @@ export function PlanSheet({ demand, onClose, onPlanned }: Props) {
               <svg content={svgIcon('transport', '#2478F2')} style={{ width: '16px', height: '16px' }} />
             </view>
             <text className={cls('ps-label')}>交通方式</text>
-            <view className={cls('ps-chips ps-chips-wrap')}>
-              {TRANSPORTS.map((t) => (
-                <view
-                  key={t.value}
-                  className={cls(draft.transport === t.value ? 'ps-chip ps-chip-on' : 'ps-chip')}
-                  bindtap={() => patch({ transport: t.value })}
-                >
-                  <text className={cls(draft.transport === t.value ? 'ps-chip-text on' : 'ps-chip-text')}>{t.label}</text>
-                </view>
-              ))}
+            <view className={cls('ps-select')} bindtap={() => setPicker('transport')}>
+              <text className={cls('ps-select-text')}>{TRANSPORTS.find((t) => t.value === draft.transport)?.label ?? '公共交通'}</text>
+              <svg content={svgIcon('chevronRight', '#8A99B3')} style={{ width: '14px', height: '14px' }} />
             </view>
           </view>
 
@@ -214,6 +231,16 @@ export function PlanSheet({ demand, onClose, onPlanned }: Props) {
         <view className={cls('ps-cta')} bindtap={submit}>
           <text className={cls('ps-cta-text')}>生成方案</text>
         </view>
+
+        {picker ? (
+          <PickerSheet
+            title={PICKER_TITLE[picker]}
+            options={PICKER_OPTIONS[picker]}
+            value={pickerValue}
+            onClose={() => setPicker(null)}
+            onPick={onPickValue}
+          />
+        ) : null}
       </view>
     </view>
   );

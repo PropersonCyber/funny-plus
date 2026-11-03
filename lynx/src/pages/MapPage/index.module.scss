@@ -60,66 +60,54 @@
 
 /* 气泡本体：绝对定位。JSX 里 bottom 用 (100 - y)%，让「气泡底边」贴住坐标点的水平线，
    再靠下方的 margin-bottom 把尖角尖端精确压到坐标上。
-   水平方向同理：left 落坐标后左移 25px（尖角中心距气泡左缘 21px + 一点余量）。
    全用固定像素而不是百分比 margin，是因为百分比 margin 在 Lynx 里参照容器宽度，不可靠 */
 .mk {
   position: absolute;
-  margin-left: -25px;
-  /* 尖角尖端在气泡底边下方 9px，把气泡整体上抬 9px，尖端正好落在坐标点 */
-  margin-bottom: 9px;
+  /* 锚点：圆盘中心落在坐标点上。胶囊左端收到圆盘里之后，左缘距中心只剩 16，
+     所以这里从 -28 收成 -16（圆盘自己用负 margin 怼回原位） */
+  margin-left: -16px;
+  /* 气泡高度写死 40（不随文字浮动），尖端恒在气泡底边下方 58.4-40 = 18.4，
+     上抬 18.4 就把它压到坐标点上 */
+  margin-bottom: 7.3px;
+  /* 高度跟水滴圆盘的直径一致（52）：胶囊左端的圆角半径 = 26 = 圆盘半径，
+     左端半球和圆盘完全重合，接口不会露出任何一方的边 */
+  height: 52px;
   display: flex;
   flex-direction: row;
   align-items: center;
-  padding: 3px 12px 3px 3px;
+  /* 左内边距 0：胶囊左端的半圆（r20）圆心落在圆盘圆心右侧 4px 处，
+     4 + 20 ≤ 26 才整块藏在圆盘里。以前是 2px 内边距，半圆圆心差 8，
+     半径和 28 > 26，胶囊左端就从圆盘左侧露出 2px，接缝成一个小尖角 */
+  padding: 0 12px 0 0;
   border-radius: 26px;
-  background-color: rgba(255, 255, 255, 0.97);
-  box-shadow: 0 6px 18px rgba(31, 71, 135, 0.2);
+  /* 参考图胶囊有一圈极淡的蓝描边，没有它气泡边界会糊进底图 */
+  border-width: 1px;
+  border-style: solid;
+  border-color: rgba(168, 204, 250, 0.85);
+  /* 参考图气泡是明确的淡蓝（不是白）：白圆盘的白环要靠在它上面才看得出来。
+     顶部太浅时圆环整个消失，所以起点就压到 #f4f8fe */
+  background-color: #ebf1fd;
+  background-image: linear-gradient(180deg, #f2f7fe 0%, #e4edfc 100%);
+  box-shadow: 0 5px 14px rgba(31, 71, 135, 0.16);
 }
 
-/* 靠右时气泡改成向左展开：内容整体翻到锚点左侧，圆图挪到右端，
-   这样长景点名也不会被屏幕右边裁掉；尖角位置同步镜像 */
-/* 靠右时气泡改成向左展开：内容整体翻到坐标点左侧，圆图挪到右端，
-   这样长景点名也不会被屏幕右边裁掉；水平偏移同步镜像，尖角仍指向坐标点 */
-.mk-flip {
-  margin-left: 0;
-  margin-right: -25px;
-  flex-direction: row-reverse;
-  padding: 3px 3px 3px 12px;
-}
-.mk-flip .mk-info {
-  margin-left: 0;
-  margin-right: 8px;
-  align-items: flex-end;
-}
-.mk-flip .mk-dist-row {
-  flex-direction: row-reverse;
-}
-.mk-flip .mk-dist {
-  margin-right: 0;
-  margin-left: 3px;
-}
-.mk-flip .mk-tail {
-  left: auto;
-  right: 17px;
-}
+/* badge 是绝对定位的，不占布局宽度，给文字让出空间 */
 
-/* 气泡尖角：从圆图底部伸出的水滴尖，尖朝下指向坐标点。
-   关键是把三角的「水平顶边」藏进圆图后面——圆图是实心纯白，会盖住它，
-   只露出圆弧以外的部分，看起来才是一个整体而不是两块拼起来。
-   所以三角要从圆盘内部往上长（bottom 用负值穿进圆盘），而不是贴在圆弧下沿 */
-.mk-tail {
-  position: absolute;
-  left: 18px;
-  bottom: -10px;
-  width: 0;
-  height: 0;
-  border-left: 11px solid transparent;
-  border-right: 11px solid transparent;
-  border-top: 20px solid #ffffff;
+/* 收起成圆点时只留 badge：胶囊底/渐变/阴影/圆角/描边都不要。
+   padding 和 height 故意留着不动：.mk 的 margin 锚点（-28 / 18.4）就是按它们算的 */
+.mk-collapsed {
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  /* 留着描边就会看到一圈方框套在圆点外面 */
+  border-width: 0;
+  border-radius: 0;
 }
 
 .mk-name {
-  font-size: 13px;
+  /* 参考图名字字形高 12.4px（圆盘 52）→ CJK 字形≈0.9em，取 14 而不是按拉丁字体的 16 */
+  font-size: 14px;
+  line-height: 16px;
   font-weight: bold;
   color: #1b2f8a;
   white-space: nowrap;
@@ -132,10 +120,6 @@
 .mk-on .mk-name {
   color: #2478f2;
   font-weight: bold;
-}
-
-.mk-on .mk-photo {
-  border-color: #2478f2;
 }
 
 .poi-card {
@@ -462,28 +446,46 @@
   justify-content: center;
 }
 
-/* 标记改成圆形景点图（参考图做法）：白圈 + 左上角序号 */
-.mk-photo {
+/* 标记底盘：圆环 + 水滴尖是一张 PNG 的一体形状。
+   分开用 CSS 画圆和三角时，两者只在单点相切、一定会露出接缝，
+   所以整块交给图，照片单独塞进中间的镂空孔。
+   尺寸固定 52x64.4（=52 圆 + 12.4 尖）。
+    必须参与文档流贡献宽度：绝对定位时它不占宽，气泡宽度只由文字决定，
+   长景点名（宽窄巷子）会把圆图挤出可视区。
+   几何：圆盘 52 比胶囊 40 高，靠 margin-top -6 上顶、下沿溢出到 58.4，
+   做出参考图「圆盘骑在胶囊上、上下都露头」的观感；
+   气泡高度写死 40 就是为了让这个 58.4 恒定，尖端锚点才不跟着文字高度变 */
+.mk-badge {
   position: relative;
   width: 52px;
-  height: 52px;
-  border-radius: 26px;
-  background-color: #ffffff;
-  overflow: hidden;
-  border-width: 3px;
-  border-style: solid;
-  border-color: #ffffff;
-  box-shadow: 0 3px 10px rgba(31, 71, 135, 0.22);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  /* 压住下面那个由 border 拼出来的尖角：三角的顶边是条水平线，
-     必须被圆盘盖住，露出来的才是从圆弧长出来的一体尖角 */
-  z-index: 1;
+  height: 59.3px;
+  flex-shrink: 0;
+  align-self: flex-start;
+  /* 抵消 .mk 收紧的左内边距：圆盘左缘仍落在 box_left - 10，中心恒在锚点上 */
+  margin-left: -10px;
+}
+
+/* 底盘图带 4px 透明边（烘进去的柔光/描边），所以用负偏移让轮廓仍然落在 52x64.4 里 */
+.mk-base {
+  position: absolute;
+  left: -4px;
+  top: -4px;
+  width: 60px;
+  height: 67.3px;
+}
+
+/* 照片：44px 圆，贴进底盘内孔（孔 44、外径 52，环厚 4px） */
+.mk-thumb {
+  position: absolute;
+  left: 4px;
+  top: 4px;
+  width: 44px;
+  height: 44px;
+  border-radius: 22px;
 }
 
 /* 选中别的点时，这张只留圆点，别和详情卡抢注意力 */
-.mk-dim .mk-photo {
+.mk-dim .mk-badge {
   opacity: 0.72;
 }
 
@@ -563,10 +565,11 @@
 }
 
 /* 名字 + 距离：参考图里是两行，距离带一个很淡的箭头 */
+/* badge 是绝对定位，不占布局宽度，这里给它让出的 55px（3 左边距 + 52 圆） */
 .mk-info {
   display: flex;
   flex-direction: column;
-  margin-left: 8px;
+  margin-left: 4px;
   padding-right: 2px;
 }
 .mk-dist-row {
@@ -577,6 +580,7 @@
 }
 .mk-dist {
   font-size: 11px;
+  line-height: 13px;
   color: #7e93d6;
   margin-right: 3px;
 }

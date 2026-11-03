@@ -80,15 +80,34 @@
   width: 62px;
 }
 
-.ps-chips {
+/* 单选维度：右对齐的当前值 + 箭头，点开底部选择器。
+   以前铺一排 chip，选项一多就换行把弹窗撞高 */
+.ps-select {
   flex: 1;
   display: flex;
   flex-direction: row;
+  align-items: center;
   justify-content: flex-end;
+  padding: 2px 0;
 }
 
-.ps-chips-wrap {
-  flex-wrap: wrap;
+.ps-select-text {
+  font-size: 13px;
+  font-weight: bold;
+  color: #172b4d;
+  margin-right: 3px;
+}
+
+/* 偏好是多选，保留 chip 但只占一行：横滑不换行 */
+.ps-pref-scroll {
+  flex: 1;
+  height: 40px;
+}
+
+.ps-pref-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
 }
 
 .ps-chip {
