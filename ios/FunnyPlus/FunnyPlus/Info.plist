@@ -29,7 +29,7 @@
   <key>UISupportedInterfaceOrientations</key>
   <array><string>UIInterfaceOrientationPortrait</string></array>
   <key>UIRequiredDeviceCapabilities</key><array><string>arm64</string></array>
-  <key>APIBase</key><string>http://127.0.0.1:8787</string>
+  <key>APIBase</key><string>http://10.8.206.250:8787</string>
   <key>NSAppTransportSecurity</key><dict><key>NSAllowsArbitraryLoads</key><true/></dict>
   <!-- 定位权限说明：WKWebView 里业务 JS 在 Worker 沙箱，拿不到 navigator.geolocation，
        坐标只能由 WebHostController 的 CLLocationManager 取到后注入 globalThis.__fpLocation。

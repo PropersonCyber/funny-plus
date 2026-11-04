@@ -16,12 +16,24 @@ type Props = {
   onBack: () => void;
 };
 
+/**
+ * 热门推荐：全是当前还没有地点数据的城市，点了只提示、不切。
+ * 放它们的目的是让用户知道「我们没覆盖到这儿」，而不是让搜索框显得空。
+ */
 const HOT = ['丽江', '三亚', '西安', '杭州'];
 
 export function CityPage({ city, cities, onPick, onBack }: Props) {
   const [keyword, setKeyword] = useState('');
   const kw = keyword.trim();
+
+  /**
+   * 有数据的城市只有 cities 这几个（目前成都/重庆/北京）。
+   * 搜索框放开输入任意城市，但**只有这几个能真正选中**：
+   * 让用户切到没有地点数据的城市，规划页会直接空掉，比不支持更糟。
+   */
   const list = kw ? cities.filter((c) => c.indexOf(kw) >= 0) : cities;
+  /** 用户搜了一个我们没覆盖的城市：给明确结论，不留一个空列表让人猜 */
+  const uncovered = kw.length > 0 && list.length === 0;
 
   const onChange = useCallback((e: any) => setKeyword(e.detail?.value ?? ''), []);
 
@@ -82,8 +94,13 @@ export function CityPage({ city, cities, onPick, onBack }: Props) {
       </view>
 
       <text className={cls('city-sec')}>{kw ? '搜索结果' : '可选城市'}</text>
-      {list.length === 0 ? (
-        <text className={cls('city-empty')}>没有匹配的城市</text>
+      {uncovered ? (
+        <view className={cls('city-miss')}>
+          <text className={cls('city-miss-title')}>「{kw}」暂未开放</text>
+          <text className={cls('city-miss-note')}>
+            目前只支持 {cities.join('、')} 的路线规划，其它城市的景点和交通数据还没有
+          </text>
+        </view>
       ) : (
         list.map((c) => (
           <view key={c} className={cls('city-item')} bindtap={() => onPick(c)}>
@@ -96,12 +113,12 @@ export function CityPage({ city, cities, onPick, onBack }: Props) {
       <text className={cls('city-sec')}>热门城市</text>
       <view className={cls('city-hot')}>
         {HOT.map((h) => (
-          <view key={h} className={cls('city-hot-chip')} bindtap={() => toast(`${h} 还没有地点数据`)}>
+          <view key={h} className={cls('city-hot-chip')} bindtap={() => toast(`${h} 暂未开放，目前只支持 ${cities.join('、')}`)}>
             <text className={cls('city-hot-text')}>{h}</text>
           </view>
         ))}
       </view>
-      <text className={cls('city-tip')}>热门城市还没有地点数据，切过去会没有方案，先灰着</text>
+      <text className={cls('city-tip')}>热门城市暂未开放：没有景点和交通数据，切过去规划不出路线</text>
     </view>
   );
 }

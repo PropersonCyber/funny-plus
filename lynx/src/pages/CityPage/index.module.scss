@@ -112,3 +112,23 @@
   color: #a5b2c7;
   margin-top: 6px;
 }
+
+/* 搜到了但城市没开放：给结论，不要留一个空列表让人猜是没搜到还是不支持 */
+.city-miss {
+  display: flex;
+  flex-direction: column;
+  padding: 18px 16px;
+  border-radius: 12px;
+  background-color: rgba(255, 255, 255, 0.9);
+}
+.city-miss-title {
+  font-size: 15px;
+  font-weight: bold;
+  color: #172b4d;
+}
+.city-miss-note {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 18px;
+  color: #7e93d6;
+}
