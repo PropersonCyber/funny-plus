@@ -19,11 +19,30 @@ export type GeoPoint = { lng: number; lat: number; accuracy?: number; at?: numbe
 
 type RawLocation = { lng?: unknown; lat?: unknown; accuracy?: unknown; at?: unknown; error?: unknown };
 
-/** 读 lynx.__globalProps 里的定位快照。没有 lynx 环境（单测 / 浏览器预览）返回 null */
+/**
+ * 读定位快照。
+ *
+ * 三处取值都试，按可靠性从高到低：
+ *   1. `globalThis.lynx.__globalProps` —— 官方 React runtime 内部就是这么读的
+ *      （`Object.assign(lynx.__globalProps, newData)`），Worker 里有这个全局；
+ *   2. `globalThis.__globalProps` —— 有些构建把 globalProps 直接摊到全局；
+ *   3. 壳写进来的同名旁路 `globalThis.__fpLocation` —— 只在 web 预览里有效。
+ *
+ * 为什么不怕「多试几处显得脏」：这条链路已经在真机上错过两次（window 方案、
+ * 注入时机），每次都是「看着应该能行」。宁可三个位置都查一遍，也不要再猜一次。
+ */
 function snapshot(): RawLocation | null {
-  const g = (globalThis as any)?.lynx?.__globalProps;
-  const loc = g?.__fpLocation;
+  const g = globalThis as any;
+  const holder = g?.lynx?.__globalProps ?? g?.__globalProps;
+  const loc = holder?.__fpLocation ?? g?.__fpLocation;
   return loc && typeof loc === 'object' ? (loc as RawLocation) : null;
+}
+
+/** globalProps 容器里有没有 __fpLocation 这个键（用于区分「壳没注入」和「注入了没坐标」） */
+function hasChannel(): boolean {
+  const g = globalThis as any;
+  const holder = g?.lynx?.__globalProps ?? g?.__globalProps;
+  return !!(holder && '__fpLocation' in holder) || !!g?.__fpLocation;
 }
 
 /**
@@ -32,9 +51,13 @@ function snapshot(): RawLocation | null {
  */
 const STALE_MS = 5 * 60 * 1000;
 
-/** 系统定位回调通常比页面晚到；最多等这么久，超时就报「定位中」而不是失败 */
-const WAIT_MS = 3000;
-const POLL_MS = 120;
+/**
+ * 等系统定位的时间上限。
+ * 首次授权要走「弹窗 → 用户点允许 → 系统定位」三步，慢的时候 5 秒以上很正常，
+ * 所以这里给 8 秒；超时只是报「定位中」，不当作失败，界面还能重试。
+ */
+const WAIT_MS = 8000;
+const POLL_MS = 150;
 
 export type LocateResult =
   | { ok: true; point: GeoPoint }
@@ -61,7 +84,16 @@ function valid(p: unknown): p is GeoPoint {
  *   unsupported 没有 lynx 环境（浏览器预览 / 单测）—— 如实说没有这个能力
  *   failed      壳报了非权限类错误 / 坐标非法
  */
+/**
+ * 最近一次取定位失败时的诊断码，界面上直接显示。
+ * 这些不是给用户看的文案，是给我排查用的——真机拿不到只能靠它判断断在哪一层：
+ *   no-channel  有 lynx 运行时，但 globalProps 里没有 __fpLocation 键 → 壳没注入进来
+ *   no-payload  键在，但里面没有坐标 → 注入到了、坐标还没填 → 定位本身没回来
+ */
+export let diagnostic = '';
+
 export async function locate(): Promise<LocateResult> {
+  diagnostic = '';
   const deadline = Date.now() + WAIT_MS;
   for (;;) {
     const snap = snapshot();
@@ -82,7 +114,11 @@ export async function locate(): Promise<LocateResult> {
     }
     if (Date.now() >= deadline) {
       const hasLynx = !!(globalThis as any)?.lynx;
-      return { ok: false, reason: hasLynx ? 'pending' : 'unsupported' };
+      if (!hasLynx) return { ok: false, reason: 'unsupported' };
+      // 有 lynx 但 globalProps 里连这个键都没有 = 壳的注入没进到 Worker；
+      // 有键但值是空对象 = 注入成功但坐标还没填。两者要分开，否则没法定位问题
+      diagnostic = hasChannel() ? 'no-payload' : 'no-channel';
+      return { ok: false, reason: 'pending' };
     }
     await new Promise((r) => setTimeout(r, POLL_MS));
   }

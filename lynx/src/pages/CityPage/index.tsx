@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from '@lynx-js/react';
 
-import { locateCity } from '../../geo.js';
+import { diagnostic, locateCity } from '../../geo.js';
 
 import { svgIcon } from '../../icons.js';
 import { toast } from '../../toast.js';
@@ -44,7 +44,11 @@ export function CityPage({ city, cities, onPick, onBack }: Props) {
         if (r.status === 'offline' && r.reason === 'denied') {
           return setLoc({ city: '', note: '未授权定位，去系统设置里开启' });
         }
-        if (r.status === 'offline' && r.reason === 'pending') return setLoc({ city: '', note: '定位中…' });
+        if (r.status === 'offline' && r.reason === 'pending') {
+          // 区分「等的还不够久」和「宿主压根没注入」：前者继续转圈，后者要报出来
+          const noChannel = diagnostic === 'no-channel';
+          return setLoc({ city: '', note: noChannel ? '定位未接入（宿主没注入）' : '定位中…' });
+        }
         setLoc({ city: '', note: '' });
       })
       // 定位是锦上添花，失败不打断选城市

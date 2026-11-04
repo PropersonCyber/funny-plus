@@ -535,35 +535,3 @@
   height: 100%;
   background-color: rgba(240, 247, 255, 0.58);
 }
-
-/* 缩放控件：竖排在右侧，和底部的「切列表」fab 分开，别挤成一堆 */
-.map-zoom-col {
-  position: absolute;
-  right: 14px;
-  bottom: 300px;
-  z-index: 3;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-.map-zoom-btn {
-  width: 38px;
-  height: 38px;
-  margin-bottom: 8px;
-  border-radius: 19px;
-  background-color: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 4px 12px rgba(31, 71, 135, 0.16);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.map-zoom-txt {
-  font-size: 21px;
-  line-height: 23px;
-  color: #2a3a57;
-}
-.map-zoom-reset {
-  font-size: 11px;
-  line-height: 13px;
-  color: #3f5980;
-}

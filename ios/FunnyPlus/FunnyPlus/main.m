@@ -183,9 +183,21 @@
   NSString *js = [NSString stringWithFormat:
       @"(function(){var v=document.querySelector('lynx-view');if(!v)return;"
        "var g=v.globalProps||{};g.__fpLocation=%@;"
-       "g.__fpOpenSettings=function(){location.href='app://local/settings';};"
-       "v.globalProps=g;})()", payload];
-  [self eval:js];
+       "v.globalProps=g;"
+       // 旁路：web 预览、以及「globalProps 转发不可用」时的兜底。
+       // 前端 geo.ts 会同时查 lynx.__globalProps 和 globalThis.__fpLocation 两处
+       "window.__fpLocation=%@;"
+       "if(typeof WorkerGlobalScope!=='undefined'){try{globalThis.__fpLocation=%@;}catch(e){}}"
+       "})()", payload, payload, payload];
+
+  // 为什么要重试而不是注一次就算：lynx-view 的 globalProps setter 内部是
+  // `this.#_ = t; this.#e?.updateGlobalProps(t)`，而 #e（LynxViewInstance）在
+  // bundle 解码完之前是 undefined —— 那几次写入会被静默丢掉，不报错。
+  // 页面刚加载完时实例多半还没好，所以隔一段时间补几次，把这个窗口盖住。
+  for (NSNumber *delay in @[@0.0, @0.6, @1.4, @2.6, @4.0, @6.0]) {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay.doubleValue * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^{ [self eval:js]; });
+  }
 }
 
 /** 单引号包裹的 JS 字面量里，反斜杠和引号要转义，否则一个错误串就能破坏整段脚本 */

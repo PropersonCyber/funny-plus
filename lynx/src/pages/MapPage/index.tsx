@@ -21,7 +21,7 @@ import {
   type GeoPoint,
 } from '../../mapProjection.js';
 import { legGeometry } from '../../routeGeometry.js';
-import { Gesture, IDENTITY, isIdentity, MAX_SCALE, MIN_SCALE, project, zoomBy, type View } from '../../mapGesture.js';
+import { Gesture, IDENTITY, project, type View } from '../../mapGesture.js';
 
 const cls = makeCls(styles);
 
@@ -124,9 +124,6 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
     else gestureRef.current.end();
   }, []);
 
-  const resetView = useCallback(() => applyView(IDENTITY), [applyView]);
-  const zoomIn = useCallback(() => applyView(zoomBy(viewRef.current, 1.6)), [applyView]);
-  const zoomOut = useCallback(() => applyView(zoomBy(viewRef.current, 1 / 1.6)), [applyView]);
 
   const stops = useMemo<Stop[]>(() => {
     const day = plan?.days.find((d) => d.index === dayNo);
@@ -351,7 +348,7 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
     <view
       className={cls('map-full')}
       bindtouchstart={onTouchStart}
-      bindtouchmove={onTouchMove}
+      catchtouchmove={onTouchMove}
       bindtouchend={onTouchEnd}
       bindtouchcancel={onTouchEnd}
     >
@@ -456,22 +453,6 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
           <text className={cls('map-scale-text')}>{scaleLabel}</text>
         </view>
       ) : null}
-
-      {/* 缩放控件：和手势两条路都能用——手势不灵时至少还有按钮能救 */}
-      <view className={cls('map-zoom-col')}>
-        <view className={cls('map-zoom-btn')} bindtap={zoomIn}>
-          <text className={cls('map-zoom-txt')}>+</text>
-        </view>
-        <view className={cls('map-zoom-btn')} bindtap={zoomOut}>
-          <text className={cls('map-zoom-txt')}>−</text>
-        </view>
-        {/* 只有真的缩放/平移过才给复位入口，否则是个永远灰着的按钮 */}
-        {isIdentity(mapView) ? null : (
-          <view className={cls('map-zoom-btn')} bindtap={resetView}>
-            <text className={cls('map-zoom-reset')}>复位</text>
-          </view>
-        )}
-      </view>
 
       {/* 定位能力没接入前不放定位按钮：按不到东西的按钮比没有更糟 */}
       <view className={cls('map-fab-col')}>
