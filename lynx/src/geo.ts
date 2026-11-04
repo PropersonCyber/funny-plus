@@ -4,20 +4,56 @@ import { readLocal, writeLocal } from './storage.js';
 /**
  * 定位 + 地图能力的接入层。
  *
- * 经纬度只能由宿主壳给，而且**只能走 `lynx.__globalProps`**：
- * 这个 App 的 web 渲染器把业务 JS 放进 `new Worker(...)` 里跑，Worker 的 globalThis
- * 是 WorkerGlobalScope，看不到主线程的 `window`。之前往 `window.__fpLocation` 注入
- * 的那套在 Worker 里永远读不到，定位必然返回 unsupported —— 这是「定位没接进来」的
- * 真正原因：不是壳没实现，是通道选错了。
+ * 经纬度只能由宿主壳给。这个 App 的 web 渲染器把业务 JS 放进 `new Worker(...)` 里跑，
+ * Worker 的 globalThis 是 WorkerGlobalScope，看不到主线程的 `window`。
  *
- * 现在壳层写 `<lynx-view>.globalProps = { __fpLocation: {...} }`，
- * web-core 的 Value setter 会把更新转发进 Worker。
+ * 现状（在 iPhone 18 Pro / iOS 27.2 模拟器上逐条验过）：
+ *   - 壳侧能拿到坐标，locationd 日志有 `client authorized for location` 和
+ *     `Sending location to client`，注入脚本里 globalProps 也确实写进去了；
+ *   - 但业务代码跑在纯 Worker 里，`globalThis.lynx` 是 undefined ——
+ *     实测 Worker 全局只有 WorkerGlobalScope / indexedDB / postMessage /
+ *     importScripts，没有 lynx、没有 __globalProps、没有 parent。
+ *
+ * 所以下面这些读取（globalProps / __fpLocation / GlobalEventEmitter）在这个 web
+ * 渲染器上都拿不到东西，**保留它们是给 Lynx 原生渲染器留的门**：真机走原生
+ * Lynx 时 `lynx.__globalProps` 是真的存在的，那时代码不用改就能用。
+ * 在当前 web 渲染器上定位会如实返回 unsupported，界面据此显示「定位未接入」，
+ * 不编造城市。
+ *
  * 逆地理 / 真实耗时都走 `server/src/routes/geo.ts`，key 不下发到前端。
  */
 
 export type GeoPoint = { lng: number; lat: number; accuracy?: number; at?: number };
 
 type RawLocation = { lng?: unknown; lat?: unknown; accuracy?: unknown; at?: unknown; error?: unknown };
+
+/**
+ * 宿主推过来的最近一次定位。
+ *
+ * 模块加载时就订阅，不等组件挂载：壳可能在页面脚本跑起来之前就拿到了坐标，
+ * 那一次推送要是没接住，就只能等下一次定位（而 requestLocation 是一次性的）。
+ */
+let pushed: RawLocation | null = null;
+let subscribed = false;
+
+/** 订阅宿主推送。返回是否订阅成功——Worker 里没有 lynx JSModule 时（web 预览 / 单测）为 false */
+export function subscribeLocation(): boolean {
+  if (subscribed) return true;
+  const g = globalThis as any;
+  try {
+    const emitter = g?.lynx?.getJSModule?.('GlobalEventEmitter');
+    if (!emitter || typeof emitter.addListener !== 'function') return false;
+    emitter.addListener('__fpLocation', (payload: unknown) => {
+      if (payload && typeof payload === 'object') pushed = payload as RawLocation;
+    });
+    subscribed = true;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+subscribeLocation();
 
 /**
  * 读定位快照。
@@ -32,6 +68,7 @@ type RawLocation = { lng?: unknown; lat?: unknown; accuracy?: unknown; at?: unkn
  * 注入时机），每次都是「看着应该能行」。宁可三个位置都查一遍，也不要再猜一次。
  */
 function snapshot(): RawLocation | null {
+  if (pushed) return pushed;
   const g = globalThis as any;
   const holder = g?.lynx?.__globalProps ?? g?.__globalProps;
   const loc = holder?.__fpLocation ?? g?.__fpLocation;
@@ -40,6 +77,7 @@ function snapshot(): RawLocation | null {
 
 /** globalProps 容器里有没有 __fpLocation 这个键（用于区分「壳没注入」和「注入了没坐标」） */
 function hasChannel(): boolean {
+  if (pushed) return true;
   const g = globalThis as any;
   const holder = g?.lynx?.__globalProps ?? g?.__globalProps;
   return !!(holder && '__fpLocation' in holder) || !!g?.__fpLocation;

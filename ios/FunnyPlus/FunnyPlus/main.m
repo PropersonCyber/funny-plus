@@ -180,14 +180,17 @@
                _lastLoc.horizontalAccuracy, at];
   }
 
+  // 主通道：sendGlobalEvent → Worker 的 GlobalEventEmitter。
+  // 为什么不用 globalProps 当主通道：web-core 在 Worker 侧的 updateGlobalProps 是
+  // 空函数（lynx-core-chunk 里 `updateGlobalProps(e){}`），而 __globalProps 只在 init
+  // 时从 nativeApp 读一次 —— 运行期改 globalProps 进不了 Worker。
+  // globalProps 那段保留成 init 期快照：元素早于定位建好时它还能生效，成本为零。
   NSString *js = [NSString stringWithFormat:
       @"(function(){var v=document.querySelector('lynx-view');if(!v)return;"
        "var g=v.globalProps||{};g.__fpLocation=%@;"
        "v.globalProps=g;"
-       // 旁路：web 预览、以及「globalProps 转发不可用」时的兜底。
-       // 前端 geo.ts 会同时查 lynx.__globalProps 和 globalThis.__fpLocation 两处
+       "try{v.sendGlobalEvent('__fpLocation',[%@]);}catch(e){}"
        "window.__fpLocation=%@;"
-       "if(typeof WorkerGlobalScope!=='undefined'){try{globalThis.__fpLocation=%@;}catch(e){}}"
        "})()", payload, payload, payload];
 
   // 为什么要重试而不是注一次就算：lynx-view 的 globalProps setter 内部是
