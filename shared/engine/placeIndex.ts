@@ -23,8 +23,36 @@ export const distanceKm = (a: Place, b: Place): number => {
   return Math.round(Math.hypot(dLat, dLng) * 10) / 10
 }
 
-/** 两次地点之间按直线距离折算耗时，仅用于排程估算；真实导航耗时接地图服务后替换 */
+/** 耗时来源：区分「真问过地图服务」和「直线折算」，界面要如实标注，不能混成一个数字 */
+export type TravelSource = 'route' | 'straight'
+
+const routeCache = new Map<string, number>()
+
+const routeKey = (a: Place, b: Place, faster: boolean): string => `${a.id}>${b.id}>${faster ? 'f' : 's'}`
+
+/**
+ * 真实路线耗时由调用方预先取好再灌进来（引擎是同步纯函数，不能自己去 await）。
+ * 没灌到的路段自然退回直线折算，所以取数失败不会让整个方案生成失败。
+ */
+export function setRouteMinutes(a: string, b: string, faster: boolean, minutes: number): void {
+  if (Number.isFinite(minutes) && minutes > 0) routeCache.set(`${a}>${b}>${faster ? 'f' : 's'}`, Math.round(minutes))
+}
+
+export function clearRouteMinutes(): void {
+  routeCache.clear()
+}
+
+/** 这一段有没有拿到真实耗时；界面用它决定标注「估算」与否 */
+export const hasRoute = (a: Place, b: Place, faster = false): boolean =>
+  routeCache.has(routeKey(a, b, faster))
+
+/**
+ * 两点之间的耗时。优先用地图服务的真实路线时长；没有就按直线距离折算。
+ * 折算那档只是占位，别对外当成导航结果——界面上要标「估算」。
+ */
 export const travelMinutes = (a: Place, b: Place, faster = false): number => {
+  const hit = routeCache.get(routeKey(a, b, faster))
+  if (hit !== undefined) return hit
   const base = Math.max(10, Math.round((distanceKm(a, b) / (faster ? 22 : 15)) * 60))
   return Math.ceil(base / 5) * 5
 }

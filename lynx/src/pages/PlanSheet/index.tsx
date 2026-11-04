@@ -1,9 +1,11 @@
-import { useCallback, useState } from '@lynx-js/react';
+import { useCallback, useEffect, useRef, useState } from '@lynx-js/react';
 
-import { BUDGET_LABEL, CITIES, planFor } from '../../data.js';
+import { BUDGET_LABEL, planFor } from '../../data.js';
+import { warmTravelMinutes } from '../../travel.js';
 import { track } from '../../track.js';
 import { svgIcon } from '../../icons.js';
 import { PickerSheet } from '../PickerSheet/index.js';
+import { PlanLoading } from '../PlanLoading/index.js';
 import type { PickerOption } from '../PickerSheet/index.js';
 import mascotStart from '../../assets/ip/mascot-start.png';
 import type { Demand, Plan } from '../../data.js';
@@ -14,6 +16,8 @@ const cls = makeCls(styles);
 
 type Props = {
   demand: Demand;
+  /** 可选目的地：只给已接入地点池的城市 */
+  cities: string[];
   onClose: () => void;
   onPlanned: (demand: Demand, plans: Plan[]) => void;
 };
@@ -39,7 +43,7 @@ const TRANSPORTS: { value: Demand['transport']; label: string }[] = [
 ];
 
 const PICKER_OPTIONS: Record<PickerKey, PickerOption[]> = {
-  destination: CITIES.map((c) => ({ value: c, label: c })),
+  destination: [],
   dayCount: [1, 2].map((d) => ({ value: String(d), label: `${d} 天` })),
   budgetLevel: BUDGETS.map((b) => ({ value: b, label: BUDGET_LABEL[b] })),
   transport: TRANSPORTS.map((t) => ({
@@ -50,11 +54,18 @@ const PICKER_OPTIONS: Record<PickerKey, PickerOption[]> = {
 };
 
 /** 底部弹窗：每行一个决策项，行内左图标右控件；只放引擎真吃得下的四维 */
-export function PlanSheet({ demand, onClose, onPlanned }: Props) {
+export function PlanSheet({ demand, cities, onClose, onPlanned }: Props) {
   const [draft, setDraft] = useState<Demand>(demand);
   const [error, setError] = useState('');
   // 单选维度走底部选择器：选项加多少都不会把弹窗撑高
   const [picker, setPicker] = useState<PickerKey | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 弹窗被上层关掉时别让计时器继续把结果写进存档
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
 
   const patch = useCallback((next: Partial<Demand>) => {
     setDraft((prev) => ({ ...prev, ...next }));
@@ -88,27 +99,55 @@ export function PlanSheet({ demand, onClose, onPlanned }: Props) {
         : picker === 'transport'
           ? draft.transport
           : draft.destination;
-
   const submit = useCallback(() => {
-    'background only';
+    const startedAt = Date.now();
+    setError('');
+    setSubmitting(true);
+    // 先用直线估算跑一遍拿顺序：排序只依赖 distanceKm，第二遍重算顺序不会变
+    let firstPass: Plan[] = [];
     try {
-      const next = planFor(draft);
-      setError('');
-      track('plan_submitted', {
-        destination: draft.destination,
-        dayCount: draft.dayCount,
-        party: draft.party,
-        transport: draft.transport,
-        plans: next.length,
-      });
-      onPlanned(draft, next);
+      firstPass = planFor(draft);
     } catch (e) {
-      // 引擎抛的是「城市没接入 / 地点池没加载」，别让弹窗直接崩掉
+      // 城市没接入 / 地点池没加载：这时候连顺序都没有，不用去取路线
       const msg = e instanceof Error ? e.message : '这次没生成出来，换个目的地或稍后重试';
+      setSubmitting(false);
       setError(msg);
       track('plan_failed', { destination: draft.destination, reason: msg });
+      return;
     }
+    // 按第一遍的顺序取真实路段耗时（拿不到就退回直线估算，方案照样出）
+    warmTravelMinutes(draft, firstPass)
+      .catch(() => ({ asked: 0, hit: 0 }))
+      .then(() => {
+        try {
+          // 路上时间换成真实值后重算：顺序不变，到达时刻变准
+          const next = planFor(draft);
+          track('plan_submitted', {
+            destination: draft.destination,
+            dayCount: draft.dayCount,
+            party: draft.party,
+            transport: draft.transport,
+            plans: next.length,
+          });
+          // 取数快的时候也让过渡卡停一下，否则用户看不到「生成」发生过
+          const wait = Math.max(0, 700 - (Date.now() - startedAt));
+          timer.current = setTimeout(() => {
+            setSubmitting(false);
+            onPlanned(draft, next);
+          }, wait);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : '这次没生成出来，换个目的地或稍后重试';
+          setSubmitting(false);
+          setError(msg);
+          track('plan_failed', { destination: draft.destination, reason: msg });
+        }
+      });
   }, [draft, onPlanned]);
+
+  const cancelSubmit = useCallback(() => {
+    if (timer.current) clearTimeout(timer.current);
+    setSubmitting(false);
+  }, []);
 
   return (
     <view className={cls('sheet-mask')} bindtap={onClose}>
@@ -235,13 +274,20 @@ export function PlanSheet({ demand, onClose, onPlanned }: Props) {
         {picker ? (
           <PickerSheet
             title={PICKER_TITLE[picker]}
-            options={PICKER_OPTIONS[picker]}
+            options={
+              picker === 'destination'
+                ? cities.map((c) => ({ value: c, label: c }))
+                : PICKER_OPTIONS[picker]
+            }
             value={pickerValue}
             onClose={() => setPicker(null)}
             onPick={onPickValue}
           />
         ) : null}
       </view>
+
+      {/* 挂在遮罩层上而不是 sheet 里：卡片要按整屏居中，不能被弹窗高度裁掉 */}
+      {submitting ? <PlanLoading onCancel={cancelSubmit} /> : null}
     </view>
   );
 }

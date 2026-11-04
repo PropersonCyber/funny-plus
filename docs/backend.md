@@ -35,11 +35,13 @@ server/drizzle/     迁移文件（进仓，服务器只跑 migrate）
 | 地点 `Place` | **PG**（`places` 表） | 引擎要同步索引 → 前端启动时 `GET /api/places` 预热一次 `placeIndex` |
 | 避坑信息 `TravelFact` | **PG**（`facts` 表） | 需要来源/核验时间/有效期这类可追溯字段，且多个端要读 |
 | 避坑反馈 | **PG**（`fact_feedbacks` 表） | 匿名计数，靠 `clientId` 去重 |
+| 发现层内容（`cities` / `guides` / `plays`） | **PG** | 首页三块 + 两条详情页都读这里；`GET /api/content` 一次拉全 |
+| 展示用评分 / 去过人数 | 跟着 `places` / `cities` / `guides` 三张表走 | 运营录入的展示值，**不参与任何计算**，接口原样透出 |
 | 种子数据 | 仓库根 `data/*.json` | seed 脚本只读文件写库，代码里不出现业务数据字面量 |
 | 预算常数、校验阈值 | `shared/engine/` | 纯函数，可复算可测，服务端暂不需要权威计算 |
-| 已保存行程 | H5 端 localStorage；lynx 端目前是内存态 | 产品明确第一版不做账号与云端档案 |
+| 已保存行程 | 本机（`lynx/src/storage.ts`：宿主桥 / IndexedDB / localStorage 三层降级，含多行程与变更记录） | 产品明确第一版不做账号与云端档案；`/api/trips` 只读 |
 
-原生壳（`lynx/`）还没有 API base URL，地点与避坑读 `lynx/src/places.ts` / `lynx/src/facts.ts` 本地副本，内容必须与 `data/*.json` 同步。
+原生壳（`lynx/`）启动先用随包副本（`lynx/src/places.ts` / `lynx/src/facts.ts`，源文件仍是 `data/*.json`）渲染，`GET /api/content` 回来后用库里的地点池覆盖（`applyPlaces`）；接口拿不到就继续用副本，不阻塞首屏。避坑仍只读副本。
 
 服务端与前端之间只有**类型单向引用**：`server/src/routes/*.ts` 里 `import type` 指向 `shared/types`，运行时被 `tsx` 抹掉。
 

@@ -18,7 +18,12 @@ const cls = makeCls(styles);
 type Props = {
   demand: Demand;
   plans: Plan[];
+  /** 地图要跟行程页同一套方案，否则用户看的路线不是自己选的那条 */
+  planIndex: number;
   onPlan: () => void;
+  /** 地图第三栏「推荐玩法」直接读接口内容 */
+  plays: { id: string; title: string; note: string }[];
+  onPlay: (id: string) => void;
 };
 
 type Stop = {
@@ -60,13 +65,12 @@ const SPREAD: [number, number][] = [
   [0, 30], [0, -30],
 ];
 
-export function MapPage({ demand, plans, onPlan }: Props) {
+export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Props) {
   const [dayNo, setDayNo] = useState(1);
   const [view, setView] = useState<'route' | 'spots' | 'play'>('route');
   // 选中某个景点后，卡片区换成该点的详情；换天要清掉，否则 index 指向的是上一天的顺序
   const [picked, setPicked] = useState<number | null>(null);
-  // 地图上按「紧凑打卡」档取点，否则轻松档一天只排 2 个点，路线画出来就是一根直线
-  const plan = plans.find((p) => p.pace === 'packed') ?? plans[0];
+  const plan = plans[Math.min(planIndex, plans.length - 1)] ?? plans[0];
 
   const stops = useMemo<Stop[]>(() => {
     const day = plan?.days.find((d) => d.index === dayNo);
@@ -183,7 +187,9 @@ export function MapPage({ demand, plans, onPlan }: Props) {
       <view className={cls('map-top')}>
         <view className={cls('map-top-pill')}>
           <svg content={svgIcon('pin', COLOR.primary)} style={{ width: '15px', height: '15px', marginRight: '5px' }} />
-          <text className={cls('map-top-city')}>{demand.destination} {demand.dayCount}天{dayNo > 1 ? '2晚' : '1晚'}</text>
+          <text className={cls('map-top-city')}>
+            {demand.destination} {plan.days.length}天{plan.days.length > 1 ? `${plan.days.length - 1}晚` : ''}
+          </text>
         </view>
         <view className={cls('map-tabs')}>
           {VIEWS.map((v) => (
@@ -252,12 +258,10 @@ export function MapPage({ demand, plans, onPlan }: Props) {
         </view>
       ))}
 
+      {/* 定位能力没接入前不放定位按钮：按不到东西的按钮比没有更糟 */}
       <view className={cls('map-fab-col')}>
-        <view className={cls('map-fab')} bindtap={() => toast('定位能力未接入，先按行程城市展示')}>
-          <svg content={svgIcon('locate', '#2A3A57')} style={{ width: '20px', height: '20px' }} />
-        </view>
-        <view className={cls('map-fab')} bindtap={() => toast('更多操作本期未开放')}>
-          <text className={cls('map-fab-dots')}>•••</text>
+        <view className={cls('map-fab')} bindtap={() => setView('spots')}>
+          <svg content={svgIcon('map', '#2A3A57')} style={{ width: '20px', height: '20px' }} />
         </view>
       </view>
 
@@ -373,10 +377,10 @@ export function MapPage({ demand, plans, onPlan }: Props) {
           </scroll-view>
         ) : (
           <scroll-view className={cls('sheet-list')} scroll-y>
-            {MOCK.playStyles.map((p) => (
-              <view key={p.title} className={cls('sp-row')} bindtap={() => toast('玩法详情本期未开放')}>
+            {plays.map((p) => (
+              <view key={p.id} className={cls('sp-row')} bindtap={() => onPlay(p.id)}>
                 <view className={cls('sp-icon')}>
-                  <svg content={svgIcon(p.icon, '#2478F2')} style={{ width: '18px', height: '18px' }} />
+                  <svg content={svgIcon('sparkles', '#2478F2')} style={{ width: '18px', height: '18px' }} />
                 </view>
                 <view className={cls('sp-main')}>
                   <text className={cls('sp-name')}>{p.title}</text>

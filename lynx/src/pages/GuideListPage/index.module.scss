@@ -1,0 +1,126 @@
+// 精选攻略列表：首页只露 3 条，全量在这里
+
+.gl-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 60px 14px 0 14px;
+  background-color: #f5f8ff;
+}
+
+.gl-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.gl-back {
+  width: 34px;
+  height: 34px;
+  border-radius: 17px;
+  background-color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+  box-shadow: 0 4px 12px rgba(48, 104, 175, 0.1);
+  flex-shrink: 0;
+}
+
+.gl-head-main {
+  display: flex;
+  flex-direction: column;
+}
+
+.gl-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: #172b4d;
+}
+
+.gl-sub {
+  font-size: 11px;
+  color: #8a99b3;
+  margin-top: 2px;
+}
+
+/* 一行一条：左封面 + 中间信息 + 右箭头 */
+.gl-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 16px;
+  background-color: #ffffff;
+  box-shadow: 0 6px 18px rgba(48, 104, 175, 0.07);
+}
+
+.gl-img {
+  width: 104px;
+  height: 78px;
+  border-radius: 12px;
+  margin-right: 12px;
+  flex-shrink: 0;
+  /* 图没加载出来时留浅底，避免整行文字左移 */
+  background-color: #e6eefc;
+}
+
+.gl-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.gl-row-title {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: bold;
+  color: #14264b;
+}
+
+.gl-meta {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-top: 5px;
+}
+
+.gl-rate {
+  font-size: 11px;
+  font-weight: bold;
+  color: #f5a03c;
+}
+
+.gl-dim {
+  font-size: 11px;
+  color: #8a99b3;
+}
+
+.gl-dot {
+  font-size: 11px;
+  color: #c3cfe2;
+  margin: 0 4px;
+}
+
+.gl-badges {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.gl-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background-color: #eef4ff;
+  margin: 0 6px 0 0;
+}
+
+.gl-badge-text {
+  font-size: 10px;
+  color: #4a6699;
+}

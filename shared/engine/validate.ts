@@ -81,11 +81,16 @@ function checkItem(item: ItineraryItem, dayIndex: number, issues: PlanIssue[], u
   const place = placeById(item.placeId)
   if (!place) return
   if (item.startMin < place.open[0] || item.endMin > place.open[1]) {
+    // 只有官方核验过的营业时间才配判硬冲突。待核实的数据一旦判 error，
+    // 就是把「我们没核过」的锅甩给用户，误报两次之后没人再看提示卡。
+    const hard = place.trust === 'official'
     issues.push({
       code: 'closed-window',
-      level: 'error',
+      level: hard ? 'error' : 'warn',
       dayIndex,
-      message: `「${place.name}」在 ${fmt(place.open[0])}-${fmt(place.open[1])} 开放，当前安排落在时段外`
+      message: `「${place.name}」在 ${fmt(place.open[0])}-${fmt(place.open[1])} 开放，当前安排落在时段外${
+        hard ? '' : '（营业时间待核实，出发前自行确认）'
+      }`
     })
   }
   // 门票与开放时间都可能变，安排进得去也仍要用户确认（PRD 4.3）

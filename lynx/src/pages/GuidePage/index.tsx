@@ -13,7 +13,7 @@ import { myVerdict, saveVerdict, VERDICT_LABEL, fetchSummaries, submitVerdict } 
 import type { Verdict, Summary } from '../../feedback.js';
 import { track } from '../../track.js';
 import { toast } from '../../toast.js';
-import { factsOf, placeById } from '../../data.js';
+import { factsOf, placeById, factsExpiredCount } from '../../data.js';
 import type { Plan } from '../../data.js';
 import styles from './index.module.scss';
 import { makeCls } from '../../styles/cls.js';
@@ -115,6 +115,9 @@ export function GuidePage({ city, plans }: Props) {
 
   const facts = useMemo(() => factsOf(city), [city]);
 
+  // A2：过期条目默认不展示，但必须告知还有几条，否则用户以为这座城市没有这类信息
+  const expired = useMemo(() => factsExpiredCount(city), [city]);
+
   // 默认行程里排到的景点，按出现顺序去重；换天/换方案时会重算
   const spots = useMemo(() => {
     const seen = new Set<string>();
@@ -178,11 +181,17 @@ export function GuidePage({ city, plans }: Props) {
           </view>
         </scroll-view>
 
+        {expired > 0 ? (
+          <text className={cls('mock-note')}>另有 {expired} 条已过期信息，按 A2 默认不展示</text>
+        ) : null}
+
         <scroll-view className={cls('scroll')} scroll-y>
           {list.length === 0 ? (
             <view className={cls('card gd-card')}>
               <text className={cls('card-title')}>这一类暂无未过期条目</text>
-              <text className={cls('card-note')}>过期内容默认不展示；{city} 这个分类目前没有可展示的信息，不编造。</text>
+              <text className={cls('card-note')}>
+                {city} 这个分类目前没有未过期的信息，不编造。{expired > 0 ? `另有 ${expired} 条已过期，默认不展示。` : ''}
+              </text>
             </view>
           ) : null}
           {list.map((f) => (
@@ -247,7 +256,7 @@ export function GuidePage({ city, plans }: Props) {
         </view>
 
         <view className={cls('gd-sheet')}>
-          <view className={cls('gd-title-row2')} bindtap={() => toast('景点详情页本期未开放')}>
+          <view className={cls('gd-title-row2')}>
             <text className={cls('gd-spot')}>{spotName}</text>
             <svg content={svgIcon('chevronRight', '#A5B2C7')} style={{ width: '18px', height: '18px' }} />
           </view>

@@ -11,20 +11,47 @@ const cls = makeCls(styles);
 type Props = {
   demand: Demand;
   plans: Plan[];
+  /** 建议必须按用户选中的那套方案算，否则预算占比和方案金额对不上 */
+  planIndex: number;
   onBack: () => void;
   onPlan: () => void;
 };
 
-export function AdvicePage({ demand, plans, onBack, onPlan }: Props) {
-  const plan = plans[0];
+const CATEGORY_LABEL: Record<string, string> = {
+  transport: '交通',
+  lodging: '住宿',
+  tickets: '门票',
+  food: '餐饮',
+  other: '其他',
+};
+
+const CATEGORY_COLOR: Record<string, string> = {
+  transport: '#2478F2',
+  lodging: '#35C7E8',
+  tickets: '#45D6B0',
+  food: '#FFBE55',
+  other: '#A5B2C7',
+};
+
+export function AdvicePage({ demand, plans, planIndex, onBack, onPlan }: Props) {
+  const plan = plans[Math.min(planIndex, plans.length - 1)];
   const total = plan ? plan.budget.total : 0;
+
+  // 占比以前是写死的 35/25/20/15/5，跟方案金额无关；现在按真实预算分项折算
+  const split = plan
+    ? plan.budget.items.map((b) => ({
+        label: CATEGORY_LABEL[b.category] ?? b.category,
+        percent: total > 0 ? Math.round((b.amount / total) * 100) : 0,
+        color: CATEGORY_COLOR[b.category] ?? '#A5B2C7',
+      }))
+    : [];
 
   // 饼图用 SVG 画：按百分比累积 dashoffset
   const donut = (() => {
     let acc = 0;
     const r = 42;
     const c = 2 * Math.PI * r;
-    const arcs = MOCK.advice.budgetSplit
+    const arcs = split
       .map((b) => {
         const len = (b.percent / 100) * c;
         const seg = `<circle cx="50" cy="50" r="${r}" fill="none" stroke="${b.color}" stroke-width="16" stroke-dasharray="${len} ${
@@ -127,7 +154,7 @@ export function AdvicePage({ demand, plans, onBack, onPlan }: Props) {
           <view className={cls('donut-row')}>
             <svg content={donut} style={{ width: '108px', height: '108px' }} />
             <view className={cls('legend')}>
-              {MOCK.advice.budgetSplit.map((b) => (
+              {split.map((b) => (
                 <view key={b.label} className={cls('legend-row')}>
                   <view className={cls('legend-dot')} style={{ backgroundColor: b.color }} />
                   <text className={cls('legend-label')}>{b.label}</text>
@@ -155,7 +182,7 @@ export function AdvicePage({ demand, plans, onBack, onPlan }: Props) {
           <text className={cls('btn-primary-text')}>重新规划一次</text>
         </view>
 
-        <text className={cls('mock-note')}>出行方式与预算占比为设计稿示例数据（mock）</text>
+        <text className={cls('mock-note')}>出行方式与住宿建议为设计稿示例数据（mock）</text>
       </view>
     </scroll-view>
   );

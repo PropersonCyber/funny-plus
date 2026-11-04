@@ -1,124 +1,403 @@
-// 本模块专属样式（CSS Modules，类名会被哈希）
+// 攻略详情：封面通栏 + 压在上面的白色大卡 + 三张内嵌卡（亮点 / 安排 / 适合谁）
+// 尺寸取自设计稿（750 宽稿，按 2 折算成 rpx 口径的 px 值）
+
+.gd-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background-color: #eef3fd;
+}
 
 .gd-root {
   display: flex;
   flex-direction: column;
+  /* 底部条在普通流里（Lynx 的 scroll-view 顶部对齐，固定条要绝对定位才能常驻），
+     所以这里只留一点收尾空白，不用给按钮让位 */
+  padding-bottom: 8px;
 }
 
-/* 封面通栏：不切圆角（顶部要顶到状态栏），下面的白卡靠负 margin 压上去做出分隔 */
-.cover {
+/* 封面：设计稿里画面是通栏的，左右不出白边 */
+.gd-hero {
   position: relative;
-  height: 240px;
-  overflow: hidden;
+  height: 250px;
+  /* 不裁溢出：吉祥物要压到白卡上沿，overflow:hidden 会把它的下半身切掉 */
 }
 
-.cover-top {
+.gd-hero-img {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* 顶部按钮压在安全区下方；env() 在 Lynx 原生端取不到值，沿用全仓 60px 的状态栏口径 */
+.gd-top {
   position: absolute;
   left: 16px;
   right: 16px;
-  top: 56px;
+  top: 52px;
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
 }
 
-.cover-tools {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-}
-
-.cover-btn {
-  width: 34px;
-  height: 34px;
-  border-radius: 17px;
-  background-color: rgba(255, 255, 255, 0.92);
+.gd-round-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 19px;
+  background-color: rgba(255, 255, 255, 0.94);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-left: 8px;
+  box-shadow: 0 4px 14px rgba(31, 71, 135, 0.16);
 }
 
-/* 标题卡压在封面上：-16 让封面露出一段，卡片自己 20 圆角切出层次 */
-.head-card {
+/* 吉祥物：设计稿里站在封面右侧、脚踩白卡上沿，所以 bottom 取负值 */
+.gd-mascot {
+  position: absolute;
+  right: 6px;
+  bottom: -14px;
+  width: 100px;
+  height: 120px;
+}
+
+/* 白色大卡：负 margin 压住封面底部，顶部大圆角是设计稿的标志性造型 */
+.gd-sheet {
   display: flex;
   flex-direction: column;
-  margin: -18px 12px 12px 12px;
-  padding: 16px;
-  border-radius: 20px;
-  background-color: #ffffff;
-  box-shadow: 0 8px 26px rgba(31, 71, 135, 0.12);
+  margin: -30px 0 0 0;
+  padding: 22px 14px 18px 14px;
+  border-radius: 28px 28px 0 0;
+  background-color: #f5f9ff;
 }
 
-.gd-title {
-  font-size: 21px;
-  line-height: 29px;
-  font-weight: bold;
-  color: #172b4d;
-  margin-bottom: 10px;
-}
-
-.author-row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  margin-top: 12px;
-}
-
-.author-main {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
-
-.author-name {
-  font-size: 13px;
-  font-weight: bold;
-  color: #172b4d;
-}
-
-.author-meta {
-  font-size: 11px;
-  line-height: 16px;
-  color: #7183a2;
-  margin-top: 2px;
-}
-
-.fav-btn {
-  padding: 6px 12px;
-  border-radius: 999px;
-  background-color: #eaf1ff;
-}
-
-.fav-text {
-  font-size: 12px;
-  font-weight: bold;
-  color: #2478f2;
-}
-
-/* 「适合谁」：左边三行说明，右边吉祥物探头，都不压字 */
-.fit-body {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-end;
-  margin-top: 6px;
-}
-
-.fit-main {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
-
-.fit-row {
+.gd-title-row {
   display: flex;
   flex-direction: row;
   align-items: flex-start;
+}
+
+.gd-title {
+  font-size: 22px;
+  line-height: 30px;
+  font-weight: bold;
+  color: #14264b;
+  flex: 1;
+}
+
+/* 右上角手写体：设计稿是斜置的两行手写，用斜体 + 主色近似，不额外造字体资源 */
+.gd-slogan {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-left: 8px;
+  width: 92px;
+  flex-shrink: 0;
+  transform: rotate(-6deg);
+}
+
+.gd-slogan-line {
+  font-size: 11px;
+  line-height: 15px;
+  font-weight: bold;
+  color: #1b9fd8;
+  font-style: italic;
+}
+
+.gd-stat-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.gd-stat-strong {
+  font-size: 15px;
+  font-weight: bold;
+  color: #14264b;
+}
+
+.gd-stat {
+  font-size: 12px;
+  color: #5b6b86;
+}
+
+.gd-stat-sep {
+  font-size: 10px;
+  color: #c3cfe2;
+  margin: 0 9px;
+}
+
+.gd-desc {
+  font-size: 13px;
+  line-height: 20px;
+  color: #5b6b86;
+  margin-top: 10px;
+}
+
+.gd-badges {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.gd-badge {
+  padding: 5px 12px;
+  border-radius: 999px;
+  background-color: #e2ecfe;
+  margin: 0 8px 0 0;
+}
+
+.gd-badge-text {
+  font-size: 12px;
+  color: #2c5aa8;
+}
+
+.gd-empty {
+  display: flex;
+  flex-direction: column;
+  margin-top: 12px;
+}
+
+/* 三张内嵌卡统一：白底、22 圆角、无阴影（设计稿这里靠底色分层，不靠投影） */
+.gd-card {
+  display: flex;
+  flex-direction: column;
+  margin-top: 12px;
+  padding: 14px 14px 16px 14px;
+  border-radius: 22px;
+  background-color: #ffffff;
+}
+
+.gd-card-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.gd-card-head-between {
+  justify-content: space-between;
+}
+
+.gd-hl-more {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 2px 0 2px 6px;
+}
+
+.gd-hl-more-text {
+  font-size: 12px;
+  color: #8a99b3;
+  margin-right: 2px;
+}
+
+.gd-card-title {
+  font-size: 17px;
+  font-weight: bold;
+  color: #14264b;
+}
+
+/* 四宫格：图标在上、标题、小字，四等分不换行 */
+.gd-hl-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  margin-top: 14px;
+}
+
+.gd-hl {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+/* 图标下面那层浅蓝光晕：设计稿每格图标都有个软底，不是纯贴图 */
+.gd-hl-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 28px;
+  /* 图标本身是白底圆角方图，托在白色圆盘上再裁圆，看不出底边 */
+  background-color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(48, 104, 175, 0.1);
+  overflow: hidden;
+}
+
+.gd-hl-img {
+  width: 38px;
+  height: 38px;
+  /* 同 tl-thumb：图标没到位也要占住位置 */
+  background-color: transparent;
+}
+
+.gd-hl-title {
+  font-size: 12px;
+  font-weight: bold;
+  color: #2478f2;
+  margin-top: 8px;
+  /* 四格等宽，标题长了要能折行而不是把相邻格挤歪 */
+  text-align: center;
+}
+
+.gd-hl-spot {
+  font-size: 10px;
+  color: #8a99b3;
+  margin-top: 3px;
+  text-align: center;
+}
+
+.gd-day {
+  display: flex;
+  flex-direction: column;
+  margin-top: 16px;
+}
+
+/* 天头圆点压在轨道上：轨道在 gd-tl 内 left:5px，圆点相对 gd-day 定位 */
+.gd-day-dot {
+  position: absolute;
+  left: -17px;
+  top: 5px;
+  width: 10px;
+  height: 10px;
+  border-radius: 5px;
+  background-color: #2478f2;
+}
+
+.gd-day-head {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.gd-day-chip {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background-color: #2478f2;
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+
+.gd-day-chip-text {
+  font-size: 11px;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.gd-day-title {
+  font-size: 13px;
+  font-weight: bold;
+  color: #14264b;
+  flex: 1;
+}
+
+/* 时间轴：竖线画在 rail 上，圆点绝对定位压线，行与行之间不断线 */
+.gd-tl {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  margin-top: 12px;
+  padding-left: 18px;
+}
+
+.gd-tl-rail {
+  position: absolute;
+  left: 5px;
+  top: 12px;
+  bottom: 18px;
+  width: 2px;
+  background-color: #dbe7fb;
+}
+
+.gd-tl-row {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 8px 0;
+}
+
+/* 餐食行：设计稿里是一条弱化的文字行，不占缩略图位 */
+.gd-tl-meal {
+  display: flex;
+  flex-direction: column;
   padding: 6px 0;
 }
 
-.fit-icon {
+.gd-tl-meal-text {
+  font-size: 13px;
+  font-weight: bold;
+  color: #5b6b86;
+}
+
+.gd-tl-thumb {
+  width: 74px;
+  height: 58px;
+  border-radius: 14px;
+  margin-right: 12px;
+  flex-shrink: 0;
+  /* 图没加载出来时留一块浅底，避免整行文字被挤到最左边，看起来像另一次排版 */
+  background-color: #eef4ff;
+}
+
+.gd-tl-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.gd-tl-name-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.gd-tl-name {
+  font-size: 14px;
+  font-weight: bold;
+  color: #14264b;
+  flex: 1;
+}
+
+.gd-tl-meta-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-top: 5px;
+}
+
+/* 描述可能是一整句，折行后不能把右侧箭头挤没 */
+.gd-tl-meta {
+  font-size: 11px;
+  line-height: 16px;
+  color: #8a99b3;
+  flex: 1;
+}
+
+.gd-fit {
+  display: flex;
+  flex-direction: column;
+  margin-top: 6px;
+}
+
+.gd-fit-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  padding: 7px 0;
+}
+
+.gd-fit-icon {
   width: 26px;
   height: 26px;
   border-radius: 13px;
@@ -129,232 +408,28 @@
   flex-shrink: 0;
 }
 
-.fit-icon-blue {
-  background-color: rgba(36, 120, 242, 0.12);
-}
-.fit-icon-green {
-  background-color: rgba(32, 185, 138, 0.14);
-}
-.fit-icon-violet {
-  background-color: rgba(139, 124, 255, 0.16);
-}
-
-.fit-text {
+.gd-fit-main {
   display: flex;
   flex-direction: column;
   flex: 1;
+  min-width: 0;
 }
 
-.fit-title {
+.gd-fit-title {
   font-size: 13px;
   line-height: 19px;
   font-weight: bold;
-  color: #172b4d;
+  color: #14264b;
 }
 
-.fit-desc {
+.gd-fit-desc {
   font-size: 11px;
   line-height: 16px;
-  color: #7183a2;
+  color: #8a99b3;
   margin-top: 2px;
 }
 
-.fit-mascot {
-  width: 56px;
-  height: 62px;
-  margin-left: 6px;
-  flex-shrink: 0;
-}
-
-.sec-head {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 6px;
-}
-
-.sec-link {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  padding: 2px 4px;
-}
-
-.sec-link-text {
-  font-size: 12px;
-  color: #2478f2;
-}
-
-.day-block {
-  margin-top: 8px;
-}
-
-.day-head {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  margin-bottom: 2px;
-}
-
-.day-chip {
-  margin: 0 8px 0 0;
-}
-
-.day-route {
-  font-size: 11px;
-  color: #7183a2;
-  flex: 1;
-}
-
-/* 时间轴一行：时间 / 竖线+圆点 / 缩略图 / 文字。
-   竖线用 rail 的左边框画，圆点绝对定位在边框上，行与行之间不断线 */
-.gt-row {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  padding-top: 10px;
-}
-
-.gt-time {
-  width: 40px;
-  font-size: 11px;
-  line-height: 16px;
-  color: #7183a2;
-  padding-top: 4px;
-}
-
-.gt-rail {
-  position: relative;
-  width: 18px;
-  align-self: stretch;
-  border-left-width: 1px;
-  border-left-style: solid;
-  border-left-color: #e2ebfb;
-  margin-left: 2px;
-}
-
-.gt-dot {
-  position: absolute;
-  left: -4px;
-  top: 6px;
-  width: 7px;
-  height: 7px;
-  border-radius: 4px;
-  background-color: #2478f2;
-}
-
-.gt-dot-meal {
-  background-color: #ffbe55;
-}
-
-.gt-thumb {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  margin-right: 10px;
-  flex-shrink: 0;
-}
-
-.gt-meal {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background-color: rgba(255, 190, 85, 0.16);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 10px;
-  flex-shrink: 0;
-}
-
-.gt-meal-text {
-  font-size: 12px;
-  font-weight: bold;
-  color: #c98a1c;
-}
-
-.gt-body {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  padding-top: 2px;
-}
-
-.gt-name {
-  font-size: 13px;
-  line-height: 18px;
-  font-weight: bold;
-  color: #172b4d;
-}
-
-.gt-meta {
-  font-size: 11px;
-  line-height: 16px;
-  color: #7183a2;
-  margin-top: 2px;
-}
-
-/* 预算：一条明细一行数字 + 一条比例条，条长用来比大小，不用来当精确刻度。
-   行间用细分隔线（设计稿节奏），末行去掉，所以用 -last 类而不是 :last-child */
-.bg-row {
-  display: flex;
-  flex-direction: column;
-  padding: 10px 0;
-  border-bottom-width: 1px;
-  border-bottom-style: solid;
-  border-bottom-color: #eef2f9;
-}
-
-.bg-row-last {
-  border-bottom-width: 0;
-  padding-bottom: 2px;
-}
-
-.bg-top {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.bg-icon {
-  width: 22px;
-  height: 22px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 9px;
-  flex-shrink: 0;
-}
-
-.bg-label {
-  font-size: 12px;
-  color: #5b6b86;
-  flex: 1;
-}
-
-.bg-amount {
-  font-size: 12px;
-  font-weight: bold;
-  color: #172b4d;
-}
-
-.bg-track {
-  height: 5px;
-  border-radius: 3px;
-  background-color: #eef3fb;
-  margin-top: 5px;
-  overflow: hidden;
-}
-
-.bg-fill {
-  height: 5px;
-  border-radius: 3px;
-}
-
-.warn-row {
+.gd-warn-row {
   display: flex;
   flex-direction: row;
   align-items: flex-start;
@@ -364,26 +439,63 @@
   border-bottom-color: #eef2f9;
 }
 
-.warn-row-last {
+.gd-warn-row-last {
   border-bottom-width: 0;
-  padding-bottom: 2px;
+  padding-bottom: 0;
 }
 
-.warn-badge {
+.gd-warn-badge {
   padding: 2px 7px;
   border-radius: 999px;
   margin-right: 8px;
   flex-shrink: 0;
 }
 
-.warn-badge-text {
+.gd-warn-badge-text {
   font-size: 10px;
   color: #4a5c78;
 }
 
-.warn-text {
+.gd-warn-text {
   font-size: 12px;
   line-height: 18px;
   color: #5b6b86;
   flex: 1;
+}
+
+/* 底部条：主按钮满宽贴合设计稿，右留一格「看排期」保住攻略→行程的入口 */
+.gd-bar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 10px 14px 16px 14px;
+  background-color: #ffffff;
+  border-top-width: 1px;
+  border-top-style: solid;
+  border-top-color: #eef2f9;
+}
+
+.gd-cta {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  height: 48px;
+  border-radius: 999px;
+  background-image: linear-gradient(100deg, #2478f2, #35bceb);
+  box-shadow: 0 8px 20px rgba(36, 120, 242, 0.3);
+}
+
+/* 已收藏：去掉渐变改成实心浅蓝，视觉上「已经拿到了」，但仍可点取消 */
+.gd-cta-on {
+  background-image: none;
+  background-color: #6ea8f7;
+  box-shadow: none;
+}
+
+.gd-cta-text {
+  font-size: 15px;
+  font-weight: bold;
+  color: #ffffff;
 }

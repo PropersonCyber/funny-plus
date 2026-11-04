@@ -24,3 +24,15 @@ ios/webapp/out/
 # 设计基准图（原型稿 / 宣传稿 / 界面设计稿）：8.5MB，只做本地视觉参照，不进仓
 # 注意 docs/brand/（AppIcon、logo 源图）与 pitch/ 仍进仓
 docs/*.png
+
+# 安卓壳的构建产物（APK / 中间 class 与 dex）
+android/build/
+
+# 安卓签名密钥：不进仓，但必须留在本机 —— 换 key 会导致已装的包无法覆盖升级
+android/keystore/
+
+# Xcode 的 DerivedData：build/ 下 89 个中间产物全是一次性文件，回滚靠源码不靠它
+ios/FunnyPlus/build/
+
+# 早期手工备份目录（*本改变备份策略后再有新的，靠 git 回滚）
+backup-*/

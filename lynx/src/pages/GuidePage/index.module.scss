@@ -1,31 +1,5 @@
 // 本模块专属样式（CSS Modules，类名会被哈希）
 
-.guide-banner-text {
-  font-size: 12px;
-  color: #2478f2;
-}
-
-.map-head {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-
-.map-city {
-  font-size: 15px;
-  font-weight: bold;
-  color: #172b4d;
-}
-
-.map-note {
-  font-size: 10px;
-  line-height: 15px;
-  color: #a5b2c7;
-  margin: 8px 0 12px 0;
-}
-
 .cat-scroll {
   height: 40px;
   margin-bottom: 12px;
@@ -34,23 +8,6 @@
 .cat-row {
   display: flex;
   flex-direction: row;
-}
-
-.fact-head {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.fact-cat-row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  /* 分类名再长也不能把左侧状态徽标挤没 */
-  flex-shrink: 1;
-  min-width: 0;
 }
 
 .fact-cat-badge {
@@ -88,62 +45,9 @@
   background-color: #a5b2c7;
 }
 
-.fact-cat {
-  font-size: 13px;
-  font-weight: bold;
-  color: #172b4d;
-  flex-shrink: 1;
-}
-
-.fact-trust {
-  font-size: 10px;
-  color: #8a99b3;
-  flex-shrink: 0;
-  margin-left: 8px;
-}
-
-.fact-content {
-  font-size: 13px;
-  line-height: 20px;
-  color: #2a3a57;
-  margin-bottom: 6px;
-}
-
-.fact-scope {
-  font-size: 11px;
-  color: #7183a2;
-  margin-bottom: 8px;
-}
-
-.fact-foot {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  margin-bottom: 2px;
-}
-
 .fact-meta {
   font-size: 10px;
   color: #a5b2c7;
-}
-
-.guid-banner {
-  padding: 10px 14px;
-  border-radius: 14px;
-  background-color: #eef4ff;
-  margin-bottom: 10px;
-}
-
-.guide-foot {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-end;
-  justify-content: space-between;
-}
-
-.guide-foot-note {
-  flex: 1;
-  margin-right: 8px;
 }
 
 /* 条目卡片：左图标 + 右内容，底部一条来源/有效期 */

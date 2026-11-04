@@ -1,4 +1,6 @@
-import { useCallback, useState } from '@lynx-js/react';
+import { useCallback, useEffect, useState } from '@lynx-js/react';
+
+import { locateCity } from '../../geo.js';
 
 import { svgIcon } from '../../icons.js';
 import { toast } from '../../toast.js';
@@ -23,6 +25,22 @@ export function CityPage({ city, cities, onPick, onBack }: Props) {
 
   const onChange = useCallback((e: any) => setKeyword(e.detail?.value ?? ''), []);
 
+  // 只有真拿到城市名才替换显示：没有壳桥（web 预览）、权限被拒、服务端没配 key
+  // 这三种都保持原来的占位文案，不能退回 city（那是用户选的目的地，不是定位）
+  const [located, setLocated] = useState('');
+  useEffect(() => {
+    let alive = true;
+    locateCity()
+      .then((r) => {
+        if (alive && r.status === 'ok' && r.city) setLocated(r.city);
+      })
+      // 定位是锦上添花，失败不打断选城市
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   return (
     <view className={cls('city-page')}>
       <view className={cls('city-head')}>
@@ -42,8 +60,8 @@ export function CityPage({ city, cities, onPick, onBack }: Props) {
 
       <view className={cls('city-cur')}>
         <text className={cls('city-cur-label')}>当前定位</text>
-        <text className={cls('city-cur-value')}>{city}</text>
-        <text className={cls('city-cur-note')}>接定位能力后由宿主动态获取</text>
+        <text className={cls('city-cur-value')}>{located || city}</text>
+        <text className={cls('city-cur-note')}>{located ? '按设备定位' : '接定位能力后由宿主动态获取'}</text>
       </view>
 
       <text className={cls('city-sec')}>{kw ? '搜索结果' : '可选城市'}</text>

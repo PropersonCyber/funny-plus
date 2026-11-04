@@ -19,36 +19,6 @@
   margin-bottom: 10px;
 }
 
-.timeline-item {
-  display: flex;
-  flex-direction: row;
-  padding: 8px 0;
-  border-bottom: 1px solid #eef4ff;
-}
-
-.timeline-time {
-  width: 52px;
-  font-size: 12px;
-  font-weight: bold;
-  color: #2478f2;
-}
-
-.timeline-main {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
-
-.timeline-title {
-  font-size: 13px;
-  color: #172b4d;
-}
-
-.timeline-note {
-  font-size: 10px;
-  color: #7183a2;
-}
-
 .timeline {
   display: flex;
   flex-direction: column;
@@ -134,14 +104,6 @@
 .tl-meal-text {
   font-size: 18px;
   color: #ff9a3d;
-}
-
-.tl-dot-arrive {
-  background-color: #20b98a;
-}
-
-.tl-arrive-icon {
-  background-color: #eafaf4;
 }
 
 /* 校验结果：error 必须改，warn 看情况，info 只是数据没核过 */

@@ -1,0 +1,89 @@
+[
+  {
+    "id": "成都",
+    "tag": "美食 · 熊猫",
+    "coverImage": "chengdu",
+    "priceFrom": "¥1200 起",
+    "rating": "4.8",
+    "visitedText": "2.3 万人去过",
+    "days": "1-2天",
+    "desc": "美食之都，慢享生活",
+    "tips": [
+      {
+        "icon": "weather",
+        "label": "最佳旅行时间",
+        "text": "3-6月、9-11月，春秋两季最舒服"
+      },
+      {
+        "icon": "transport",
+        "label": "交通建议",
+        "text": "地铁覆盖主要景点，市内优先地铁 + 公交"
+      },
+      {
+        "icon": "food",
+        "label": "必吃美食",
+        "text": "火锅、串串、担担面"
+      }
+    ],
+    "isOpen": true,
+    "sortOrder": 1
+  },
+  {
+    "id": "重庆",
+    "tag": "山城 · 夜景",
+    "coverImage": "chongqing",
+    "priceFrom": "¥1500 起",
+    "rating": "4.8",
+    "visitedText": "1.8 万人去过",
+    "days": "1-2天",
+    "desc": "山城奇观，夜景迷人",
+    "tips": [
+      {
+        "icon": "weather",
+        "label": "最佳旅行时间",
+        "text": "3-5月、9-11月，避开盛夏高温"
+      },
+      {
+        "icon": "transport",
+        "label": "交通建议",
+        "text": "轨道交通最可靠，爬坡路段建议直接打车"
+      },
+      {
+        "icon": "food",
+        "label": "必吃美食",
+        "text": "重庆小面、毛血旺、老火锅"
+      }
+    ],
+    "isOpen": true,
+    "sortOrder": 2
+  },
+  {
+    "id": "北京",
+    "tag": "古都 · 人文",
+    "coverImage": "beijing",
+    "priceFrom": "¥1600 起",
+    "rating": "4.8",
+    "visitedText": "2.0 万人去过",
+    "days": "1-2天",
+    "desc": "红墙金瓦，胡同烟火",
+    "tips": [
+      {
+        "icon": "weather",
+        "label": "最佳旅行时间",
+        "text": "4-5月、9-10月，春天花开秋天不闷"
+      },
+      {
+        "icon": "transport",
+        "label": "交通建议",
+        "text": "地铁去故宫天坛最省事，景点之间距离大别硬走"
+      },
+      {
+        "icon": "food",
+        "label": "必吃美食",
+        "text": "烤鸭、炸酱面、铜锅涮肉"
+      }
+    ],
+    "isOpen": true,
+    "sortOrder": 3
+  }
+]

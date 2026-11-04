@@ -7,7 +7,6 @@
   min-height: 100%;
 }
 
-
 .home-in {
   position: relative;
   display: flex;
@@ -18,19 +17,10 @@
 
 /* Hero 顶到状态栏后面，整块当背景，只有下面留圆角 */
 
-
-
 .ai-text {
   display: flex;
   flex-direction: column;
   flex: 1;
-}
-
-
-
-.ai-chevron {
-  font-size: 20px;
-  color: #a5b2c7;
 }
 
 .quick-card {
@@ -40,90 +30,7 @@
   border-radius: 18px;
   background-color: #ffffff;
   box-shadow: 0 8px 22px rgba(48, 104, 175, 0.08);
-  margin-bottom: 16px;
   margin-bottom: 18px;
-}
-
-.searchbar {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  height: 44px;
-  padding: 0 14px;
-  border-radius: 999px;
-  background-color: #ffffff;
-  box-shadow: 0 6px 24px rgba(48, 104, 175, 0.09);
-  margin-bottom: 12px;
-}
-
-.searchbar-icon {
-  width: 16px;
-  height: 16px;
-  margin-right: 8px;
-}
-
-.searchbar-text {
-  flex: 1;
-  overflow: hidden;
-  font-size: 13px;
-  color: #a5b2c7;
-}
-
-
-.hero-bg {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-}
-
-.hero-mask {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  background-image: linear-gradient(180deg, rgba(36, 120, 242, 0.05) 30%, rgba(18, 86, 200, 0.82) 100%);
-}
-
-.hero-card {
-  position: absolute;
-  left: 14px;
-  right: 14px;
-  bottom: 14px;
-  padding: 12px 14px;
-  border-radius: 18px;
-  background-color: #ffffff;
-}
-
-.hero-head {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  margin-bottom: 4px;
-}
-
-.hero-icon {
-  width: 16px;
-  height: 16px;
-  margin-right: 6px;
-}
-
-
-.hero-sub {
-  font-size: 11px;
-  color: #7183a2;
-}
-
-.quick {
-  display: flex;
-  flex-direction: row;
-  padding: 14px 6px;
-  border-radius: 22px;
-  background-color: #ffffff;
-  box-shadow: 0 6px 24px rgba(48, 104, 175, 0.09);
-  margin-bottom: 16px;
 }
 
 .quick-item {
@@ -143,12 +50,6 @@
   justify-content: center;
   margin-bottom: 8px;
 }
-
-.quick-icon {
-  width: 22px;
-  height: 22px;
-}
-
 
 .city-row {
   display: flex;
@@ -173,20 +74,6 @@
   margin-right: 10px;
 }
 
-
-.city-img {
-  width: 100%;
-  height: 72px;
-  border-radius: 12px;
-  margin-bottom: 6px;
-}
-
-
-.city-off-text {
-  font-size: 10px;
-  color: #a5b2c7;
-}
-
 .city-body {
   display: flex;
   flex-direction: column;
@@ -198,33 +85,6 @@
   font-weight: bold;
   color: #172b4d;
   margin-bottom: 2px;
-}
-
-.city-name-off {
-  color: #a5b2c7;
-}
-
-.city-tag {
-  font-size: 11px;
-  color: #8a99b3;
-}
-
-.city-price {
-  font-size: 14px;
-  font-weight: bold;
-  color: #2478f2;
-  margin-top: 4px;
-}
-
-.city-img-off {
-  width: 104px;
-  height: 72px;
-  border-radius: 12px;
-  margin-bottom: 6px;
-  background-color: #eef4ff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .ai-fab {
@@ -314,13 +174,10 @@
 /* 文字压在山体上会看不清，加一层自上而下的暗色蒙版 */
 
 /* ---------- 首页 Hero：插画铺满到状态栏，两侧无留白 ---------- */
-.home-sky {
-  display: none;
-}
 .hero {
   position: relative;
   width: 100%;
-  height: 340px;
+  height: 380px;
   overflow: hidden;
 }
 /* banner 素材底部直接接页面白：不虚化的话会留一条硬边 */
@@ -337,31 +194,6 @@
 }
 
 /* ---------- 首页按设计稿补的区块 ---------- */
-.search-row .searchbar {
-  flex: 1;
-  margin-right: 10px;
-}
-.ai-btn {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  height: 44px;
-  padding: 0 16px;
-  border-radius: 22px;
-  background-image: linear-gradient(135deg, #5b86ff, #4169f5);
-  box-shadow: 0 6px 16px rgba(65, 105, 245, 0.28);
-}
-.ai-btn-text {
-  font-size: 13px;
-  font-weight: bold;
-  color: #ffffff;
-}
-.quick-desc {
-  font-size: 9px;
-  color: #9aa8bf;
-  margin-top: 3px;
-  text-align: center;
-}
 .quick-title {
   font-size: 12px;
   color: #172b4d;

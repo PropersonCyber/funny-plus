@@ -1,0 +1,450 @@
+// 热门推荐详情：封面通栏 + 压上去的白卡（标题行 / 数据行 / 胶囊 / 三块内容）+ 底部按钮
+// 尺寸按设计稿 750 宽稿折算
+
+.hot-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background-color: #eef3fd;
+}
+
+.hot-root {
+  display: flex;
+  flex-direction: column;
+  /* 底部条在普通流里，这里只留收尾空白 */
+  padding-bottom: 8px;
+}
+
+/* 封面：设计稿里画面通栏、不留边 */
+.hot-hero {
+  position: relative;
+  height: 250px;
+  /* 不裁溢出：吉祥物要压到白卡上沿，overflow:hidden 会把它的下半身切掉 */
+}
+
+.hot-hero-img {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hot-top {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 52px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hot-round-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 19px;
+  background-color: rgba(255, 255, 255, 0.94);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(31, 71, 135, 0.16);
+}
+
+/* 吉祥物站在画面右侧、脚踩卡片上沿：bottom 取负值让下半身被白卡压住，符合设计稿的层次 */
+.hot-mascot {
+  position: absolute;
+  right: 6px;
+  bottom: -18px;
+  width: 92px;
+  height: 112px;
+}
+
+/* 白卡：负 margin 压住封面，顶部大圆角 */
+.hot-sheet {
+  display: flex;
+  flex-direction: column;
+  margin: -30px 0 0 0;
+  padding: 20px 14px 16px 14px;
+  border-radius: 28px 28px 0 0;
+  background-color: #f5f9ff;
+}
+
+.hot-title-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.hot-flame {
+  width: 24px;
+  height: 24px;
+  margin-right: 6px;
+}
+
+.hot-title {
+  font-size: 23px;
+  font-weight: bold;
+  color: #14264b;
+  flex: 1;
+}
+
+/* 右上角城市胶囊：设计稿是浅灰蓝底 + 蓝色定位针 */
+.hot-city-chip {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background-color: #e9f0fd;
+}
+
+.hot-city-text {
+  font-size: 13px;
+  font-weight: bold;
+  color: #14264b;
+}
+
+.hot-stat-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.hot-stat-strong {
+  font-size: 15px;
+  font-weight: bold;
+  color: #14264b;
+}
+
+.hot-stat {
+  font-size: 12px;
+  color: #5b6b86;
+}
+
+.hot-stat-sep {
+  font-size: 10px;
+  color: #c3cfe2;
+  margin: 0 9px;
+}
+
+.hot-desc {
+  font-size: 13px;
+  line-height: 20px;
+  color: #5b6b86;
+  margin-top: 10px;
+}
+
+.hot-badges {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.hot-badge {
+  padding: 5px 12px;
+  border-radius: 999px;
+  background-color: #e2ecfe;
+  margin: 0 8px 0 0;
+}
+
+.hot-badge-text {
+  font-size: 12px;
+  color: #2c5aa8;
+}
+
+/* 区块标题行：左标题右「查看更多」 */
+.hot-sec-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 18px;
+}
+
+.hot-sec-head-tight {
+  margin-top: 14px;
+}
+
+.hot-sec-title-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.hot-sec-title {
+  font-size: 17px;
+  font-weight: bold;
+  color: #14264b;
+}
+
+.hot-sec-more {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 2px 0 2px 6px;
+}
+
+.hot-sec-more-text {
+  font-size: 12px;
+  color: #8a99b3;
+  margin-right: 2px;
+}
+
+/* 景点横排：只在容器内滚动，不撑破页面 */
+.hot-spots {
+  margin-top: 12px;
+}
+
+.hot-spot-row {
+  display: flex;
+  flex-direction: row;
+}
+
+.hot-spot {
+  display: flex;
+  flex-direction: column;
+  width: 108px;
+  margin-right: 10px;
+  flex-shrink: 0;
+  /* 设计稿里每个景点是一张白卡：图在上、文字在内边距里 */
+  border-radius: 16px;
+  background-color: #ffffff;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(48, 104, 175, 0.08);
+}
+
+.hot-spot-img {
+  width: 108px;
+  height: 92px;
+  /* 图没到位时留浅底，避免整排塌陷 */
+  background-color: #e6eefc;
+}
+
+.hot-spot-body {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 9px 10px 9px;
+}
+
+.hot-spot-name {
+  font-size: 13px;
+  font-weight: bold;
+  color: #14264b;
+}
+
+.hot-spot-meta {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-top: 5px;
+}
+
+.hot-spot-rate {
+  font-size: 10px;
+  font-weight: bold;
+  color: #f5a03c;
+}
+
+.hot-spot-visitors {
+  font-size: 10px;
+  color: #8a99b3;
+  margin-left: 3px;
+}
+
+/* 推荐行程卡：左图 + 中间信息 + 右箭头 */
+.hot-plan {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 18px;
+  background-color: #ffffff;
+}
+
+.hot-plan-img {
+  width: 100px;
+  height: 82px;
+  border-radius: 14px;
+  margin-right: 11px;
+  flex-shrink: 0;
+  background-color: #e6eefc;
+}
+
+.hot-plan-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.hot-plan-label {
+  align-self: flex-start;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background-color: #2478f2;
+  margin-bottom: 5px;
+}
+
+.hot-plan-label-text {
+  font-size: 10px;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.hot-plan-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #14264b;
+}
+
+/* 路线行可能很长（A → B → C），折行后不能把箭头挤没 */
+.hot-plan-route {
+  font-size: 11px;
+  line-height: 16px;
+  color: #8a99b3;
+  margin-top: 4px;
+}
+
+.hot-plan-chips {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.hot-plan-chip {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background-color: #eef4ff;
+  margin: 0 6px 0 0;
+}
+
+.hot-plan-chip-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 3px;
+}
+
+.hot-plan-chip-text {
+  font-size: 10px;
+  color: #4a6699;
+}
+
+.hot-plan-go {
+  width: 26px;
+  height: 26px;
+  border-radius: 13px;
+  background-color: #2478f2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+
+/* 小贴士：浅蓝底 + 右下角半透明建筑剪影 */
+.hot-tips {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  margin-top: 12px;
+  padding: 13px 14px 15px 14px;
+  border-radius: 18px;
+  background-color: #e8f1fe;
+  overflow: hidden;
+}
+
+.hot-tips-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.hot-tips-title {
+  font-size: 15px;
+  font-weight: bold;
+  color: #14264b;
+}
+
+.hot-tip-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  margin-top: 8px;
+  /* 给右下角剪影让出宽度，文字不压图 */
+  padding-right: 62px;
+}
+
+.hot-tip-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 和图标的基线对齐：文字 11/17，图标 13 高，往下推一点视觉才齐 */
+  height: 17px;
+  margin-right: 7px;
+  flex-shrink: 0;
+}
+
+.hot-tip-label {
+  font-size: 11px;
+  line-height: 17px;
+  color: #4a6699;
+  font-weight: bold;
+}
+
+.hot-tip-text {
+  font-size: 11px;
+  line-height: 17px;
+  color: #5b6b86;
+  flex: 1;
+}
+
+.hot-tips-art {
+  position: absolute;
+  right: 4px;
+  bottom: 2px;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+}
+
+/* 底部条：主按钮满宽 */
+.hot-bar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 10px 14px 16px 14px;
+  background-color: #ffffff;
+  border-top-width: 1px;
+  border-top-style: solid;
+  border-top-color: #eef2f9;
+}
+
+.hot-cta {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  height: 48px;
+  border-radius: 999px;
+  background-image: linear-gradient(100deg, #2478f2, #35bceb);
+  box-shadow: 0 8px 20px rgba(36, 120, 242, 0.3);
+}
+
+.hot-cta-text {
+  font-size: 15px;
+  font-weight: bold;
+  color: #ffffff;
+}

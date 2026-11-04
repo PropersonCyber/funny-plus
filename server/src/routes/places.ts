@@ -15,9 +15,14 @@ const toApi = (r: typeof places.$inferSelect): Place => ({
   ticket: r.ticket,
   stayMin: r.stayMin,
   walk: r.walk as Place['walk'],
-  tags: r.tags
+  tags: r.tags,
+  rating: r.rating,
+  visitors: r.visitors,
+  hype: r.hype ?? undefined,
+  source: r.source,
+  verifiedAt: r.verifiedAt ?? undefined,
+  trust: r.trust
 })
-
 export const placesRoute = new Hono()
 
 // 前端启动时整池拉一次做预热（placeIndex 需要同步索引），所以不提供分页

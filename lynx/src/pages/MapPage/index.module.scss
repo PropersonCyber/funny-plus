@@ -36,26 +36,10 @@
   box-shadow: 0 4px 12px rgba(31, 71, 135, 0.12);
 }
 
-.map-top-weather {
-  padding: 0 12px;
-}
-
 .map-top-city {
   font-size: 13px;
   font-weight: bold;
   color: #172b4d;
-}
-
-.map-top-temp {
-  font-size: 12px;
-  font-weight: bold;
-  color: #172b4d;
-}
-
-.map-top-cond {
-  font-size: 11px;
-  color: #2478f2;
-  margin-left: 5px;
 }
 
 /* 气泡本体：绝对定位。JSX 里 bottom 用 (100 - y)%，让「气泡底边」贴住坐标点的水平线，
@@ -206,12 +190,6 @@
   box-shadow: 0 4px 12px rgba(31, 71, 135, 0.14);
 }
 
-.map-fab-dots {
-  font-size: 10px;
-  color: #2a3a57;
-  letter-spacing: 1px;
-}
-
 .sheet-peek {
   position: absolute;
   right: 14px;
@@ -231,42 +209,6 @@
   border-radius: 24px;
   background-color: #ebf0fe;
   box-shadow: 0 -6px 26px rgba(31, 71, 135, 0.14);
-}
-
-.msheet-seg {
-  position: relative;
-  display: flex;
-  flex-direction: row;
-  height: 38px;
-  margin: 2px 12px 0 12px;
-  border-bottom: 1px solid #edf1f8;
-}
-
-.msheet-indicator {
-  position: absolute;
-  left: 0;
-  bottom: -1px;
-  width: 33.333%;
-  height: 3px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 220ms linear;
-}
-
-.msheet-indicator-bar {
-  width: 26px;
-  height: 3px;
-  border-radius: 2px;
-  background-color: #2478f2;
-}
-
-.msheet-seg-item {
-  flex: 1;
-  height: 38px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .sheet-day-row {
@@ -302,17 +244,6 @@
   align-items: center;
 }
 
-.weather-icon {
-  font-size: 12px;
-  color: #ffbe55;
-  margin-right: 4px;
-}
-
-.weather-text {
-  font-size: 11px;
-  color: #7183a2;
-}
-
 .seg {
   display: flex;
   flex-direction: row;
@@ -320,29 +251,6 @@
   border-radius: 10px;
   padding: 3px;
   margin-bottom: 10px;
-}
-
-.seg-item {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px 0;
-  border-radius: 8px;
-}
-
-.seg-on {
-  background-color: #ffffff;
-}
-
-.seg-text {
-  font-size: 12px;
-  color: #7183a2;
-}
-
-.seg-text-on {
-  color: #2478f2;
-  font-weight: bold;
 }
 
 .sheet-body {

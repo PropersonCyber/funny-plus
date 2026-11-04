@@ -1,0 +1,119 @@
+[
+  {
+    "id": "play-weekend",
+    "city": "成都",
+    "title": "周末短途",
+    "label": "经典1日游",
+    "note": "2-3 天轻出发",
+    "coverImage": "chengdu",
+    "days": 1,
+    "chips": [
+      {
+        "icon": "calendar",
+        "text": "1天"
+      },
+      {
+        "icon": "food",
+        "text": "美食"
+      },
+      {
+        "icon": "book",
+        "text": "文化"
+      }
+    ],
+    "sortOrder": 1,
+    "placeIds": [
+      "cd-kuanzhai",
+      "cd-wuhou",
+      "cd-jinli"
+    ]
+  },
+  {
+    "id": "play-family",
+    "city": "成都",
+    "title": "亲子游",
+    "label": "亲子2日游",
+    "note": "带娃不累",
+    "coverImage": "panda",
+    "days": 2,
+    "chips": [
+      {
+        "icon": "calendar",
+        "text": "2天"
+      },
+      {
+        "icon": "eye",
+        "text": "看动物"
+      },
+      {
+        "icon": "backpack",
+        "text": "带娃"
+      }
+    ],
+    "sortOrder": 2,
+    "placeIds": [
+      "cd-panda",
+      "cd-renmin",
+      "cd-dufu"
+    ]
+  },
+  {
+    "id": "play-group",
+    "city": "重庆",
+    "title": "多人组团",
+    "label": "热闹1日游",
+    "note": "人多更划算",
+    "coverImage": "chongqing",
+    "days": 1,
+    "chips": [
+      {
+        "icon": "calendar",
+        "text": "1天"
+      },
+      {
+        "icon": "flame",
+        "text": "夜景"
+      },
+      {
+        "icon": "food",
+        "text": "小吃"
+      }
+    ],
+    "sortOrder": 3,
+    "placeIds": [
+      "cq-jiefangbei",
+      "cq-hongyadong",
+      "cq-cableway"
+    ]
+  },
+  {
+    "id": "play-deep",
+    "city": "北京",
+    "title": "深度体验",
+    "label": "深度2日游",
+    "note": "本地人推荐",
+    "coverImage": "jinli",
+    "days": 2,
+    "chips": [
+      {
+        "icon": "calendar",
+        "text": "2天"
+      },
+      {
+        "icon": "book",
+        "text": "人文"
+      },
+      {
+        "icon": "pin",
+        "text": "本地人路线"
+      }
+    ],
+    "sortOrder": 4,
+    "placeIds": [
+      "bj-gugong",
+      "bj-jingshan",
+      "bj-beihai",
+      "bj-nanluoguxiang"
+    ]
+  }
+]

@@ -1,0 +1,73 @@
+// 本模块专属样式（CSS Modules，类名会被哈希）
+
+/* 盖住整个规划弹窗，避免生成过程中还能改需求 */
+.pl-mask {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  background-color: rgba(18, 74, 155, 0.28);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.pl-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 268px;
+  padding: 16px 20px 22px 20px;
+  border-radius: 22px;
+  background-color: #ffffff;
+  /* 参考稿里卡片外圈有一道浅蓝描边，压在深色遮罩上才立得住 */
+  border: 3px solid rgba(73, 191, 255, 0.22);
+  /* 蓝色外发光：卡片压在深色遮罩上不会糊成一片 */
+  box-shadow: 0 14px 44px rgba(18, 86, 200, 0.28);
+}
+
+.pl-close {
+  align-self: flex-end;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 2px;
+}
+
+.pl-close-text {
+  font-size: 15px;
+  color: #8a99b3;
+}
+
+.pl-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #124a9b;
+  letter-spacing: 0.5px;
+}
+
+.pl-sub {
+  font-size: 12px;
+  line-height: 19px;
+  color: #7183a2;
+}
+
+.pl-bar {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  margin-top: 16px;
+  background-color: #eaf1fb;
+  overflow: hidden;
+}
+
+.pl-bar-fill {
+  height: 8px;
+  border-radius: 4px;
+  background-image: linear-gradient(90deg, #1687f8 0%, #49bfff 100%);
+}

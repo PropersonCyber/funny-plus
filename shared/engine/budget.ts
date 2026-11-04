@@ -41,27 +41,34 @@ export function estimateBudget(demand: Demand, days: TripDay[]): BudgetBreakdown
           ? `包车 ${UNIT.charterPerDay} 元/天 × ${dayCount} 天（含司机，不含大交通）`
           : transport === 'car'
             ? `自驾 ${UNIT.carPerDay} 元/天（油费+停车估） × ${dayCount} 天`
-            : `公共交通 ${UNIT.publicPerPersonDay} 元/人/天 × ${party} 人 × ${dayCount} 天`
+            : `公共交通 ${UNIT.publicPerPersonDay} 元/人/天 × ${party} 人 × ${dayCount} 天`,
+      // 这三档都是产品侧定的单价，不是询价结果
+      evidence: 'estimate'
     },
     {
       category: 'lodging',
       amount: Math.round(rooms * nights * UNIT.hotelPerRoom),
-      basis: `按 2 人 1 间估 ${rooms} 间 × ${nights} 晚 × ${UNIT.hotelPerRoom} 元`
+      basis: `按 2 人 1 间估 ${rooms} 间 × ${nights} 晚 × ${UNIT.hotelPerRoom} 元`,
+      evidence: 'estimate'
     },
     {
       category: 'tickets',
       amount: Math.round(ticketTotal * party),
-      basis: `景点门票合计 ${ticketTotal} 元/人 × ${party} 人（未含儿童/学生票差异）`
+      basis: `景点门票合计 ${ticketTotal} 元/人 × ${party} 人（未含儿童/学生票差异）`,
+      // 票价来自地点收录，但仍是公示价，没做过实名或官方时点核验
+      evidence: 'price'
     },
     {
       category: 'food',
       amount: Math.round(UNIT.mealPerPersonDay * dayCount * party),
-      basis: `餐饮 ${UNIT.mealPerPersonDay} 元/人/天 × ${party} 人 × ${dayCount} 天`
+      basis: `餐饮 ${UNIT.mealPerPersonDay} 元/人/天 × ${party} 人 × ${dayCount} 天`,
+      evidence: 'estimate'
     },
     {
       category: 'other',
       amount: Math.round(UNIT.otherPerPersonDay * dayCount * party),
-      basis: `摆渡车、讲解、零花等 ${UNIT.otherPerPersonDay} 元/人/天`
+      basis: `摆渡车、讲解、零花等 ${UNIT.otherPerPersonDay} 元/人/天`,
+      evidence: 'estimate'
     }
   ]
 

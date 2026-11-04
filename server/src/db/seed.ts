@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { eq } from 'drizzle-orm'
 import { db, pool } from './client.ts'
-import { factFeedbacks, facts, places, tripVersions, trips } from './schema.ts'
+import { cities, collections, factFeedbacks, facts, footprints, guides, places, playPlaces, plays, tripVersions, trips } from './schema.ts'
 import { generatePlans, revisePlan } from '@/engine/planner'
 import { setPlaces } from '@/engine/placeIndex'
 import { validatePlan } from '@/engine/validate'
@@ -14,6 +14,22 @@ const readJson = <T>(name: string): T =>
 
 const seedPlaces = readJson<(Place & { id: string })[]>('places.json')
 const seedFacts = readJson<TravelFact[]>('facts.json')
+const seedCities = readJson<{
+  id: string; tag: string; coverImage: string; priceFrom: string; rating: string
+  visitedText: string; desc: string; days: string
+  tips: { icon: string; label: string; text: string }[]
+  isOpen: boolean; sortOrder: number
+}[]>('cities.json')
+const seedGuides = readJson<{
+  id: string; city: string; title: string; note: string; coverImage: string
+  views: number; dayCount: number; tags: string[]; rating: number
+  badges: string[]; placeIds: string[]; body: string
+}[]>('guides.json')
+const seedPlays = readJson<{
+  id: string; city: string; title: string; label: string; note: string; coverImage: string
+  days: number; chips: { icon: string; text: string }[]
+  sortOrder: number; placeIds: string[]
+}[]>('plays.json')
 const seedFeedbacks = readJson<
   { factId: string; verdict: 'met' | 'not-applicable'; count: number; note?: string }[]
 >('feedbacks.json')
@@ -48,6 +64,25 @@ const feedbackRows = seedFeedbacks.flatMap(({ factId, verdict, count, note }) =>
   }))
 )
 await db.insert(factFeedbacks).values(feedbackRows).onConflictDoNothing()
+
+// 城市 → 攻略 → 玩法：首页这些区块全部从这里来，前端不再内联 mock
+for (const c of seedCities) {
+  await db.insert(cities).values(c).onConflictDoUpdate({ target: cities.id, set: c })
+}
+for (const g of seedGuides) {
+  await db.insert(guides).values(g).onConflictDoUpdate({ target: guides.id, set: g })
+}
+for (const { placeIds, ...rest } of seedPlays) {
+  await db.insert(plays).values(rest).onConflictDoUpdate({ target: plays.id, set: rest })
+  // 玩法与景点的关联整组重写：改了 placeIds 之后旧关联不能留在库里
+  await db.delete(playPlaces).where(eq(playPlaces.playId, rest.id))
+  if (placeIds.length) {
+    await db
+      .insert(playPlaces)
+      .values(placeIds.map((placeId, i) => ({ playId: rest.id, placeId, sortOrder: i })))
+      .onConflictDoNothing()
+  }
+}
 
 // 引擎是同步纯函数，生成示例行程前必须先灌好地点池
 setPlaces(seedPlaces)
@@ -165,8 +200,35 @@ for (const f of demoFeedback) {
     .onConflictDoNothing()
 }
 
+// 测试账号的收藏与足迹：让「我的」页一装上就有真数据可看
+const demoCollections = [
+  { id: 'demo-col-1', targetType: 'place' as const, targetId: 'cd-kuanzhai' },
+  { id: 'demo-col-2', targetType: 'place' as const, targetId: 'cq-hongyadong' },
+  { id: 'demo-col-3', targetType: 'guide' as const, targetId: 'guide-cd-2d1n' }
+]
+for (const c of demoCollections) {
+  await db
+    .insert(collections)
+    .values({ ...c, clientId: DEMO_CLIENT })
+    .onConflictDoNothing()
+}
+
+const demoFootprints = [
+  { id: 'demo-fp-1', city: '成都', placeId: 'cd-kuanzhai', visitedOn: '2026-04-18' },
+  { id: 'demo-fp-2', city: '成都', placeId: 'cd-panda', visitedOn: '2026-04-19' },
+  { id: 'demo-fp-3', city: '重庆', placeId: 'cq-hongyadong', visitedOn: '2026-05-02' }
+]
+for (const f of demoFootprints) {
+  await db
+    .insert(footprints)
+    .values({ ...f, clientId: DEMO_CLIENT })
+    .onConflictDoNothing()
+}
+
 console.log(
-  `[seed] 地点 ${seedPlaces.length} 条、避坑 ${seedFacts.length} 条、演示反馈 ${feedbackRows.length} 条、` +
+  `[seed] 城市 ${seedCities.length} 个、攻略 ${seedGuides.length} 条、玩法 ${seedPlays.length} 个、` +
+    `演示收藏 ${demoCollections.length} 条、足迹 ${demoFootprints.length} 条、` +
+    `地点 ${seedPlaces.length} 条、避坑 ${seedFacts.length} 条、演示反馈 ${feedbackRows.length} 条、` +
     `示例行程 ${tripCount} 条（版本 ${versionCount} 条）、测试账号行程 ${demoCount} 条已写入`
 )
 await pool.end()

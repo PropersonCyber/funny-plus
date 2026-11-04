@@ -29,6 +29,22 @@
   <key>UISupportedInterfaceOrientations</key>
   <array><string>UIInterfaceOrientationPortrait</string></array>
   <key>UIRequiredDeviceCapabilities</key><array><string>arm64</string></array>
+  <key>APIBase</key><string>http://127.0.0.1:8787</string>
   <key>NSAppTransportSecurity</key><dict><key>NSAllowsArbitraryLoads</key><true/></dict>
+  <!-- 定位权限说明：WKWebView 里业务 JS 在 Worker 沙箱，拿不到 navigator.geolocation，
+       坐标只能由 WebHostController 的 CLLocationManager 取到后注入 globalThis.__fpLocation。
+       缺这条 key 时系统直接拒绝授权，前端会按「没有定位」降级而不是报错。 -->
+  <key>NSLocationWhenInUseUsageDescription</key>
+  <string>用于把你所在的城市作为默认出游城市</string>
+  <!-- 三方登录回跳：微信 SDK 授权后以 app:// 打开本应用。现在只占位，
+       真正的 handleOpenURL 在 main.m 的 AppDelegate 里，等 AppID 到手再补。 -->
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLName</key><string>com.maka.funnyplus</string>
+      <key>CFBundleURLSchemes</key>
+      <array><string>funnyplus</string><string>wx0000000000000000</string></array>
+    </dict>
+  </array>
 </dict>
 </plist>

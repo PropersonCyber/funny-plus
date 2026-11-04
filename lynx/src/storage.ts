@@ -1,4 +1,4 @@
-import type { Demand, Plan } from './data.js';
+import type { ChangeImpact, Demand, Plan } from './data.js';
 
 /**
  * 本机保存。踩过的坑：这个 app 现在跑在 iOS 的 WKWebView + @lynx-js/web-core 里，
@@ -14,7 +14,13 @@ import type { Demand, Plan } from './data.js';
  * 写入：先落内存（立刻可读），再异步刷到持久层；`writeLocal` 的返回值只表示「是否真能持久」，
  * 所以拿不到持久层时界面仍然老实显示「刷新会丢」。
  */
-const KEYS = ['funny-plus.trip.v1', 'funny-plus.feedback.v1', 'funny-plus.client-id.v1'];
+const KEYS = [
+  'funny-plus.trips.v2',
+  'funny-plus.trip.v1',
+  'funny-plus.content.v1',
+  'funny-plus.feedback.v1',
+  'funny-plus.client-id.v1'
+];
 const DB_NAME = 'funny-plus';
 const DB_STORE = 'kv';
 
@@ -170,28 +176,100 @@ export function writeLocal(key: string, value: string): boolean {
   return persist(key, value);
 }
 
-export type SavedTrip = {
-  demand: Demand;
-  plans: Plan[];
-  savedAt: string;
+/** 一次局部修改的解释，落盘后「改过什么」才可回看，不是只活在当前会话 */
+export type TripVersion = {
+  at: string;
+  note: string;
+  impact?: ChangeImpact;
 };
 
-const KEY = 'funny-plus.trip.v1';
+export type SavedTrip = {
+  id: string;
+  demand: Demand;
+  plans: Plan[];
+  /** 用户在方案对比里选中的那套；不存的话重开就退回第一套，等于白选 */
+  planIndex: number;
+  savedAt: string;
+  versions: TripVersion[];
+};
 
-export function loadSaved(): SavedTrip | null {
-  const raw = readLocal(KEY);
+export type Store = {
+  trips: SavedTrip[];
+  activeId: string;
+};
+
+const KEY = 'funny-plus.trips.v2';
+const LEGACY_KEY = 'funny-plus.trip.v1';
+
+const isPlan = (p: unknown): p is Plan => {
+  const v = p as Plan | null;
+  return !!v && typeof v.id === 'string' && Array.isArray(v.days) && !!v.budget && Array.isArray(v.issues);
+};
+
+const isTrip = (t: unknown): t is SavedTrip => {
+  const v = t as SavedTrip | null;
+  return (
+    !!v &&
+    typeof v.id === 'string' &&
+    !!v.demand &&
+    typeof v.demand.destination === 'string' &&
+    Array.isArray(v.plans) &&
+    v.plans.length > 0 &&
+    v.plans.every(isPlan)
+  );
+};
+
+/** 旧版只存一条行程（demand + plans）；读到就转成一个 trip，不丢用户已经生成的方案 */
+function migrateLegacy(): Store | null {
+  const raw = readLocal(LEGACY_KEY);
   if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw) as SavedTrip;
+    const parsed = JSON.parse(raw) as { demand?: Demand; plans?: Plan[]; savedAt?: string };
     if (!parsed?.demand?.destination || !Array.isArray(parsed.plans) || parsed.plans.length === 0) return null;
-    return parsed;
+    if (!parsed.plans.every(isPlan)) return null;
+    const trip: SavedTrip = {
+      id: 'trip-legacy',
+      demand: parsed.demand,
+      plans: parsed.plans,
+      planIndex: 0,
+      savedAt: parsed.savedAt ?? new Date().toISOString(),
+      // 旧版没存变更记录，不编造：老实留空
+      versions: []
+    };
+    return { trips: [trip], activeId: trip.id };
   } catch {
     return null;
   }
 }
 
-/** 写成功才返回时间戳；拿不到持久层时返回 null，界面据此如实提示 */
-export function saveTrip(demand: Demand, plans: Plan[], at = new Date()): string | null {
-  const savedAt = at.toISOString();
-  return writeLocal(KEY, JSON.stringify({ demand, plans, savedAt })) ? savedAt : null;
+export function loadStore(): Store | null {
+  const raw = readLocal(KEY);
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as Store;
+      const trips = (parsed?.trips ?? []).filter(isTrip).map((t) => ({
+        ...t,
+        planIndex: Math.min(Math.max(0, Number(t.planIndex) || 0), t.plans.length - 1),
+        versions: Array.isArray(t.versions) ? t.versions : []
+      }));
+      if (trips.length) {
+        const activeId = trips.some((t) => t.id === parsed.activeId) ? parsed.activeId : trips[0].id;
+        return { trips, activeId };
+      }
+    } catch {
+      // 存档坏了就退回旧版迁移 / 默认数据，不让首屏崩
+    }
+  }
+  return migrateLegacy();
+}
+
+/** 写成功才返回 true；拿不到持久层时返回 false，界面据此如实提示 */
+export function saveStore(store: Store): boolean {
+  return writeLocal(KEY, JSON.stringify(store));
+}
+
+let seq = 0;
+export function newTripId(): string {
+  seq += 1;
+  return `trip-${Date.now().toString(36)}-${seq}`;
 }

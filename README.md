@@ -15,9 +15,8 @@ shared/   两端共用的纯 TS，不依赖 DOM
   engine/planner.ts     「AI 规划模块」边界：现在确定性生成，接真模型只换这个文件
   engine/budget.ts      费用模型（PRD 4.4），常数集中可替换成真实价格
   engine/validate.ts    路线/时间/人数/预算的确定性校验（PRD 六：程序负责验证）
-  engine/placeIndex.ts  地点索引（由 /api/places 预热）+ 直线距离折算耗时
-  engine/facts.ts       避坑展示规则：可信状态标签、过期判断
-  api/                  地点 / 避坑 / 行程 / 反馈的接口客户端（含演示模式开关）
+  engine/placeIndex.ts  地点索引（由 /api/content 的 places 覆盖随包副本）+ 直线距离折算耗时
+  engine/facts.ts       避坑展示规则：可信状态标签、过期判断与过期计数
   types/index.ts        领域模型
 lynx/     ReactLynx 跨端 UI（src/pages 按 proto 实现，逻辑全部 import ../../shared）
 server/   Hono + Postgres（Drizzle）：地点池 + 避坑目录 + 反馈 + 只读示例行程
@@ -30,6 +29,8 @@ docs/     产品方案与设计资源
 ```bash
 npm --prefix lynx i
 npm run dev          # rspeedy dev server，默认 3001
+npm run build:ios    # 出包并同步进 iOS 壳；只跑 build 不会更新 App 里的界面
+npm run build:android # 出 android/build/funny-plus.apk（安卓壳，见 android/README.md）
 
 cp server/.env.example server/.env
 npm run dev:db       # 起 Postgres（docker，宿主端口 5434）
@@ -48,10 +49,11 @@ npm run dev:api      # http://127.0.0.1:8787
 
 - **没有 AI 后端**：方案生成仍是确定性模板，不是真模型调用。
 - **后端只做数据**：地点池、避坑目录、匿名反馈（按 clientId 去重）。反馈只做计数，**暂不影响可信状态**（加权规则未定）。
-- **行程只存本机**：`lynx` 侧目前是内存态，刷新回默认行程；服务端的示例行程是只读的。
-- **只接了两个目的地**（重庆、成都），A 版只开放 1–2 天。填其它城市明确报不支持，不编数据。
+- **行程存本机**：多份行程 + 每份的变更记录都在 `storage.ts`（IndexedDB / 本地存储 / 宿主桥三层降级），写不进去会明确提示「刷新会丢」；服务端的示例行程是只读的。
+- **接了三个城市**（重庆、成都、北京），只开放 1–2 天。填其它城市明确报不支持，不编数据。
+- **可信状态一律 `pending`**：地点表的 `source / verifiedAt / trust` 字段已经有了，但营业时间与票价还没做官方逐条核验，所以校验里营业时间冲突只判「注意 + 待核实」，不判硬错误。
 - **地图是 SVG 示意**：按经纬度归一化 + 顺序编号，没有真实底图；路线耗时 = 直线距离折算，不是导航结果。
-- **局部修改只认 4 类意图**（轻松/省钱/换景点/建议词），识别不了会直说。
+- **局部修改只认 4 类意图**（轻松/省钱/换景点/建议词），识别不了会直说；点池排满时说明「已全部排进」，不假装能换。
 - 预约提醒、足迹徽章、多人协作、交易跳转（P1/P2）未实现。
 
 ## 接真后端时的改动点
@@ -60,6 +62,7 @@ npm run dev:api      # http://127.0.0.1:8787
 | --- | --- |
 | `shared/engine/planner.ts` `generatePlans` | `POST /ai/plans`，返回同结构 `Plan[]` |
 | `revisePlan` | `POST /ai/plans/:id/revise`，`impact` 由后端算 |
-| lynx 内存态行程 | 行程 CRUD + `TripVersion` |
+| 本机 `storage.ts` 多行程 | 行程 CRUD + `TripVersion` 上云（`/api/trips` 目前只读） |
 | `shared/engine/placeIndex.ts` `travelMinutes` | 地图服务路线 API |
+| `data/places.json` 里的 `trust: pending` | 逐条核验后填 `verifiedAt` 与 `official`/`credible` |
 | `lynx/src/{places,facts}.ts` 本地副本 | ✅ 服务端已有 `GET /api/places`、`GET /api/facts`，接上后即可删副本 |

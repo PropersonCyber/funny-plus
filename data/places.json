@@ -15,7 +15,12 @@
     "tags": [
       "夜景",
       "拍照"
-    ]
+    ],
+    "rating": 4.8,
+    "visitors": 17.6,
+    "hype": "吊脚楼层层叠叠的夜色",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
   },
   {
     "id": "cq-jiefangbei",
@@ -33,7 +38,12 @@
     "tags": [
       "商圈",
       "小吃"
-    ]
+    ],
+    "rating": 4.7,
+    "visitors": 15.1,
+    "hype": "山城最热闹的十字路口",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
   },
   {
     "id": "cq-cikou",
@@ -51,7 +61,12 @@
     "tags": [
       "古镇",
       "小吃"
-    ]
+    ],
+    "rating": 4.5,
+    "visitors": 8.8,
+    "hype": "一条街吃遍老重庆小吃",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
   },
   {
     "id": "cq-liziba",
@@ -69,7 +84,12 @@
     "tags": [
       "打卡",
       "拍照"
-    ]
+    ],
+    "rating": 4.6,
+    "visitors": 10.2,
+    "hype": "轻轨穿楼的魔幻一幕",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
   },
   {
     "id": "cq-elingerchang",
@@ -87,7 +107,12 @@
     "tags": [
       "文创",
       "拍照"
-    ]
+    ],
+    "rating": 4.4,
+    "visitors": 5.7,
+    "hype": "老厂房改出来的文创坡地",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
   },
   {
     "id": "cq-nanshan",
@@ -105,7 +130,12 @@
     "tags": [
       "夜景",
       "拍照"
-    ]
+    ],
+    "rating": 4.6,
+    "visitors": 7.9,
+    "hype": "一眼看尽两江交汇的观景台",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
   },
   {
     "id": "cq-sanxia",
@@ -123,7 +153,128 @@
     "tags": [
       "人文",
       "博物馆"
-    ]
+    ],
+    "rating": 4.7,
+    "visitors": 6.3,
+    "hype": "读懂重庆从这座馆开始",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
+  },
+  {
+    "id": "cq-cableway",
+    "name": "长江索道",
+    "city": "重庆",
+    "lng": 106.5839,
+    "lat": 29.5585,
+    "open": [
+      450,
+      1350
+    ],
+    "ticket": 20,
+    "stayMin": 40,
+    "walk": 1,
+    "tags": [
+      "打卡",
+      "夜景"
+    ],
+    "rating": 4.5,
+    "visitors": 9.6,
+    "hype": "横跨长江的空中巴士",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
+  },
+  {
+    "id": "cq-huguang",
+    "name": "湖广会馆",
+    "city": "重庆",
+    "lng": 106.5866,
+    "lat": 29.5586,
+    "open": [
+      540,
+      1020
+    ],
+    "ticket": 30,
+    "stayMin": 60,
+    "walk": 1,
+    "tags": [
+      "人文",
+      "拍照"
+    ],
+    "rating": 4.4,
+    "visitors": 4.1,
+    "hype": "移民史里的会馆老院子",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
+  },
+  {
+    "id": "cq-tanzishi",
+    "name": "弹子石老街",
+    "city": "重庆",
+    "lng": 106.5912,
+    "lat": 29.5483,
+    "open": [
+      600,
+      1320
+    ],
+    "ticket": 0,
+    "stayMin": 90,
+    "walk": 2,
+    "tags": [
+      "老街",
+      "小吃",
+      "夜景"
+    ],
+    "rating": 4.3,
+    "visitors": 3.6,
+    "hype": "石阶老街配江景夜色",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
+  },
+  {
+    "id": "cq-guanyinqiao",
+    "name": "观音桥商圈",
+    "city": "重庆",
+    "lng": 106.5319,
+    "lat": 29.5756,
+    "open": [
+      600,
+      1440
+    ],
+    "ticket": 0,
+    "stayMin": 60,
+    "walk": 1,
+    "tags": [
+      "商圈",
+      "小吃"
+    ],
+    "rating": 4.6,
+    "visitors": 8.4,
+    "hype": "本地人真正逛街的地方",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
+  },
+  {
+    "id": "cq-zhazidong",
+    "name": "渣滓洞",
+    "city": "重庆",
+    "lng": 106.4295,
+    "lat": 29.5622,
+    "open": [
+      540,
+      1020
+    ],
+    "ticket": 0,
+    "stayMin": 60,
+    "walk": 2,
+    "tags": [
+      "人文",
+      "打卡"
+    ],
+    "rating": 4.5,
+    "visitors": 4.8,
+    "hype": "一段沉重的红岩历史",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
   },
   {
     "id": "cd-panda",
@@ -141,7 +292,12 @@
     "tags": [
       "动物",
       "亲子"
-    ]
+    ],
+    "rating": 4.8,
+    "visitors": 16.8,
+    "hype": "与可爱的大熊猫来一场治愈之旅",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
   },
   {
     "id": "cd-kuanzhai",
@@ -159,7 +315,12 @@
     "tags": [
       "老街",
       "小吃"
-    ]
+    ],
+    "rating": 4.7,
+    "visitors": 12.3,
+    "hype": "感受老成都的市井烟火气",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
   },
   {
     "id": "cd-jinli",
@@ -178,7 +339,12 @@
       "老街",
       "小吃",
       "夜景"
-    ]
+    ],
+    "rating": 4.6,
+    "visitors": 10.5,
+    "hype": "灯笼亮起时的老街味道",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
   },
   {
     "id": "cd-wuhou",
@@ -196,7 +362,12 @@
     "tags": [
       "人文",
       "打卡"
-    ]
+    ],
+    "rating": 4.6,
+    "visitors": 11.8,
+    "hype": "三国文化的历史沉淀",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
   },
   {
     "id": "cd-dongjiao",
@@ -214,7 +385,12 @@
     "tags": [
       "文创",
       "拍照"
-    ]
+    ],
+    "rating": 4.5,
+    "visitors": 7.4,
+    "hype": "工业厂房里的成都青年",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
   },
   {
     "id": "cd-chunxi",
@@ -232,7 +408,12 @@
     "tags": [
       "商圈",
       "小吃"
-    ]
+    ],
+    "rating": 4.7,
+    "visitors": 14.2,
+    "hype": "成都最热闹的逛街与夜景",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
   },
   {
     "id": "cd-dufu",
@@ -250,7 +431,131 @@
     "tags": [
       "人文",
       "园林"
-    ]
+    ],
+    "rating": 4.6,
+    "visitors": 9.2,
+    "hype": "杜甫住过四年的一座园子",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
+  },
+  {
+    "id": "cd-renmin",
+    "name": "人民公园",
+    "city": "成都",
+    "lng": 104.0616,
+    "lat": 30.6598,
+    "open": [
+      360,
+      1320
+    ],
+    "ticket": 0,
+    "stayMin": 90,
+    "walk": 1,
+    "tags": [
+      "休闲",
+      "茶馆",
+      "老街"
+    ],
+    "rating": 4.5,
+    "visitors": 6.8,
+    "hype": "盖碗茶里坐一下午",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
+  },
+  {
+    "id": "cd-wenshu",
+    "name": "文殊院",
+    "city": "成都",
+    "lng": 104.0762,
+    "lat": 30.6726,
+    "open": [
+      540,
+      1020
+    ],
+    "ticket": 0,
+    "stayMin": 90,
+    "walk": 2,
+    "tags": [
+      "人文",
+      "茶馆",
+      "小吃"
+    ],
+    "rating": 4.6,
+    "visitors": 6.1,
+    "hype": "闹市里的一炷香",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
+  },
+  {
+    "id": "cd-qingyang",
+    "name": "青羊宫",
+    "city": "成都",
+    "lng": 104.04,
+    "lat": 30.6657,
+    "open": [
+      480,
+      1080
+    ],
+    "ticket": 10,
+    "stayMin": 60,
+    "walk": 1,
+    "tags": [
+      "人文",
+      "园林"
+    ],
+    "rating": 4.4,
+    "visitors": 4.3,
+    "hype": "青羊宫里的道观清静",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
+  },
+  {
+    "id": "cd-wangjianglou",
+    "name": "望江楼公园",
+    "city": "成都",
+    "lng": 104.0946,
+    "lat": 30.6282,
+    "open": [
+      360,
+      1080
+    ],
+    "ticket": 20,
+    "stayMin": 90,
+    "walk": 2,
+    "tags": [
+      "园林",
+      "拍照",
+      "人文"
+    ],
+    "rating": 4.3,
+    "visitors": 3.8,
+    "hype": "锦江边看竹影与楼影",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
+  },
+  {
+    "id": "cd-taikoo",
+    "name": "太古里",
+    "city": "成都",
+    "lng": 104.0805,
+    "lat": 30.6536,
+    "open": [
+      600,
+      1440
+    ],
+    "ticket": 0,
+    "stayMin": 90,
+    "walk": 1,
+    "tags": [
+      "商圈",
+      "拍照",
+      "夜景"
+    ],
+    "rating": 4.7,
+    "visitors": 9.7,
+    "hype": "灰瓦与玻璃挨着逛",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
   },
   {
     "id": "bj-gugong",
@@ -269,7 +574,12 @@
       "人文",
       "打卡",
       "博物馆"
-    ]
+    ],
+    "rating": 4.9,
+    "visitors": 21.3,
+    "hype": "六百年宫城的一次穿行",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
   },
   {
     "id": "bj-tiantan",
@@ -288,7 +598,12 @@
       "人文",
       "休闲",
       "拍照"
-    ]
+    ],
+    "rating": 4.8,
+    "visitors": 13.4,
+    "hype": "祈年殿的蓝瓦与回音",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
   },
   {
     "id": "bj-yiheyuan",
@@ -307,7 +622,12 @@
       "园林",
       "拍照",
       "休闲"
-    ]
+    ],
+    "rating": 4.8,
+    "visitors": 12.1,
+    "hype": "长廊与湖面走一整个下午",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
   },
   {
     "id": "bj-nanluoguxiang",
@@ -326,7 +646,12 @@
       "老街",
       "小吃",
       "文创"
-    ]
+    ],
+    "rating": 4.5,
+    "visitors": 10.8,
+    "hype": "胡同里的老北京日常",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
   },
   {
     "id": "bj-798",
@@ -345,7 +670,12 @@
       "文创",
       "拍照",
       "人文"
-    ]
+    ],
+    "rating": 4.4,
+    "visitors": 8.6,
+    "hype": "厂房、画廊与咖啡",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
   },
   {
     "id": "bj-shichahai",
@@ -365,7 +695,12 @@
       "茶馆",
       "夜景",
       "老街"
-    ]
+    ],
+    "rating": 4.6,
+    "visitors": 9.4,
+    "hype": "后海边骑车绕一圈",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
   },
   {
     "id": "bj-dongwuyuan",
@@ -383,7 +718,12 @@
     "tags": [
       "动物",
       "亲子"
-    ]
+    ],
+    "rating": 4.6,
+    "visitors": 8.1,
+    "hype": "市中心的百年动物园",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
   },
   {
     "id": "bj-wangfujing",
@@ -401,6 +741,129 @@
     "tags": [
       "商圈",
       "小吃"
-    ]
+    ],
+    "rating": 4.5,
+    "visitors": 11.2,
+    "hype": "老街变身商业街",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
+  },
+  {
+    "id": "bj-tiananmen",
+    "name": "天安门广场",
+    "city": "北京",
+    "lng": 116.3975,
+    "lat": 39.9087,
+    "open": [
+      300,
+      1140
+    ],
+    "ticket": 0,
+    "stayMin": 45,
+    "walk": 1,
+    "tags": [
+      "打卡",
+      "人文"
+    ],
+    "rating": 4.8,
+    "visitors": 18.7,
+    "hype": "清晨升旗与广场的开阔",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
+  },
+  {
+    "id": "bj-guobo",
+    "name": "中国国家博物馆",
+    "city": "北京",
+    "lng": 116.401,
+    "lat": 39.9047,
+    "open": [
+      540,
+      1020
+    ],
+    "ticket": 0,
+    "stayMin": 150,
+    "walk": 2,
+    "tags": [
+      "人文",
+      "博物馆",
+      "亲子"
+    ],
+    "rating": 4.8,
+    "visitors": 12.6,
+    "hype": "一天走完半部中国史",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
+  },
+  {
+    "id": "bj-jingshan",
+    "name": "景山公园",
+    "city": "北京",
+    "lng": 116.3967,
+    "lat": 39.9236,
+    "open": [
+      390,
+      1260
+    ],
+    "ticket": 2,
+    "stayMin": 60,
+    "walk": 2,
+    "tags": [
+      "拍照",
+      "园林",
+      "人文"
+    ],
+    "rating": 4.7,
+    "visitors": 7.3,
+    "hype": "万春亭俯瞰整条中轴线",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
+  },
+  {
+    "id": "bj-beihai",
+    "name": "北海公园",
+    "city": "北京",
+    "lng": 116.3892,
+    "lat": 39.9254,
+    "open": [
+      390,
+      1260
+    ],
+    "ticket": 10,
+    "stayMin": 120,
+    "walk": 2,
+    "tags": [
+      "园林",
+      "休闲",
+      "拍照"
+    ],
+    "rating": 4.7,
+    "visitors": 8.9,
+    "hype": "白塔之下划一次船",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
+  },
+  {
+    "id": "cd-339",
+    "name": "成都339",
+    "city": "成都",
+    "lng": 104.1147,
+    "lat": 30.6675,
+    "open": [
+      600,
+      1320
+    ],
+    "ticket": 100,
+    "stayMin": 60,
+    "walk": 1,
+    "tags": [
+      "夜景",
+      "拍照"
+    ],
+    "rating": 4.7,
+    "visitors": 9.6,
+    "hype": "339 米高空的熊猫塔夜景",
+    "source": "产品组按公开信息整理（未做官方核验）",
+    "trust": "pending"
   }
 ]

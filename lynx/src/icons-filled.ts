@@ -9,6 +9,10 @@ export const FILLED: Record<string, string> = {
   map: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="${C}"><path d="M9 3.2 3.6 5.4c-.4.2-.6.5-.6.9v13.2c0 .6.6 1 1.2.8L9 18.2V3.2Z"/><path d="M10.8 18.2 15 19.9V4.6L10.8 3v15.2Z" opacity=".82"/><path d="M16.8 4.6v15.3l3.6-1.5c.4-.2.6-.5.6-.9V4.3c0-.6-.6-1-1.2-.8l-3 1.1Z"/></svg>`,
   // 行程：实心日历
   itinerary: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="${C}"><path d="M7 2.6c.6 0 1 .5 1 1V5h8V3.6a1 1 0 1 1 2 0V5h1.4c1 0 1.8.8 1.8 1.8v12.4c0 1-.8 1.8-1.8 1.8H4.6c-1 0-1.8-.8-1.8-1.8V6.8c0-1 .8-1.8 1.8-1.8H6V3.6c0-.5.4-1 1-1Zm12.2 8.2H4.8v8.2h14.4v-8.2Z"/></svg>`,
+  // 攻略详情「行程亮点」四宫格用的实心字形（和 tab 同一套观感，别让四格各画一种风格）
+  calendarStar: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="${C}"><path d="M7 2.6c.6 0 1 .5 1 1V5h8V3.6a1 1 0 1 1 2 0V5h1.4c1 0 1.8.8 1.8 1.8v3.1a4 4 0 0 0-5.4 5.2 4 4 0 0 0 5.2 5.4v.7c0 1-.8 1.8-1.8 1.8H4.6c-1 0-1.8-.8-1.8-1.8V6.8c0-1 .8-1.8 1.8-1.8H6V3.6c0-.5.4-1 1-1Zm12.2 8.2H4.8v8.2h14.4v-8.2Z"/><path d="m18.6 11.2 1.3 2.7 3 .4-2.2 2.1.5 3-2.6-1.4-2.6 1.4.5-3-2.2-2.1 3-.4z"/></svg>`,
+  star: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="${C}"><path d="m12 2.4 2.9 6.1 6.6.9-4.8 4.7 1.2 6.7-5.9-3.2-5.9 3.2 1.2-6.7L2.5 9.4l6.6-.9z"/></svg>`,
+  navigation: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="${C}"><path d="M2.6 3.3 21 11.4c.8.4.8 1.5 0 1.9L2.6 21.4a.7.7 0 0 1-.95-.83L3.9 12.7 1.65 4.13a.7.7 0 0 1 .95-.83Z"/></svg>`,
   // 避坑：实心盾牌
   shield: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="${C}"><path d="M12 2.2 4.4 5v7.2c0 4.3 3.1 7.9 7.6 9.6 4.5-1.7 7.6-5.3 7.6-9.6V5L12 2.2Z"/></svg>`,
   // 我的：实心人像

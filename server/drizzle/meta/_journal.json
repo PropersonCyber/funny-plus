@@ -22,6 +22,41 @@
       "when": 1793370691552,
       "tag": "0002_solid_lord_tyger",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793686071634,
+      "tag": "0003_outgoing_morgan_stark",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793695799548,
+      "tag": "0004_sharp_sleepwalker",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793699706644,
+      "tag": "0005_guide_detail_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793701601454,
+      "tag": "0006_hot_detail_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793709472104,
+      "tag": "0007_place_hype",
+      "breakpoints": true
     }
   ]
 }

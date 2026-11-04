@@ -2,7 +2,11 @@ import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { sql } from 'drizzle-orm'
 import { db } from './db/client.ts'
+import { authRoute } from './routes/auth.ts'
+import { contentRoute } from './routes/content.ts'
 import { factsRoute } from './routes/facts.ts'
+import { geoRoute } from './routes/geo.ts'
+import { meRoute } from './routes/me.ts'
 import { placesRoute } from './routes/places.ts'
 import { tripsRoute } from './routes/trips.ts'
 
@@ -17,9 +21,13 @@ app.get('/api/health', async (c) => {
     return c.json({ ok: false, db: 'down' }, 503)
   }
 })
+app.route('/api/auth', authRoute)
+app.route('/api/content', contentRoute)
+app.route('/api/me', meRoute)
 app.route('/api/facts', factsRoute)
 app.route('/api/places', placesRoute)
 app.route('/api/trips', tripsRoute)
+app.route('/api/geo', geoRoute)
 
 app.onError((err, c) => {
   console.error('[api]', err)

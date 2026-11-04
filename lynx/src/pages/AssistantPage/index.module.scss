@@ -112,54 +112,12 @@
   justify-content: center;
 }
 
-.recent {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-}
-
-.recent-main {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
-
-.recent-title {
-  font-size: 14px;
-  font-weight: bold;
-  color: #172b4d;
-}
-
-.route-summary {
-  font-size: 10px;
-  color: #7183a2;
-  margin-bottom: 6px;
-}
-
 .play-row {
   display: flex;
   flex-direction: row;
   align-items: center;
   padding: 8px 0;
   border-bottom: 1px solid #eef4ff;
-}
-
-.play-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  background-color: #eef4ff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 10px;
-}
-
-.guide-banner {
-  padding: 10px 14px;
-  border-radius: 14px;
-  background-color: #eef4ff;
-  margin-bottom: 10px;
 }
 
 .chat-mic {

@@ -77,9 +77,9 @@ export function AssistantPage({ onBack, onApply }: Props) {
 
       <view className={cls('chat-input')}>
         {/* 输入区是真的占位：点了给一句实话，别让它看着能打字却什么都不发生 */}
-        <view className={cls('chat-input-box')} bindtap={() => toast('咕噜还没接入模型，点上面的建议可以直接落到行程')}>
+        <view className={cls('chat-input-box')}>
           <text className={cls('chat-placeholder')}>
-            {listening ? '聆听中… 说完再点一下麦克风' : MOCK.assistant.placeholder}
+            {listening ? '聆听中… 说完再点一下麦克风' : '模型未接入：点上面任意一条建议即可落到行程'}
           </text>
         </view>
         <view
@@ -88,7 +88,7 @@ export function AssistantPage({ onBack, onApply }: Props) {
         >
           <svg content={micSvg(listening ? '#FFFFFF' : '#2478F2')} style={{ width: '17px', height: '17px' }} />
         </view>
-        <view className={cls('chat-send')} bindtap={() => toast('咕噜还没接入模型，点上面的建议可以直接落到行程')}>
+        <view className={cls('chat-send')} bindtap={onApply}>
           <svg content={svgIcon('route', '#FFFFFF')} style={{ width: '16px', height: '16px' }} />
         </view>
       </view>

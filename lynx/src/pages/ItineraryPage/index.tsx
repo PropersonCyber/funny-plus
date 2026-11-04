@@ -1,12 +1,13 @@
 import { useCallback, useState } from '@lynx-js/react';
+import { trustLabel } from '../../../../shared/engine/facts.js';
 
 import chengdu from '../../assets/gen/chengdu.jpg';
 import chongqing from '../../assets/gen/chongqing.jpg';
 import beijing from '../../assets/gen/beijing.jpg';
 import { spotImg } from '../../spot-img.js';
-import { MOCK } from '../../mock.js';
 import { svgIcon } from '../../icons.js';
 import type { ChangeImpact, Demand, Plan } from '../../data.js';
+import { placeById } from '../../data.js';
 import { ReviseSheet } from '../ReviseSheet/index.js';
 import { CompareSheet } from '../CompareSheet/index.js';
 import { track } from '../../track.js';
@@ -18,6 +19,9 @@ const cls = makeCls(styles);
 type Props = {
   demand: Demand;
   plans: Plan[];
+  /** 当前选中方案由上层持有：详情页/地图/我的看到的是同一套 */
+  planIndex: number;
+  onPickPlan: (index: number) => void;
   onPlan: () => void;
   onMap: () => void;
   onDetail: () => void;
@@ -40,16 +44,30 @@ const ISSUE_CLASS: Record<string, string> = {
 
 // 有专属插画的景点用专属图，其它退回城市图（映射在 spot-img.ts，攻略页也用同一份）
 
-export function ItineraryPage({ demand, plans, onPlan, onMap, onDetail, onRevise, impact, onDismissImpact }: Props) {
-  const [planIndex, setPlanIndex] = useState(0);
+export function ItineraryPage({
+  demand,
+  plans,
+  planIndex,
+  onPickPlan,
+  onPlan,
+  onMap,
+  onDetail,
+  onRevise,
+  impact,
+  onDismissImpact,
+}: Props) {
   const [dayIndex, setDayIndex] = useState(1);
   const [revising, setRevising] = useState(false);
   const [comparing, setComparing] = useState(false);
 
-  const onPickPlan = useCallback((i: number) => {
-    setPlanIndex(i);
-    setDayIndex(1);
-  }, []);
+  const pickPlan = useCallback(
+    (i: number) => {
+      onPickPlan(i);
+      // 换方案后天数可能变少，停在越界的天上会渲染成空白
+      setDayIndex(1);
+    },
+    [onPickPlan]
+  );
 
   if (plans.length === 0) {
     return (
@@ -72,13 +90,14 @@ export function ItineraryPage({ demand, plans, onPlan, onMap, onDetail, onRevise
     .filter((i) => i.dayIndex === undefined || i.dayIndex === dayIndex)
     .sort((a, b) => ISSUE_ORDER[a.level] - ISSUE_ORDER[b.level]);
   const cityCover = CITY_IMG[demand.destination] ?? chengdu;
-  const meta = MOCK.days.find((d) => d.index === dayIndex);
 
   return (
     <view className={cls('screen-inner')}>
       <view className={cls('page page-shell itn-page')}>
         <view className={cls('page-head')}>
-          <text className={cls('page-title')}>{demand.destination} · {demand.dayCount} 天{demand.dayCount > 1 ? '2 晚' : ''}</text>
+          <text className={cls('page-title')}>
+            {demand.destination} · {plan.days.length} 天{plan.days.length > 1 ? `${plan.days.length - 1} 晚` : ''}
+          </text>
           <view className={cls('head-links')}>
             {plans.length > 1 ? (
               <text
@@ -97,8 +116,9 @@ export function ItineraryPage({ demand, plans, onPlan, onMap, onDetail, onRevise
             </view>
           </view>
         </view>
+        {/* 日期是设计稿示例，不能跟真实预算数字并排放在同一行冒充数据 */}
         <text className={cls('page-sub')}>
-          {MOCK.trip.dateRange} · {demand.party} 人 · 人均 ¥{plan.budget.perPerson}
+          {demand.party} 人 · 人均 ¥{plan.budget.perPerson} · 合计 ¥{plan.budget.total}
         </text>
 
         {plans.length > 1 ? (
@@ -107,7 +127,7 @@ export function ItineraryPage({ demand, plans, onPlan, onMap, onDetail, onRevise
               <view
                 key={p.id}
                 className={cls(i === planIndex ? 'chip chip-on' : 'chip')}
-                bindtap={() => onPickPlan(i)}
+                bindtap={() => pickPlan(i)}
               >
                 <text className={cls(i === planIndex ? 'chip-text chip-text-on' : 'chip-text')}>{p.paceLabel}</text>
               </view>
@@ -116,19 +136,18 @@ export function ItineraryPage({ demand, plans, onPlan, onMap, onDetail, onRevise
         ) : null}
 
         <view className={cls('day-tabs')}>
-          {plan.days.map((d) => {
-            const m = MOCK.days.find((x) => x.index === d.index);
-            return (
-              <view
-                key={d.index}
-                className={cls(d.index === dayIndex ? 'day-tab day-tab-card-on' : 'day-tab day-tab-card')}
-                bindtap={() => setDayIndex(d.index)}
-              >
-                <text className={cls(d.index === dayIndex ? 'day-tab-text on' : 'day-tab-text')}>Day {d.index}</text>
-                <text className={cls(d.index === dayIndex ? 'day-tab-date on' : 'day-tab-date')}>{m?.date ?? ''}</text>
-              </view>
-            );
-          })}
+          {plan.days.map((d) => (
+            <view
+              key={d.index}
+              className={cls(d.index === dayIndex ? 'day-tab day-tab-card-on' : 'day-tab day-tab-card')}
+              bindtap={() => setDayIndex(d.index)}
+            >
+              <text className={cls(d.index === dayIndex ? 'day-tab-text on' : 'day-tab-text')}>Day {d.index}</text>
+              <text className={cls(d.index === dayIndex ? 'day-tab-date on' : 'day-tab-date')}>
+                {dayPlaces(d).length} 个地点
+              </text>
+            </view>
+          ))}
         </view>
 
         <scroll-view className={cls('scroll')} scroll-y>
@@ -167,24 +186,6 @@ export function ItineraryPage({ demand, plans, onPlan, onMap, onDetail, onRevise
           ) : null}
 
           <view className={cls('timeline')}>
-            {/* 设计稿首行是「抵达 · 酒店入住」，引擎不产生这类条目，按 mock 补一条展示 */}
-            {dayIndex === 1 ? (
-              <view className={cls('tl-row')}>
-                <text className={cls('tl-time')}>08:00</text>
-                <view className={cls('tl-rail')}><view className={cls('tl-dot tl-dot-arrive')} /></view>
-                <view className={cls('tl-body')}>
-                  <view className={cls('tl-main')}>
-                    <view className={cls('tl-meal-icon tl-arrive-icon')}>
-                      <text className={cls('tl-meal-text')}>住</text>
-                    </view>
-                    <view className={cls('tl-text')}>
-                      <text className={cls('tl-title')}>{MOCK.tripDetail.arrive.title}</text>
-                      <text className={cls('tl-meta')}>约 {MOCK.tripDetail.arrive.hours} 小时 · ¥{MOCK.tripDetail.arrive.cost}</text>
-                    </view>
-                  </view>
-                </view>
-              </view>
-            ) : null}
             {day.items.map((item) => (
               <view key={item.id} className={cls('tl-row')}>
                 <text className={cls('tl-time')}>{clock(item.startMin)}</text>
@@ -207,8 +208,17 @@ export function ItineraryPage({ demand, plans, onPlan, onMap, onDetail, onRevise
                     <view className={cls('tl-text')}>
                       <text className={cls('tl-title')}>{item.title}</text>
                       <text className={cls('tl-meta')}>
-                        {item.kind === 'meal' ? `餐` : `立即入园`} · {item.cost > 0 ? `¥${item.cost}` : '免费'} · 约 {Math.round(item.stayMin / 60 * 10) / 10} 小时
+                        {/* 「立即入园」是设计稿的固定文案，票种还没接；这里只说能确定的事 */}
+                        {item.kind === 'meal'
+                          ? `用餐 · 约 ${Math.round((item.stayMin / 60) * 10) / 10} 小时`
+                          : `门票 ${item.cost > 0 ? `¥${item.cost}` : '免费'} · 停留约 ${Math.round((item.stayMin / 60) * 10) / 10} 小时`}
                       </text>
+                      {/* 营业时段与可信状态必须跟票价挨着，页脚一句「待核实」盖不住逐条数字 */}
+                      {item.kind === 'place' ? <text className={cls('tl-meta')}>{placeNote(item.placeId)}</text> : null}
+                      {/* 路上时间必须带来源：直线折算和真实路线混着显示，等于让用户信错那个到达时刻 */}
+                      {item.transportMin > 0 ? (
+                        <text className={cls('tl-meta')}>{legNote(item.transportMin, item.transportSource)}</text>
+                      ) : null}
                     </view>
                   </view>
                 </view>
@@ -227,7 +237,7 @@ export function ItineraryPage({ demand, plans, onPlan, onMap, onDetail, onRevise
             <text className={cls('card-note')}>人均 ¥{plan.budget.perPerson}。{plan.budget.uncertain[0] ?? ''}</text>
           </view>
 
-          <text className={cls('mock-note')}>日期与天气沿用设计稿示例（mock）· 当前位置 {meta?.weekday ?? ''}</text>
+          <text className={cls('mock-note')}>门票与开放时间来自地点收录（{trustLabel.pending}），出发前请自行核验；天气与日期未接入数据源</text>
         </scroll-view>
       </view>
 
@@ -290,4 +300,24 @@ function clock(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return `${h < 10 ? '0' : ''}${h}:${m < 10 ? '0' : ''}${m}`;
+}
+
+/** 一天里的景点条目（餐不算地点，别再当景点数） */
+const dayPlaces = (day: Plan['days'][number]) => day.items.filter((i) => i.kind === 'place');
+
+/** 地点的开放时段 + 可信状态；查不到地点就空着，不编 */
+function placeNote(placeId?: string): string {
+  if (!placeId) return '';
+  const place = placeById(placeId);
+  if (!place) return '';
+  const when = place.verifiedAt ? `核验 ${place.verifiedAt}` : '未记录核验时间';
+  return `开放 ${clock(place.open[0])}-${clock(place.open[1])} · ${trustLabel[place.trust]} · ${when}`;
+}
+
+/**
+ * 路上耗时的说明。route 是问过地图服务的真实路线时长，straight 是直线折算。
+ * 不标来源就等于把估算当导航结果给出去——产品明令不许「冒充已核验」的地方。
+ */
+function legNote(minutes: number, source?: 'route' | 'straight'): string {
+  return source === 'route' ? `路上约 ${minutes} 分钟` : `路上约 ${minutes} 分钟（按直线距离估算）`;
 }

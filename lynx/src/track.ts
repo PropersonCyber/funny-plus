@@ -15,6 +15,3 @@ export function track(event: string, props: Props = {}): void {
 }
 
 /** 调试/验收用：不看 DevTool 也能取出最近的事件 */
-export function trackBuffer(): readonly { event: string; props: Props; at: string }[] {
-  return buffer;
-}

@@ -1,5 +1,5 @@
 import type { ChangeImpact, Demand, ItineraryItem, Pace, Plan, Place, TransportMode, TripDay } from '@/types'
-import { distanceKm, placeById, placesLoaded, placesOf, travelMinutes } from '@/engine/placeIndex'
+import { distanceKm, hasRoute, placeById, placesLoaded, placesOf, travelMinutes } from '@/engine/placeIndex'
 import { estimateBudget } from '@/engine/budget'
 import { validatePlan } from '@/engine/validate'
 
@@ -32,13 +32,17 @@ const PREF_TAGS: Record<string, string[]> = {
 export class UnsupportedDestination extends Error {}
 
 export function generatePlans(demand: Demand): Plan[] {
-  // 地点池还没预热完和「城市没接入」是两回事，不能都报成同一个错
   if (!placesLoaded()) throw new UnsupportedDestination('地点数据还没取到，请检查网络后重试')
   const pool = placesOf(demand.destination)
   if (pool.length === 0) {
-    throw new UnsupportedDestination(`首期只验证重庆、成都两个目的地，「${demand.destination}」暂未接入地点数据`)
+    throw new UnsupportedDestination(`A 版只开放重庆、成都、北京三个目的地，「${demand.destination}」暂未接入地点数据`)
   }
-
+  // 一天排几个点由节奏决定，点池不够时后面几天会空着：先算最少要几个点，不够就别硬凑一套行程。
+  if (pool.length < demand.dayCount) {
+    throw new UnsupportedDestination(
+      `${demand.destination}目前收录 ${pool.length} 个地点，排不下 ${demand.dayCount} 天行程，请减少天数`
+    )
+  }
   const tags = demand.preferences.flatMap((p) => PREF_TAGS[p] ?? [])
   const ordered = orderByPreference(orderByProximity(pool), tags)
   const unmatched = demand.preferences.filter((p) => !(PREF_TAGS[p] ?? []).some((t) => pool.some((place) => place.tags.includes(t))))
@@ -114,7 +118,9 @@ function buildDay(index: number, slice: Place[], transport: TransportMode): Trip
   let ateLunch = false
 
   slice.forEach((place) => {
-    t += prev ? travelMinutes(prev, place, transport !== 'public') : 20
+    // 首站没有「上一站」，不该凭空送 20 分钟路上时间——那会把出发时间推后，
+    // 后面每个到达时刻跟着漂。出发就是 09:00，到早了由营业时间兜（下一行）。
+    t += prev ? travelMinutes(prev, place, transport !== 'public') : 0
     // 到得比开门时间早就在门口等，否则方案自己就会报「落在营业时段外」
     if (t < place.open[0]) t = place.open[0]
     if (!ateLunch && t >= 11 * 60 + 30) {
@@ -131,7 +137,10 @@ function buildDay(index: number, slice: Place[], transport: TransportMode): Trip
       startMin: t,
       endMin: t + stay,
       stayMin: stay,
-      transportMin: prev ? travelMinutes(prev, place, transport !== 'public') : 20,
+      // 首站记 0：没有路段就是没有路段，留 20 只会让「路上耗时」合计虚高
+      transportMin: prev ? travelMinutes(prev, place, transport !== 'public') : 0,
+      // 首站没有路段，来源也就无从谈起；有路段时才标「真实 / 估算」
+      transportSource: prev ? (hasRoute(prev, place, transport !== 'public') ? 'route' : 'straight') : undefined,
       transportMode: transport,
       cost: place.ticket
     })
@@ -199,7 +208,14 @@ export function revisePlan(
   } else if (/换|替代|改成|不要/.test(instruction)) {
     const target = [...day.items.filter((i) => i.kind === 'place')].pop()
     const replacement = target ? nearest(prevPlace(day, target), unused) : undefined
-    if (!target || !replacement) return { supported: false, reason: '没有可替换的景点' }
+    if (!target) return { supported: false, reason: `第 ${dayIndex} 天没有可替换的景点` }
+    if (!replacement) {
+      // 点池被排满时说清楚是「收录不够」而不是「没有」，否则用户会以为产品在敷衍
+      return {
+        supported: false,
+        reason: `${demand.destination}目前收录 ${placesOf(demand.destination).length} 个地点，已全部排进这份行程，暂无可替换景点`
+      }
+    }
     nextDay = retime(replaceItem(day, target, replacement, transport))
     note = `第 ${dayIndex} 天把「${target.title}」换成「${replacement.name}」`
   } else {
@@ -252,7 +268,14 @@ const nearest = (from: Place | undefined, pool: Place[]): Place | undefined => {
 
 const replaceItem = (day: TripDay, target: ItineraryItem, place: Place, transport: TransportMode): TripDay => {
   const prev = prevPlace(day, target)
+  // 首站被替换时没有「上一站」，沿用 target 原来的 transportMin（首站记 0），
+  // 不要拿一个路段耗时冒充出发耗时
   const transportMin = prev ? travelMinutes(prev, place, transport !== 'public') : target.transportMin
+  const transportSource = prev
+    ? hasRoute(prev, place, transport !== 'public')
+      ? 'route'
+      : 'straight'
+    : target.transportSource
   return {
     index: day.index,
     items: day.items.map((i) =>
@@ -263,6 +286,7 @@ const replaceItem = (day: TripDay, target: ItineraryItem, place: Place, transpor
             title: place.name,
             stayMin: place.stayMin,
             transportMin,
+            transportSource,
             endMin: i.startMin + place.stayMin,
             cost: place.ticket
           }

@@ -5,10 +5,12 @@
   "scripts": {
     "dev": "npm --prefix lynx run dev",
     "build": "npm --prefix lynx run build",
+    "build:ios": "npm --prefix lynx run build && cp lynx/dist/main.web.bundle ios/FunnyPlus/FunnyPlus/web/",
     "typecheck": "npm --prefix server run typecheck && npm --prefix lynx run typecheck",
     "dev:api": "npm --prefix server run dev",
     "dev:db": "docker compose -f server/docker-compose.yml up -d",
     "db:migrate": "npm --prefix server run db:migrate",
-    "db:seed": "npm --prefix server run db:seed"
+    "db:seed": "npm --prefix server run db:seed",
+    "build:android": "npm --prefix lynx run build && ./android/build.sh"
   }
 }
