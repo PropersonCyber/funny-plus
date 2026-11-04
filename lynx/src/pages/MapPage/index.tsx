@@ -12,6 +12,15 @@ import { track } from '../../track.js';
 import { toast } from '../../toast.js';
 import styles from './index.module.scss';
 import { makeCls } from '../../styles/cls.js';
+import {
+  makeProjection,
+  niceScaleBar,
+  simplifyPath,
+  PAD_X,
+  PAD_Y,
+  type GeoPoint,
+} from '../../mapProjection.js';
+import { legGeometry } from '../../routeGeometry.js';
 
 const cls = makeCls(styles);
 
@@ -38,6 +47,11 @@ type Stop = {
   ticket: number;
   /** 到上一个点的直线距离，如 1.2km / 900m，地图标签上显示 */
   dist: string;
+  /** 真实投影坐标（百分比）。防重叠可能把 marker 挪开，这两个值留作路线与比例尺的基准 */
+  trueX: number;
+  trueY: number;
+  /** 被防重叠挪离了原位——挪过的点要标出来，否则又是一层假精度 */
+  moved: boolean;
   /** 挪不开位置了，只留圆形缩略图，不显示文字 */
   crowded: boolean;
 };
@@ -48,8 +62,9 @@ const VIEWS = [
   { id: 'play', label: '推荐玩法', short: '玩法' },
 ] as const;
 
-// 两个 marker 的圆心要隔开多少才不叠：横向只算圆点直径 + 一点余量，
-// 纵向要够高，否则两张带文字的标签会在同一行撞上（18/10 是成都 4 点、北京 8 点都排得开的取值）
+// 两个 marker 的气泡要隔开多少才不叠：横向算的是圆盘 + 气泡文字宽度，纵向是气泡高度。
+// 这两个值配合 SPREAD 的候选偏移，让「挪过的点」仍落在附近一格内，
+// 而不是像以前那样被扔到任意格点上去。
 const MINDX = 18;
 const MINDY = 10;
 /** 原位优先，再上下、再左右、最后对角；不做 while ±1 递推，两个坑位互相抢会挂住主线程 */
@@ -80,43 +95,41 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
       .filter((s): s is { item: typeof day.items[number]; place: NonNullable<ReturnType<typeof placeById>> } => !!s.place);
 
     if (list.length === 0) return [];
-    const lngs = list.map((s) => s.place.lng);
-    const lats = list.map((s) => s.place.lat);
-    const minLng = Math.min(...lngs);
-    const maxLng = Math.max(...lngs);
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    const spanLng = maxLng - minLng || 0.01;
-    const spanLat = maxLat - minLat || 0.01;
     const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+    // 真实等比投影：以前经度按 40%、纬度按 30% 各自归一化，东西向和南北向的比例
+    // 完全是两回事，marker 之间的视觉距离对不上标签上的米数。投影规则见 mapProjection.ts
+    const proj = makeProjection(list.map((s) => s.place));
 
-    // 景点挨太近时错开，否则标记叠在一起分不清顺序。
-    // 只错开 y 不够：两个点经度也接近时，光上下挪会被 y 的上下界夹回去，仍然压在原地。
-    // 这里按固定候选位逐个试（横向留出右侧文字标签的宽度），全试完还挤就只留圆点。
+    // 景点挨太近时错开，否则标记叠在一起分不清顺序。只错开 y 不够：两个点经度也接近时，
+    // 光上下挪会被上下界夹回去。这里按固定候选位逐个试，全试完还挤就只留圆点。
+    // 挪过的点要标出来（moved），不能让用户以为 marker 就在那儿——那是另一种假精度。
     const placed: { x: number; y: number }[] = [];
     return list.map((s, idx) => {
-      const rawX = clamp(20 + ((s.place.lng - minLng) / spanLng) * 40, 16, 56);
-      const rawY = clamp(20 + ((maxLat - s.place.lat) / spanLat) * 30, 16, 52);
-      let x = rawX;
-      let y = rawY;
+      const at = proj.project(s.place);
+      let x = at.x;
+      let y = at.y;
       let crowded = false;
+      let moved = false;
       let ok = false;
       for (const [dx, dy] of SPREAD) {
-        const cx = clamp(rawX + dx, 10, 56);
-        const cy = clamp(rawY + dy, 10, 56);
+        const cx = clamp(at.x + dx, PAD_X - 4, 100 - PAD_X + 4);
+        const cy = clamp(at.y + dy, PAD_Y - 4, 100 - PAD_Y + 4);
         if (!placed.some((p) => Math.abs(p.x - cx) < MINDX && Math.abs(p.y - cy) < MINDY)) {
           x = cx;
           y = cy;
           ok = true;
+          // 候选位 [0,0] 是原位；只要不是它，就是挪过
+          moved = dx !== 0 || dy !== 0;
           break;
         }
       }
       if (!ok) {
         // 点太密挪不开：退到「离已有点最远」的格点，圆点好歹分得开，标签收起来
         crowded = true;
+        moved = true;
         let bestD = -1;
-        for (let gx = 12; gx <= 56; gx += 12) {
-          for (let gy = 14; gy <= 54; gy += 10) {
+        for (let gx = 16; gx <= 84; gx += 12) {
+          for (let gy = 14; gy <= 86; gy += 10) {
             const d = Math.min(...placed.map((p) => Math.abs(p.x - gx) + Math.abs(p.y - gy)));
             if (d > bestD) {
               bestD = d;
@@ -127,7 +140,15 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
         }
       }
       placed.push({ x, y });
-      const prev = list[idx - 1]?.place ?? list[idx + 1]?.place;
+      // 距离优先用路段实际行驶距离（高德给的），取不到才退回两点直线：
+      // 直线会让用户以为「走过去很近」，而绕路可能是两倍
+      const prevPlace = list[idx - 1]?.place;
+      const legGeo = prevPlace ? legGeometry(prevPlace.id, s.place.id) : null;
+      const distText = legGeo?.distanceM
+        ? fmtMeters(legGeo.distanceM)
+        : prevPlace
+          ? fmtDist(distanceKm(s.place, prevPlace))
+          : '';
       return {
         name: s.place.name,
         placeId: s.place.id,
@@ -135,25 +156,123 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
         order: idx + 1,
         x,
         y,
+        trueX: at.x,
+        trueY: at.y,
+        moved,
         time: clock(s.item.startMin),
         stay: s.item.stayMin,
         ticket: s.place.ticket,
-        dist: prev ? fmtDist(distanceKm(s.place, prev)) : '',
+        dist: distText,
         crowded,
       };
     });
   }, [plan, dayNo]);
 
-  const routeSvg = useMemo(() => {
-    if (stops.length < 2) return '';
-    // viewBox 取 100×216 贴合手机宽高比，x/y 单位长度接近，描边才不会被拉成一条宽带
-    const k = 2.16;
-    const pts = stops.map((s) => ({ x: s.x, y: s.y * k }));
-    const d = smoothPath(pts);
-    const dots = pts.map((p) => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="0.55" fill="#2478F2"/>`).join('');
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 216" preserveAspectRatio="none"><path d="${d}" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/><path d="${d}" fill="none" stroke="#2478F2" stroke-width="0.85" stroke-linecap="round" stroke-linejoin="round"/>${dots}</svg>`;
+  /** 每段是否有真实折线：没有的用两点直连并标「估算」 */
+  const legs = useMemo(() => {
+    if (stops.length < 2) return [];
+    const ids = stops.map((s) => s.placeId);
+    const out: { from: string; to: string; path: GeoPoint[] | null; real: boolean; distanceM?: number }[] = [];
+    for (let i = 1; i < ids.length; i++) {
+      const geo = legGeometry(ids[i - 1], ids[i]);
+      out.push({ from: ids[i - 1], to: ids[i], path: geo?.path ?? null, real: !!geo?.path, distanceM: geo?.distanceM });
+    }
+    return out;
   }, [stops]);
 
+  /**
+   * 路线。有真实折线的段按折线画（车实际走的路），没有的段退回两点直连，
+   * 并用虚线区分——用户一眼能看出哪一段是算准的、哪一段只是连了条线。
+   *
+   * 以前是拿 marker 的**屏幕位置**连贝塞尔，等于把「防重叠挪过的坐标」也当路画了：
+   * 挪过的点会把路拽歪，而那条路和真实街道毫无关系。
+   * 现在折线先用同一套投影落到百分比坐标，再按 stops 的挪动量整体补偿，
+   * 保持「线穿过气泡尖角」的视觉关系。
+   */
+  const routeSvg = useMemo(() => {
+    if (stops.length < 2) return '';
+    // 折线要点到 stop 上取它的挪动量，所以先建 id → stop 的索引
+    const byId = new Map(stops.map((s) => [s.placeId, s]));
+
+    const day = plan?.days.find((d) => d.index === dayNo);
+    const allPlaces = (day?.items ?? [])
+      .map((i) => (i.placeId ? placeById(i.placeId) : undefined))
+      .filter((p): p is NonNullable<typeof p> => !!p);
+    const proj = makeProjection(allPlaces);
+
+    // stops 的 y 是「自下往上」的百分比（配 bottom 用），SVG 的 y 是自上往下，
+    // 所以这里必须翻一次；viewBox 高度 216 = 100 × aspect，宽高比已经含在里面，
+    // 所以 y 只做翻转、不再乘 aspect
+    const svgY = (y: number) => ((100 - y) / 100) * 216;
+
+    const solid: string[] = [];
+    const dashed: string[] = [];
+
+    for (const leg of legs) {
+      const a = byId.get(leg.from);
+      const b = byId.get(leg.to);
+      if (!a || !b) continue;
+      if (!leg.path) {
+        // 没有真实折线：两点直连，虚线标出来
+        dashed.push(`M${a.x.toFixed(1)} ${svgY(a.y).toFixed(1)}L${b.x.toFixed(1)} ${svgY(b.y).toFixed(1)}`);
+        continue;
+      }
+      // 折线不按 marker 的挪动量整体平移：marker 会一起动，但路是真实地理，
+      // 硬平移会让整条路跟着偏移，反而更不准。误差只体现在首尾这一小段
+      const pts = leg.path.map((gp) => {
+        const xy = proj.project(gp);
+        return { x: xy.x, y: svgY(xy.y) };
+      });
+      const thinned = simplifyPath(pts, 0.4);
+      // 真实路径不插值：车走的路本来就有直角转弯，Catmull-Rom 会把路口抹成弧线
+      solid.push(`M${thinned.map((p) => `${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join('L')}`);
+    }
+
+    if (solid.length === 0 && dashed.length === 0) return '';
+    const dSolid = solid.join('');
+    const dDashed = dashed.join('');
+    const dots = stops
+      .map((s) => `<circle cx="${s.x.toFixed(1)}" cy="${svgY(s.y).toFixed(1)}" r="0.55" fill="#2478F2"/>`)
+      .join('');
+    // 白描边打底：底图是插画，蓝线直接压上去会和绿地的对比度不够
+    const halo = (d: string) =>
+      d
+        ? `<path d="${d}" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>`
+        : '';
+    return (
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 216" preserveAspectRatio="none">` +
+      halo(dSolid) +
+      (dSolid ? `<path d="${dSolid}" fill="none" stroke="#2478F2" stroke-width="0.85" stroke-linecap="round" stroke-linejoin="round"/>` : '') +
+      halo(dDashed) +
+      (dDashed
+        ? `<path d="${dDashed}" fill="none" stroke="#7E93D6" stroke-width="0.7" stroke-linecap="round" stroke-dasharray="1.6 1.6"/>`
+        : '') +
+      dots +
+      `</svg>`
+    );
+  }, [stops, legs, plan, dayNo]);
+
+  /**
+   * 比例尺。它由投影的 kmPerUnit 算出，不是估计值：
+   * 图上这一段线的长度就是标签上写的米数，用户可以自己核对点之间是不是真的那么近。
+   */
+  const scaleBar = useMemo(() => {
+    const day = plan?.days.find((d) => d.index === dayNo);
+    if (!day) return null;
+    const places = day.items
+      .map((i) => (i.placeId ? placeById(i.placeId) : undefined))
+      .filter((p): p is NonNullable<typeof p> => !!p);
+    if (places.length === 0) return null;
+    const proj = makeProjection(places);
+    return niceScaleBar(proj.kmPerUnit(places[0]));
+  }, [plan, dayNo]);
+
+  /** 比例尺文案：1km 以下按米，避免出现「0.5km」这种读起来别扭的数 */
+  const scaleLabel = useMemo(() => {
+    if (!scaleBar) return '';
+    const m = scaleBar.meters;
+    return m >= 1000 ? `${m / 1000}km` : `${m}m`;
+  }, [scaleBar]);
   const pickedSpot = picked === null ? undefined : stops.find((s) => s.order === picked);
 
   const onDay = useCallback((n: number) => {
@@ -183,6 +302,10 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
         mode="aspectFill"
         style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' }}
       />
+      {/* 插画底图只当氛围：压一层淡遮罩，让真实折线是画面上唯一的「路」。
+          不压的话，插画里那些假街道会和折线混在一起，等于又在暗示一张假地图 */}
+      <view className={cls('map-veil')} />
+
 
       <view className={cls('map-top')}>
         <view className={cls('map-top-pill')}>
@@ -225,7 +348,7 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
         <view
           key={s.order}
           className={cls(mkClass(picked, s))}
-          style={{ left: `${s.x}%`, bottom: `${100 - s.y}%` }}
+          style={{ left: `${s.x}%`, bottom: `${s.y}%` }}
           bindtap={() => {
             const next = picked === s.order ? null : s.order;
             setPicked(next);
@@ -255,8 +378,21 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
               ) : null}
             </view>
           )}
+          {/* 为了不叠在一起被挪过位的点：「~」表示这个气泡的位置是示意，
+              真实位置在尖角指向处附近。不标出来，用户量出来的距离就对不上标签 */}
+          {s.moved && !s.crowded ? (
+            <text className={cls('mk-approx')}>~</text>
+          ) : null}
         </view>
       ))}
+
+      {/* 比例尺：这段线多长就是图上标的米数，让「示意图」也带可核对的量纲 */}
+      {scaleLabel && scaleBar ? (
+        <view className={cls('map-scale')}>
+          <view className={cls('map-scale-line')} style={{ width: `${scaleBar.units}%` }} />
+          <text className={cls('map-scale-text')}>{scaleLabel}</text>
+        </view>
+      ) : null}
 
       {/* 定位能力没接入前不放定位按钮：按不到东西的按钮比没有更糟 */}
       <view className={cls('map-fab-col')}>
@@ -401,24 +537,6 @@ function pinSvg(color: string): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="54" viewBox="0 0 22 27"><path d="M11 0.6C5.2 0.6 0.6 5.2 0.6 11c0 7.4 10.4 15.6 10.4 15.6S21.4 18.4 21.4 11C21.4 5.2 16.8 0.6 11 0.6Z" fill="${color}"/></svg>`;
 }
 
-/** Catmull-Rom 插值成三次贝塞尔：viewBox 拉伸下也不会出现折线硬拐 */
-function smoothPath(pts: { x: number; y: number }[]): string {
-  if (pts.length < 2) return '';
-  let d = `M${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[i - 1] ?? pts[i];
-    const p1 = pts[i];
-    const p2 = pts[i + 1];
-    const p3 = pts[i + 2] ?? p2;
-    const c1x = p1.x + (p2.x - p0.x) / 6;
-    const c1y = p1.y + (p2.y - p0.y) / 6;
-    const c2x = p2.x - (p3.x - p1.x) / 6;
-    const c2y = p2.y - (p3.y - p1.y) / 6;
-    d += ` C${c1x.toFixed(1)} ${c1y.toFixed(1)} ${c2x.toFixed(1)} ${c2y.toFixed(1)} ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
-  }
-  return d;
-}
-
 /** 收起成圆点：位置太密的点，或已经选中了别的点（此时只留 badge，不展示名字和距离） */
 function isCollapsed(picked: number | null, s: Stop): boolean {
   return s.crowded || (picked !== null && picked !== s.order);
@@ -430,6 +548,11 @@ function mkClass(picked: number | null, s: Stop): string {
   const dim = picked !== null && picked !== s.order ? ' mk-dim' : '';
   const collapse = isCollapsed(picked, s) ? ' mk-collapsed' : '';
   return `mk${on}${dim}${collapse}`;
+}
+
+/** 高德给的是米：整数展示，公里级才换单位 */
+function fmtMeters(m: number): string {
+  return m < 1000 ? `${Math.round(m)}m` : `${(m / 1000).toFixed(1)}km`;
 }
 
 /** 1 公里以下按米显示，别让近处的点也写成 0.3km */

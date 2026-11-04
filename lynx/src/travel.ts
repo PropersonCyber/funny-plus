@@ -2,6 +2,8 @@ import type { Demand, Plan, Place } from '@/types';
 import { placesOf, setRouteMinutes } from '@/engine/placeIndex';
 import { legsOf } from './legs.js';
 import { api } from './api.js';
+import { parsePolyline, type GeoPoint } from './mapProjection.js';
+import { setLegGeometry } from './routeGeometry.js';
 
 /**
  * 真实路线耗时的取数层。
@@ -19,6 +21,8 @@ type DirectionResp = {
   durationS?: number;
   distanceM?: number;
   empty?: boolean;
+  /** 「lng,lat;lng,lat;...」的真实路径折线；服务端没拿到就缺省 */
+  path?: string;
 };
 
 export type TravelMode = 'driving' | 'walking';
@@ -52,9 +56,11 @@ export async function warmTravelMinutes(demand: Demand, plans: Plan[]): Promise<
     const chunk = legs.slice(i, i + BATCH);
     const got = await Promise.all(
       chunk.map(async ([a, b]) => {
-        const min = await fetchSegment(a, b, mode);
-        if (min === null) return false;
-        setRouteMinutes(a.id, b.id, faster, min);
+        const got = await fetchSegment(a, b, mode);
+        if (got === null) return false;
+        setRouteMinutes(a.id, b.id, faster, got.minutes);
+        // 折线和实际距离单独存：拿不到只是退回直连/直线距离，不影响耗时本身已经取到
+        setLegGeometry(a.id, b.id, { path: got.path, distanceM: got.distanceM });
         return true;
       }),
     );
@@ -66,8 +72,14 @@ export async function warmTravelMinutes(demand: Demand, plans: Plan[]): Promise<
   return { asked: legs.length, hit };
 }
 
-/** 单段耗时（分钟）。拿不到返回 null —— 调用方据此保留直线折算，不编数字 */
-async function fetchSegment(a: Place, b: Place, mode: TravelMode): Promise<number | null> {
+/**
+ * 单段结果。拿不到返回 null —— 调用方据此保留直线折算，不编数字。
+ * path 可能缺：耗时拿到了但折线没拿到（高德没回 steps）时，时间是准的、
+ * 线退回直连，这两个结论互不牵连，不要因为缺折线就把耗时也丢掉。
+ */
+type SegmentResult = { minutes: number; path?: GeoPoint[]; distanceM?: number };
+
+async function fetchSegment(a: Place, b: Place, mode: TravelMode): Promise<SegmentResult | null> {
   try {
     const body = await api.get<DirectionResp>(
       `/api/geo/direction?origin=${a.lng},${a.lat}&destination=${b.lng},${b.lat}&mode=${mode}`,
@@ -75,7 +87,11 @@ async function fetchSegment(a: Place, b: Place, mode: TravelMode): Promise<numbe
     const sec = Number(body.durationS ?? 0);
     if (!Number.isFinite(sec) || sec <= 0) return null;
     // 向上取整到分钟：宁可多留一点缓冲，也不要让用户按秒赶到
-    return Math.max(1, Math.ceil(sec / 60));
+    const minutes = Math.max(1, Math.ceil(sec / 60));
+    const path = parsePolyline(body.path);
+    const dist = Number(body.distanceM ?? 0);
+    const distanceM = Number.isFinite(dist) && dist > 0 ? dist : undefined;
+    return { minutes, path: path.length >= 2 ? path : undefined, distanceM };
   } catch {
     // 未配 key / 限流 / 网络不通：整批降级，不阻塞生成方案
     return null;

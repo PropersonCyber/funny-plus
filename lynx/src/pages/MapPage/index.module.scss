@@ -492,3 +492,46 @@
   color: #7e93d6;
   margin-right: 3px;
 }
+
+/* 被防重叠挪过位的点：位置是示意，加个角标说明，别让用户拿它量距离 */
+.mk-approx {
+  position: absolute;
+  right: 6px;
+  top: 3px;
+  font-size: 12px;
+  line-height: 12px;
+  color: #9badd8;
+}
+
+/* 比例尺：贴在左下角、fab 上方。线宽由 JS 按投影算出，样式只管长相 */
+.map-scale {
+  position: absolute;
+  left: 16px;
+  bottom: 232px;
+  display: flex;
+  flex-direction: column;
+  z-index: 2;
+}
+.map-scale-line {
+  height: 3px;
+  border-radius: 2px;
+  background-color: rgba(36, 120, 242, 0.75);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.9);
+}
+.map-scale-text {
+  margin-top: 2px;
+  font-size: 10px;
+  line-height: 12px;
+  color: #3f5980;
+}
+
+/* 底图压淡遮罩：插画本身有大量绿地/水域色块，不压一层的话
+   等比投影后的真实折线和它混在一起，谁也看不出哪条是路线 */
+.map-veil {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(240, 247, 255, 0.58);
+}

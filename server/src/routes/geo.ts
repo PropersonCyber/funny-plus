@@ -38,9 +38,11 @@ function cacheSet(key: string, body: unknown): void {
 }
 
 /**
- * 两站之间的真实路线耗时。
+ * 两站之间的真实路线耗时 + 真实折线。
  * 用 /v3/direction 而不是 /v3/distance：distance 是「多个起点 → 同一个终点」，
  * 而行程要的是 1→2→3 的相邻段，硬套会让每个结果只用一个，配额白烧。
+ *
+ * 折线（steps[].polyline）一并返回：前端画的才是车真正走的路，不是两点直连。
  */
 geoRoute.get('/direction', async (c) => {
   const mode = c.req.query('mode') === 'walking' ? 'walking' : 'driving'
@@ -55,7 +57,7 @@ geoRoute.get('/direction', async (c) => {
   if (!okPoint(origin) || !okPoint(destination)) return c.json({ error: '经纬度不合法', code: 'bad_coord' }, 400)
 
   const key = `${mode}:${origin}:${destination}`
-  const cached = cacheGet<{ durationS: number; distanceM: number }>(key)
+  const cached = cacheGet<{ durationS: number; distanceM: number; path?: string }>(key)
   if (cached) return c.json({ ...cached, mode, cached: true })
 
   const params: Record<string, string> = { key: amap.key, origin, destination }
@@ -66,7 +68,12 @@ geoRoute.get('/direction', async (c) => {
   if (!res) return c.json({ error: '地图服务不可达', code: 'upstream_error', mode }, 502)
 
   const body = (await res.json().catch(() => null)) as
-    | { status?: string; info?: string; infocode?: string; route?: { paths?: { duration?: string; distance?: string }[] } }
+    | {
+        status?: string
+        info?: string
+        infocode?: string
+        route?: { paths?: { duration?: string; distance?: string; steps?: { polyline?: string }[] }[] }
+      }
     | null
   if (!body || body.status !== '1') {
     return c.json({ error: body?.info ?? '地图服务返回异常', code: 'upstream_error', infocode: body?.infocode, mode }, 502)
@@ -80,10 +87,35 @@ geoRoute.get('/direction', async (c) => {
     return c.json({ durationS: 0, distanceM: 0, mode, empty: true })
   }
 
-  const out = { durationS, distanceM }
+  // steps[].polyline 是首尾相接的段落，拼起来就是整条路线。
+  // 缺任何一段都不拼——拼出来的路会从中间横跳，比不画更差
+  const joined = joinPolylines(path?.steps)
+  const out = joined ? { durationS, distanceM, path: joined } : { durationS, distanceM }
   cacheSet(key, out)
   return c.json({ ...out, mode, cached: false })
 })
+
+/** 一条 16km 的路高德能回上千个点（十几 KB JSON）：服务端先按固定间距粗筛，前端再精修 */
+const MAX_PATH_POINTS = 240
+
+function joinPolylines(steps: { polyline?: string }[] | undefined): string {
+  if (!Array.isArray(steps) || steps.length === 0) return ''
+  const pts: string[] = []
+  for (const step of steps) {
+    if (typeof step?.polyline !== 'string' || !step.polyline) return ''
+    // 相邻 step 的首点通常与上一段末点重合，去掉能省下几百个重复点
+    const seg = step.polyline.split(';')
+    if (pts.length > 0 && seg[0] === pts[pts.length - 1]) seg.shift()
+    pts.push(...seg)
+  }
+  if (pts.length <= MAX_PATH_POINTS) return pts.join(';')
+  // 等距抽稀：保留首尾，中间按步长跳点。形状靠前端 Douglas-Peucker 再收一遍
+  const stride = pts.length / MAX_PATH_POINTS
+  const picked: string[] = []
+  for (let i = 0; i < MAX_PATH_POINTS - 1; i++) picked.push(pts[Math.round(i * stride)])
+  picked.push(pts[pts.length - 1])
+  return picked.join(';')
+}
 
 /** 逆地理：前端拿到经纬度后换城市名，首页「当前定位」用它 */
 geoRoute.get('/regeo', async (c) => {
