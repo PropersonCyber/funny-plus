@@ -105,10 +105,16 @@
 /**
  * 前端 ↔ 原生的注入点集中在这里：定位结果、登录回调。
  *
- * 为什么只能往 window 挂全局：本壳没有 Lynx 原生引擎，业务 JS 由 web 渲染器跑在 Worker 里，
- * 壳层拿不到那个 worker。已知限制：window 上的值 Worker 未必读得到（web-core 只对
- * lynx-view 初始的 global-props 做了转发，没有对外开放的运行时更新入口）。
- * 所以前端 geo.ts 读不到就按「没有定位」降级，宁可不出城市，也不猜一个。
+/**
+ * 前端 ↔ 原生的注入点集中在这里：定位结果、登录回调。
+ *
+ * **必须走 `lynx-view.globalProps`，不能挂 window**：web-core 把业务 JS 放进
+ * `new Worker(...)` 跑，Worker 的 globalThis 是 WorkerGlobalScope，看不到主线程的
+ * window。之前往 window 挂 __fpLocation 的做法在 Worker 里永远读不到，
+ * 前端只能一路降级成「没有定位能力」—— 这就是定位一直没生效的原因。
+ *
+ * globalProps 的 setter 会走 updateGlobalProps → backgroundThread，
+ * 是官方支持的跨线程通道。
  */
 @interface FPBridge : NSObject
 @property(nonatomic, weak) WKWebView *web;
@@ -139,10 +145,6 @@
   dispatch_async(dispatch_get_main_queue(), ^{ [w evaluateJavaScript:js completionHandler:nil]; });
 }
 
-/**
- * at 用毫秒时间戳交给前端判过期（5 分钟）：壳里存的是「上次定位」，
- * 人在路上移动时旧坐标会把城市定位错，由前端统一口径丢掉更可靠。
- */
 - (void)pushLocation:(CLLocation *)loc error:(NSString *)error {
   _lastLoc = loc;
   _lastErr = [error copy];
@@ -152,24 +154,53 @@
 
 - (void)flush { [self replay]; }
 
+/**
+ * 把定位结果合并进 globalProps。
+ *
+ * 合并而不是整体替换：globalProps 里可能还有别的键（将来放 token、主题），
+ * 每次只覆盖 __fpLocation 一项，其余原样带回去。
+ *
+ * 用 Object.assign 合并且对 __fpLocation 用「深合并」，
+ * 是因为壳里可能带过来一个 __fpOpenSettings 之类的固定项，不能被这次覆盖冲掉。
+ */
 - (void)replay {
   if (!_hasResult) return;
+
+  NSString *payload;
   if (!_lastLoc) {
     // 拒绝和失败分开：前端据此决定是提示去设置里开权限，还是只当没定位
     NSString *msg = _lastErr.length ? _lastErr : @"failed";
-    [self eval:[NSString stringWithFormat:
-        @"(function(){var l=window.__fpLocation||{};"
-         "l.get=function(){return Promise.reject(new Error('%@'));};window.__fpLocation=l;})()", msg]];
-    return;
+    payload = [NSString stringWithFormat:@"{error:'%@'}", [self jsonEscape:msg]];
+  } else {
+    // at 用毫秒时间戳交给前端判过期（5 分钟）：壳里存的是「上次定位」，
+    // 人在路上移动时旧坐标会把城市定位错，由前端统一口径丢掉更可靠
+    double at = [[NSDate date] timeIntervalSince1970] * 1000.0;
+    payload = [NSString stringWithFormat:@"{lng:%.6f,lat:%.6f,accuracy:%.1f,at:%.0f}",
+               _lastLoc.coordinate.longitude, _lastLoc.coordinate.latitude,
+               _lastLoc.horizontalAccuracy, at];
   }
-  double at = [[NSDate date] timeIntervalSince1970] * 1000.0;
-  [self eval:[NSString stringWithFormat:
-      @"(function(){var p={lng:%.6f,lat:%.6f,accuracy:%.1f,at:%.0f};"
-       "window.__fpLocation={current:p,get:function(){return Promise.resolve(p);}};})()",
-      _lastLoc.coordinate.longitude, _lastLoc.coordinate.latitude,
-      _lastLoc.horizontalAccuracy, at]];
+
+  NSString *js = [NSString stringWithFormat:
+      @"(function(){var v=document.querySelector('lynx-view');if(!v)return;"
+       "var g=v.globalProps||{};g.__fpLocation=%@;"
+       "g.__fpOpenSettings=function(){location.href='app://local/settings';};"
+       "v.globalProps=g;})()", payload];
+  [self eval:js];
 }
 
+/** 单引号包裹的 JS 字面量里，反斜杠和引号要转义，否则一个错误串就能破坏整段脚本 */
+- (NSString *)jsonEscape:(NSString *)s {
+  NSMutableString *out = [NSMutableString stringWithString:s];
+  [out replaceOccurrencesOfString:@"\\" withString:@"\\\\" options:0 range:NSMakeRange(0, out.length)];
+  [out replaceOccurrencesOfString:@"'" withString:@"\\'" options:0 range:NSMakeRange(0, out.length)];
+  [out replaceOccurrencesOfString:@"\n" withString:@" " options:0 range:NSMakeRange(0, out.length)];
+  return out;
+}
+
+/**
+ * 三方登录回跳。和定位同一个通道问题：业务代码在 Worker 里，
+ * window.__fpAuthCallback 读不到，所以回调也走 globalProps。
+ */
 + (BOOL)handleURL:(NSURL *)url {
   if (![url.scheme isEqualToString:@"funnyplus"]) return NO;
   // 只认 /auth 这一个入口：分享回跳、深链以后各自加分支，别让任意 scheme 都当登录
@@ -182,12 +213,14 @@
   }
   if (!code.length) return NO;
   NSString *js = [NSString stringWithFormat:
-      @"(function(){var f=window.__fpAuthCallback;"
-       "if(typeof f==='function')f('%@',{code:'%@'});})()", provider, code];
+      @"(function(){var v=document.querySelector('lynx-view');if(!v)return;"
+       "var g=v.globalProps||{};g.__fpAuth={provider:'%@',code:'%@',at:Date.now()};"
+       "v.globalProps=g;})()", provider, code];
   [[FPBridge shared] eval:js];
   return YES;
 }
 @end
+
 
 /** 系统定位：只要城市级精度，拿一次就停，不做持续定位（持续定位要额外权限说明，且没有场景需要） */
 @interface LocationHub : NSObject <CLLocationManagerDelegate>

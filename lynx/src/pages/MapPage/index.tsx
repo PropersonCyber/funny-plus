@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from '@lynx-js/react';
+import { useCallback, useMemo, useRef, useState } from '@lynx-js/react';
 
 import mapArt from '../../assets/gen/map-bg.jpg';
 import mascotPeek from '../../assets/ip/mascot-peek.png';
@@ -21,6 +21,7 @@ import {
   type GeoPoint,
 } from '../../mapProjection.js';
 import { legGeometry } from '../../routeGeometry.js';
+import { Gesture, IDENTITY, isIdentity, MAX_SCALE, MIN_SCALE, project, zoomBy, type View } from '../../mapGesture.js';
 
 const cls = makeCls(styles);
 
@@ -86,6 +87,46 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
   // 选中某个景点后，卡片区换成该点的详情；换天要清掉，否则 index 指向的是上一天的顺序
   const [picked, setPicked] = useState<number | null>(null);
   const plan = plans[Math.min(planIndex, plans.length - 1)] ?? plans[0];
+
+  /**
+   * 地图视口。手势只改这个值，不重算投影——投影是「地理 → 内容坐标」，
+   * 缩放平移是「内容坐标 → 屏幕坐标」，两层分开才能拖动时不抖。
+   */
+  const [mapView, setMapView] = useState<View>(IDENTITY);
+  // touch 回调里读不到最新的 state（闭包），用 ref 并存一份
+  const viewRef = useRef<View>(IDENTITY);
+  const gestureRef = useRef(new Gesture());
+  const applyView = useCallback((v: View) => {
+    viewRef.current = v;
+    setMapView(v);
+  }, []);
+
+  /** Lynx 的 touch 事件给 clientX/clientY；拿不到时退回 x/y，别整块手势瞎掉 */
+  const ptsOf = (e: any) =>
+    (e?.touches ?? []).map((t: any) => ({ x: Number(t.clientX ?? t.x ?? 0), y: Number(t.clientY ?? t.y ?? 0) }));
+
+  const onTouchStart = useCallback((e: any) => {
+    const pts = ptsOf(e);
+    // 新手指按下时 touchstart 会重放全部触点，基准要跟着重置，
+    // 否则双指变三指再变回双指时，间距基准还是旧的，会猛跳一下
+    gestureRef.current.begin(viewRef.current, pts);
+  }, []);
+
+  const onTouchMove = useCallback((e: any) => {
+    const next = gestureRef.current.move(ptsOf(e));
+    if (next) applyView(next);
+  }, [applyView]);
+
+  const onTouchEnd = useCallback((e: any) => {
+    const pts = ptsOf(e);
+    // 松一根手指后剩下的那根要继续能拖：以剩余触点重新起基准
+    if (pts.length > 0) gestureRef.current.begin(viewRef.current, pts);
+    else gestureRef.current.end();
+  }, []);
+
+  const resetView = useCallback(() => applyView(IDENTITY), [applyView]);
+  const zoomIn = useCallback(() => applyView(zoomBy(viewRef.current, 1.6)), [applyView]);
+  const zoomOut = useCallback(() => applyView(zoomBy(viewRef.current, 1 / 1.6)), [applyView]);
 
   const stops = useMemo<Stop[]>(() => {
     const day = plan?.days.find((d) => d.index === dayNo);
@@ -202,8 +243,12 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
 
     // stops 的 y 是「自下往上」的百分比（配 bottom 用），SVG 的 y 是自上往下，
     // 所以这里必须翻一次；viewBox 高度 216 = 100 × aspect，宽高比已经含在里面，
-    // 所以 y 只做翻转、不再乘 aspect
-    const svgY = (y: number) => ((100 - y) / 100) * 216;
+    // 所以 y 只做翻转、不再乘 aspect。
+    // 再套一层视口变换：内容坐标 → 屏幕坐标 → SVG 坐标
+    const toSvg = (x: number, y: number) => {
+      const p = project(mapView, x, y);
+      return { x: p.x, y: ((100 - p.y) / 100) * 216 };
+    };
 
     const solid: string[] = [];
     const dashed: string[] = [];
@@ -214,14 +259,16 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
       if (!a || !b) continue;
       if (!leg.path) {
         // 没有真实折线：两点直连，虚线标出来
-        dashed.push(`M${a.x.toFixed(1)} ${svgY(a.y).toFixed(1)}L${b.x.toFixed(1)} ${svgY(b.y).toFixed(1)}`);
+        const pa = toSvg(a.x, a.y);
+        const pb = toSvg(b.x, b.y);
+        dashed.push(`M${pa.x.toFixed(1)} ${pa.y.toFixed(1)}L${pb.x.toFixed(1)} ${pb.y.toFixed(1)}`);
         continue;
       }
       // 折线不按 marker 的挪动量整体平移：marker 会一起动，但路是真实地理，
       // 硬平移会让整条路跟着偏移，反而更不准。误差只体现在首尾这一小段
       const pts = leg.path.map((gp) => {
         const xy = proj.project(gp);
-        return { x: xy.x, y: svgY(xy.y) };
+        return toSvg(xy.x, xy.y);
       });
       const thinned = simplifyPath(pts, 0.4);
       // 真实路径不插值：车走的路本来就有直角转弯，Catmull-Rom 会把路口抹成弧线
@@ -232,7 +279,10 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
     const dSolid = solid.join('');
     const dDashed = dashed.join('');
     const dots = stops
-      .map((s) => `<circle cx="${s.x.toFixed(1)}" cy="${svgY(s.y).toFixed(1)}" r="0.55" fill="#2478F2"/>`)
+      .map((s) => {
+        const p = toSvg(s.x, s.y);
+        return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="0.55" fill="#2478F2"/>`;
+      })
       .join('');
     // 白描边打底：底图是插画，蓝线直接压上去会和绿地的对比度不够
     const halo = (d: string) =>
@@ -250,7 +300,7 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
       dots +
       `</svg>`
     );
-  }, [stops, legs, plan, dayNo]);
+  }, [stops, legs, plan, dayNo, mapView]);
 
   /**
    * 比例尺。它由投影的 kmPerUnit 算出，不是估计值：
@@ -264,8 +314,10 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
       .filter((p): p is NonNullable<typeof p> => !!p);
     if (places.length === 0) return null;
     const proj = makeProjection(places);
-    return niceScaleBar(proj.kmPerUnit(places[0]));
-  }, [plan, dayNo]);
+    // 比例尺必须跟着缩放走：放大 2 倍后同样的屏幕长度只代表一半的实际距离。
+    // 不联动的话它就从「可核对的量纲」退化成一条装饰线
+    return niceScaleBar(proj.kmPerUnit(places[0]) / mapView.scale);
+  }, [plan, dayNo, mapView.scale]);
 
   /** 比例尺文案：1km 以下按米，避免出现「0.5km」这种读起来别扭的数 */
   const scaleLabel = useMemo(() => {
@@ -296,7 +348,13 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
   }
 
   return (
-    <view className={cls('map-full')}>
+    <view
+      className={cls('map-full')}
+      bindtouchstart={onTouchStart}
+      bindtouchmove={onTouchMove}
+      bindtouchend={onTouchEnd}
+      bindtouchcancel={onTouchEnd}
+    >
       <image
         src={mapArt}
         mode="aspectFill"
@@ -348,7 +406,12 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
         <view
           key={s.order}
           className={cls(mkClass(picked, s))}
-          style={{ left: `${s.x}%`, bottom: `${s.y}%` }}
+          style={(() => {
+            // marker 跟着视口一起变换；气泡本身尺寸不变（缩放的是地图像素，
+            // 不是 UI 元素——否则放大后标签会大到糊住半个屏幕）
+            const p = project(mapView, s.x, s.y);
+            return { left: `${p.x}%`, bottom: `${p.y}%` };
+          })()}
           bindtap={() => {
             const next = picked === s.order ? null : s.order;
             setPicked(next);
@@ -393,6 +456,22 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
           <text className={cls('map-scale-text')}>{scaleLabel}</text>
         </view>
       ) : null}
+
+      {/* 缩放控件：和手势两条路都能用——手势不灵时至少还有按钮能救 */}
+      <view className={cls('map-zoom-col')}>
+        <view className={cls('map-zoom-btn')} bindtap={zoomIn}>
+          <text className={cls('map-zoom-txt')}>+</text>
+        </view>
+        <view className={cls('map-zoom-btn')} bindtap={zoomOut}>
+          <text className={cls('map-zoom-txt')}>−</text>
+        </view>
+        {/* 只有真的缩放/平移过才给复位入口，否则是个永远灰着的按钮 */}
+        {isIdentity(mapView) ? null : (
+          <view className={cls('map-zoom-btn')} bindtap={resetView}>
+            <text className={cls('map-zoom-reset')}>复位</text>
+          </view>
+        )}
+      </view>
 
       {/* 定位能力没接入前不放定位按钮：按不到东西的按钮比没有更糟 */}
       <view className={cls('map-fab-col')}>

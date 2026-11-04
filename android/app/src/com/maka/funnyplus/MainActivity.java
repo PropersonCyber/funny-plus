@@ -178,11 +178,10 @@ public class MainActivity extends Activity {
     }
 
     /**
-     * 定位注入：与 iOS 的 __fpLocation 同一套契约（get 返回 Promise，失败 reject 'denied'/'failed'）。
-     *
-     * 已知限制：业务 JS 跑在 Web Worker 里，主线程 window 上挂的值未必读得到
-     * （Lynx web 运行时只转发了 lynx-view 的初始 global-props）。前端 geo.ts 读不到就按
-     * 「没有定位」降级，宁可不出城市，也不猜一个填上去。
+     * 定位注入。**必须写 lynx-view.globalProps，不能挂 window**：
+     * 业务 JS 跑在 Web Worker 里，Worker 的 globalThis 看不到主线程 window，
+     * 往 window 挂值在 Worker 里永远读不到（之前就是这么写的，定位一直没生效）。
+     * globalProps 的 setter 会走 updateGlobalProps → backgroundThread，是官方跨线程通道。
      */
     private void startLocation() {
         if (locationAsked) return;
@@ -250,21 +249,25 @@ public class MainActivity extends Activity {
     private void injectLocation(Location l) {
         if (locationResolved) return;
         locationResolved = true;
-        injectJs("(function(){var p={lng:" + l.getLongitude() + ",lat:" + l.getLatitude()
+        injectJs("(function(){var v=document.querySelector('lynx-view');if(!v)return;"
+                + "var g=v.globalProps||{};"
+                + "g.__fpLocation={lng:" + l.getLongitude() + ",lat:" + l.getLatitude()
                 + ",accuracy:" + l.getAccuracy() + ",at:" + System.currentTimeMillis() + "};"
-                + "window.__fpLocation={current:p,get:function(){return Promise.resolve(p);}};})()");
+                + "g.__fpOpenSettings=function(){location.href='app://local/settings';};"
+                + "v.globalProps=g;})()");
     }
 
     private void injectLocationError(String reason) {
         if (locationResolved) return;
         locationResolved = true;
-        injectJs("(function(){var l=window.__fpLocation||{};"
-                + "l.get=function(){return Promise.reject(new Error('" + reason + "'));};"
-                + "window.__fpLocation=l;})()");
+        injectJs("(function(){var v=document.querySelector('lynx-view');if(!v)return;"
+                + "var g=v.globalProps||{};g.__fpLocation={error:'" + reason + "'};"
+                + "g.__fpOpenSettings=function(){location.href='app://local/settings';};"
+                + "v.globalProps=g;})()");
     }
-
     /** 三方登录回跳：funnyplus://auth?provider=wechat&code=xxx，和 iOS 的 handleURL 同一口径 */
     @Override
+
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
@@ -281,8 +284,9 @@ public class MainActivity extends Activity {
         String code = uri.getQueryParameter("code");
         if (code == null || code.isEmpty()) return;
         if (provider == null || provider.isEmpty()) provider = "wechat";
-        injectJs("(function(){var f=window.__fpAuthCallback;"
-                + "if(typeof f==='function')f('" + provider + "',{code:'" + code + "'});})()");
+        injectJs("(function(){var v=document.querySelector('lynx-view');if(!v)return;"
+                + "var g=v.globalProps||{};g.__fpAuth={provider:'" + provider + "',code:'" + code + "',at:Date.now()};"
+                + "v.globalProps=g;})()");
     }
 
     private void injectJs(String js) {

@@ -4,25 +4,27 @@ import { readLocal, writeLocal } from './storage.js';
 /**
  * 定位 + 地图能力的接入层。
  *
- * 经纬度只能由原生壳给：Lynx 原生端没有 navigator.geolocation，web 预览里浏览器有，
- * 所以壳会往 `globalThis.__fpLocation` 写一份缓存坐标（见各壳的注入逻辑），
- * 前端读它，读不到就如实说「没有定位」，绝不退回一个假城市。
+ * 经纬度只能由宿主壳给，而且**只能走 `lynx.__globalProps`**：
+ * 这个 App 的 web 渲染器把业务 JS 放进 `new Worker(...)` 里跑，Worker 的 globalThis
+ * 是 WorkerGlobalScope，看不到主线程的 `window`。之前往 `window.__fpLocation` 注入
+ * 的那套在 Worker 里永远读不到，定位必然返回 unsupported —— 这是「定位没接进来」的
+ * 真正原因：不是壳没实现，是通道选错了。
  *
+ * 现在壳层写 `<lynx-view>.globalProps = { __fpLocation: {...} }`，
+ * web-core 的 Value setter 会把更新转发进 Worker。
  * 逆地理 / 真实耗时都走 `server/src/routes/geo.ts`，key 不下发到前端。
  */
 
 export type GeoPoint = { lng: number; lat: number; accuracy?: number; at?: number };
 
-/** 壳注入的桥：取当前定位。返回 Promise，权限被拒时 reject */
-type LocationBridge = { get?: () => Promise<GeoPoint>; current?: GeoPoint };
-/** 壳注入的桥：打开系统权限设置页 */
-type PermissionBridge = { openSettings?: () => void };
+type RawLocation = { lng?: unknown; lat?: unknown; accuracy?: unknown; at?: unknown; error?: unknown };
 
-const bridge = (): LocationBridge | null => {
-  const g = globalThis as any;
-  const b = g?.__fpLocation;
-  return b && typeof b === 'object' ? (b as LocationBridge) : null;
-};
+/** 读 lynx.__globalProps 里的定位快照。没有 lynx 环境（单测 / 浏览器预览）返回 null */
+function snapshot(): RawLocation | null {
+  const g = (globalThis as any)?.lynx?.__globalProps;
+  const loc = g?.__fpLocation;
+  return loc && typeof loc === 'object' ? (loc as RawLocation) : null;
+}
 
 /**
  * 坐标时效：超过 5 分钟不用——人在高铁上，10 分钟前的城市已经错了，
@@ -30,45 +32,76 @@ const bridge = (): LocationBridge | null => {
  */
 const STALE_MS = 5 * 60 * 1000;
 
+/** 系统定位回调通常比页面晚到；最多等这么久，超时就报「定位中」而不是失败 */
+const WAIT_MS = 3000;
+const POLL_MS = 120;
+
 export type LocateResult =
   | { ok: true; point: GeoPoint }
-  | { ok: false; reason: 'unsupported' | 'denied' | 'failed' | 'stale' };
+  | { ok: false; reason: 'unsupported' | 'denied' | 'failed' | 'stale' | 'pending' };
 
 function valid(p: unknown): p is GeoPoint {
   const q = p as GeoPoint | null;
-  return !!q && Number.isFinite(q.lng) && Number.isFinite(q.lat) && Math.abs(q.lng) <= 180 && Math.abs(q.lat) <= 90;
+  return (
+    !!q &&
+    Number.isFinite(q.lng) &&
+    Number.isFinite(q.lat) &&
+    Math.abs(q.lng) <= 180 &&
+    Math.abs(q.lat) <= 90
+  );
 }
 
+/**
+ * 取当前定位。
+ *
+ * 四种结局分开，界面才能给出不同的下一步：
+ *   ok          有坐标且没过期
+ *   denied      系统权限被拒 —— 提示去设置里开
+ *   pending     等超时还没结果 —— 显示「定位中」，允许重试，不当成失败
+ *   unsupported 没有 lynx 环境（浏览器预览 / 单测）—— 如实说没有这个能力
+ *   failed      壳报了非权限类错误 / 坐标非法
+ */
 export async function locate(): Promise<LocateResult> {
-  const b = bridge();
-  // 没有桥 = 跑在浏览器预览里，或壳还没实现注入。这两种都不该让用户等
-  if (!b) return { ok: false, reason: 'unsupported' };
-
-  let point: GeoPoint | null = null;
-  if (typeof b.get === 'function') {
-    try {
-      const got = await b.get();
-      if (valid(got)) point = got;
-    } catch (err) {
-      // 桥 reject 的字符串约定：denied = 用户拒绝 / 权限被关
-      const msg = String((err as { message?: string } | null)?.message ?? err ?? '');
-      return { ok: false, reason: msg.indexOf('denied') >= 0 ? 'denied' : 'failed' };
+  const deadline = Date.now() + WAIT_MS;
+  for (;;) {
+    const snap = snapshot();
+    if (snap) {
+      if (typeof snap.error === 'string' && snap.error) {
+        return { ok: false, reason: snap.error.indexOf('denied') >= 0 ? 'denied' : 'failed' };
+      }
+      if (valid(snap)) {
+        const point: GeoPoint = {
+          lng: Number(snap.lng),
+          lat: Number(snap.lat),
+          accuracy: Number(snap.accuracy) || undefined,
+          at: Number(snap.at) || undefined,
+        };
+        if (point.at && Date.now() - point.at > STALE_MS) return { ok: false, reason: 'stale' };
+        return { ok: true, point };
+      }
     }
+    if (Date.now() >= deadline) {
+      const hasLynx = !!(globalThis as any)?.lynx;
+      return { ok: false, reason: hasLynx ? 'pending' : 'unsupported' };
+    }
+    await new Promise((r) => setTimeout(r, POLL_MS));
   }
-  // 壳是「上次定位结果」的同步快照，直接可用；两条都没有就不猜
-  if (!point && valid(b.current)) point = b.current!;
-  if (!point) return { ok: false, reason: 'failed' };
-
-  if (point.at && Date.now() - point.at > STALE_MS) return { ok: false, reason: 'stale' };
-  return { ok: true, point };
 }
 
-/** 拉起系统权限设置页：用户点了「拒绝」之后唯一的自救路径 */
+/**
+ * 拉起系统权限设置页：用户点了「拒绝」之后唯一的自救路径。
+ * Worker 里拿不到 window.open，只能让壳去做；壳没提供就返回 false，界面不显示这个入口。
+ */
 export function openLocationSettings(): boolean {
-  const p = (globalThis as any)?.__fpPermission as PermissionBridge | null | undefined;
-  if (!p || typeof p.openSettings !== 'function') return false;
-  p.openSettings();
-  return true;
+  const g = (globalThis as any)?.lynx?.__globalProps;
+  const open = g?.__fpOpenSettings;
+  if (typeof open !== 'function') return false;
+  try {
+    open();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export type Regeo = { city: string; province: string; district: string; coord: 'gcj02' };
@@ -117,11 +150,21 @@ export async function resolveCity(point: GeoPoint): Promise<CityResult> {
 
 /** 一次性拿「定位 → 城市名」，给首页 / 城市选择页用 */
 export async function locateCity(): Promise<
-  { status: 'ok'; city: string } | { status: 'empty' } | { status: 'offline'; reason: 'not_configured' | 'error' | 'no_location' }
+  | { status: 'ok'; city: string }
+  | { status: 'empty' }
+  | {
+      status: 'offline';
+      reason: 'not_configured' | 'error' | 'no_location' | 'denied' | 'pending';
+    }
 > {
   const hit = cachedCity();
   if (hit) return { status: 'ok', city: hit };
   const loc = await locate();
-  if (!loc.ok) return { status: 'offline', reason: 'no_location' };
+  if (!loc.ok) {
+    // denied / pending 要原样透给界面：一个该引导去设置，一个该继续转圈
+    if (loc.reason === 'denied') return { status: 'offline', reason: 'denied' };
+    if (loc.reason === 'pending') return { status: 'offline', reason: 'pending' };
+    return { status: 'offline', reason: 'no_location' };
+  }
   return resolveCity(loc.point);
 }

@@ -25,14 +25,27 @@ export function CityPage({ city, cities, onPick, onBack }: Props) {
 
   const onChange = useCallback((e: any) => setKeyword(e.detail?.value ?? ''), []);
 
-  // 只有真拿到城市名才替换显示：没有壳桥（web 预览）、权限被拒、服务端没配 key
-  // 这三种都保持原来的占位文案，不能退回 city（那是用户选的目的地，不是定位）
-  const [located, setLocated] = useState('');
+  /**
+   * 定位状态。四种呈现分开，用户才知道下一步该干什么：
+   *   ok      拿到城市名
+   *   pending 还在等系统回调 —— 「定位中…」
+   *   denied  权限被拒 —— 提示去系统设置
+   *   其余    无壳能力（浏览器预览）/ 逆地理没配 key / 查不到 —— 保持原占位，不编城市
+   *
+   * 绝不退回 city：那是用户选的目的地，不是定位。
+   */
+  const [loc, setLoc] = useState<{ city: string; note: string }>({ city: '', note: '' });
   useEffect(() => {
     let alive = true;
     locateCity()
       .then((r) => {
-        if (alive && r.status === 'ok' && r.city) setLocated(r.city);
+        if (!alive) return;
+        if (r.status === 'ok' && r.city) return setLoc({ city: r.city, note: '按设备定位' });
+        if (r.status === 'offline' && r.reason === 'denied') {
+          return setLoc({ city: '', note: '未授权定位，去系统设置里开启' });
+        }
+        if (r.status === 'offline' && r.reason === 'pending') return setLoc({ city: '', note: '定位中…' });
+        setLoc({ city: '', note: '' });
       })
       // 定位是锦上添花，失败不打断选城市
       .catch(() => {});
@@ -60,8 +73,8 @@ export function CityPage({ city, cities, onPick, onBack }: Props) {
 
       <view className={cls('city-cur')}>
         <text className={cls('city-cur-label')}>当前定位</text>
-        <text className={cls('city-cur-value')}>{located || city}</text>
-        <text className={cls('city-cur-note')}>{located ? '按设备定位' : '接定位能力后由宿主动态获取'}</text>
+        <text className={cls('city-cur-value')}>{loc.city || city}</text>
+        <text className={cls('city-cur-note')}>{loc.note || '接定位能力后由宿主动态获取'}</text>
       </view>
 
       <text className={cls('city-sec')}>{kw ? '搜索结果' : '可选城市'}</text>
