@@ -51,7 +51,7 @@ export function PickerSheet({ title, options, value, onClose, onPick }: Props) {
                   <text className={cls(on ? 'pk-label pk-label-on' : 'pk-label')}>{o.label}</text>
                   {o.note ? <text className={cls('pk-note')}>{o.note}</text> : null}
                 </view>
-                {on ? <svg content={svgIcon('check', '#2478F2')} style={{ width: '16px', height: '16px' }} /> : null}
+                {on ? <image src={svgIcon('check', '#2478F2')} style={{ width: '16px', height: '16px' }} /> : null}
               </view>
             );
           })}

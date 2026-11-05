@@ -3,6 +3,7 @@ import { useCallback, useState } from '@lynx-js/react';
 import mascotAi from '../../assets/ip/mascot-ai.png';
 import { MOCK } from '../../mock.js';
 import { toast } from '../../toast.js';
+import { svgDataUri } from '../../icon-svg.js';
 import { svgIcon } from '../../icons.js';
 import styles from './index.module.scss';
 import { makeCls } from '../../styles/cls.js';
@@ -17,7 +18,7 @@ type Props = {
 /** 麦克风图表不在 docs/materials/icons 里，只有这一个页面用，就地内联 */
 const MIC_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.6" width="6" height="11" rx="3"/><path d="M5.2 11a6.8 6.8 0 0 0 13.6 0M12 17.8V21"/></svg>`;
 
-const micSvg = (color: string) => MIC_SVG.split('currentColor').join(color);
+const micSvg = (color: string) => svgDataUri(MIC_SVG.split('currentColor').join(color));
 
 /** AI 助手：设计稿第 7 屏。当前是静态对话演示，没有接模型。 */
 export function AssistantPage({ onBack, onApply }: Props) {
@@ -31,12 +32,12 @@ export function AssistantPage({ onBack, onApply }: Props) {
         <view className={cls('page')}>
           <view className={cls('page-head')}>
             <view className={cls('icon-btn')} bindtap={onBack}>
-              <svg content={svgIcon('chevronLeft', '#2A3A57')} style={{ width: '18px', height: '18px' }} />
+              <image src={svgIcon('chevronLeft', '#2A3A57')} style={{ width: '18px', height: '18px' }} />
             </view>
             <text className={cls('page-sub-head')}>咕噜</text>
             <view className={cls('head-link')} bindtap={onBack}>
               <text className={cls('head-link-text')}>收起</text>
-              <svg content={svgIcon('chevronRight', '#2478F2')} style={{ width: '13px', height: '13px', marginLeft: '2px' }} />
+              <image src={svgIcon('chevronRight', '#2478F2')} style={{ width: '13px', height: '13px', marginLeft: '2px' }} />
             </view>
           </view>
 
@@ -86,10 +87,10 @@ export function AssistantPage({ onBack, onApply }: Props) {
           className={listening ? cls('chat-mic chat-mic-on') : cls('chat-mic')}
           bindtap={toggleListening}
         >
-          <svg content={micSvg(listening ? '#FFFFFF' : '#2478F2')} style={{ width: '17px', height: '17px' }} />
+          <image src={micSvg(listening ? '#FFFFFF' : '#2478F2')} style={{ width: '17px', height: '17px' }} />
         </view>
         <view className={cls('chat-send')} bindtap={onApply}>
-          <svg content={svgIcon('route', '#FFFFFF')} style={{ width: '16px', height: '16px' }} />
+          <image src={svgIcon('route', '#FFFFFF')} style={{ width: '16px', height: '16px' }} />
         </view>
       </view>
     </view>

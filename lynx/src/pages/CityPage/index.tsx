@@ -77,10 +77,10 @@ export function CityPage({ city, cities, onPick, onBack }: Props) {
     <view className={cls('city-page')}>
       <view className={cls('city-head')}>
         <view className={cls('city-back')} bindtap={onBack}>
-          <svg content={svgIcon('chevronLeft', '#2A3A57')} style={{ width: '18px', height: '18px' }} />
+          <image src={svgIcon('chevronLeft', '#2A3A57')} style={{ width: '18px', height: '18px' }} />
         </view>
         <view className={cls('city-search')}>
-          <svg content={svgIcon('search', '#8A99B3')} style={{ width: '15px', height: '15px', marginRight: '6px' }} />
+          <image src={svgIcon('search', '#8A99B3')} style={{ width: '15px', height: '15px', marginRight: '6px' }} />
           <input
             className={cls('city-input')}
             placeholder="城市名称"

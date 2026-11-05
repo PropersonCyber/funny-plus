@@ -54,7 +54,7 @@ export function ReviseSheet({ plan, demand, dayIndex, onClose, onApplied }: Prop
         <view className={cls('sheet-grabber')} />
 
         <view className={cls('rs-head')}>
-          <svg content={svgIcon('sparkles', '#2478F2')} style={{ width: '20px', height: '20px', marginRight: '8px' }} />
+          <image src={svgIcon('sparkles', '#2478F2')} style={{ width: '20px', height: '20px', marginRight: '8px' }} />
           <view className={cls('rs-head-text')}>
             <text className={cls('sheet-title')}>调整第 {dayIndex} 天</text>
             <text className={cls('rs-sub')}>只改这一天，其它天不动</text>

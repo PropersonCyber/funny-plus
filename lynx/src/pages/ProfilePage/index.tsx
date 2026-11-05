@@ -79,8 +79,8 @@ export function ProfilePage({ trips, activeId, onSwitch, onDelete, collections, 
 
           <view className={cls('card card-tight')}>
             <view className={cls('menu-row menu-row-last')} bindtap={onOpenTrip}>
-              <svg
-                content={svgIcon('itinerary', '#2478F2')}
+              <image
+                src={svgIcon('itinerary', '#2478F2')}
                 style={{ width: '19px', height: '19px', marginRight: '11px' }}
               />
               <view className={cls('save-main')}>
@@ -88,7 +88,7 @@ export function ProfilePage({ trips, activeId, onSwitch, onDelete, collections, 
                   {trip ? `${trip.demand.destination} · ${trip.demand.dayCount} 天行程` : '我的行程'}
                 </text>
               </view>
-              <svg content={svgIcon('chevronRight', '#C7D2E3')} style={{ width: '13px', height: '13px' }} />
+              <image src={svgIcon('chevronRight', '#C7D2E3')} style={{ width: '13px', height: '13px' }} />
             </view>
           </view>
 

@@ -4,6 +4,7 @@ import mapArt from '../../assets/gen/map-bg.jpg';
 import mascotPeek from '../../assets/ip/mascot-peek.png';
 import emptyState from '../../assets/ip/empty-state.png';
 import markerBase from '../../assets/map/marker-base.png';
+import { svgDataUri } from '../../icon-svg.js';
 import { svgIcon, MAP_ART, COLOR } from '../../icons.js';
 import { MOCK } from '../../mock.js';
 import type { Demand, Plan } from '../../data.js';
@@ -286,7 +287,7 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
       d
         ? `<path d="${d}" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>`
         : '';
-    return (
+    const svg = (
       `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 216" preserveAspectRatio="none">` +
       halo(dSolid) +
       (dSolid ? `<path d="${dSolid}" fill="none" stroke="#2478F2" stroke-width="0.85" stroke-linecap="round" stroke-linejoin="round"/>` : '') +
@@ -297,6 +298,8 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
       dots +
       `</svg>`
     );
+    // 原生 Lynx 没有 svg 组件，路线图也是 data URI 交给 <image>
+    return svgDataUri(svg);
   }, [stops, legs, plan, dayNo, mapView]);
 
   /**
@@ -364,7 +367,7 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
 
       <view className={cls('map-top')}>
         <view className={cls('map-top-pill')}>
-          <svg content={svgIcon('pin', COLOR.primary)} style={{ width: '15px', height: '15px', marginRight: '5px' }} />
+          <image src={svgIcon('pin', COLOR.primary)} style={{ width: '15px', height: '15px', marginRight: '5px' }} />
           <text className={cls('map-top-city')}>
             {demand.destination} {plan.days.length}天{plan.days.length > 1 ? `${plan.days.length - 1}晚` : ''}
           </text>
@@ -388,12 +391,12 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
             toast('地图内不做搜索，已切到景点列表');
           }}
         >
-          <svg content={svgIcon('search', '#3F5980')} style={{ width: '17px', height: '17px' }} />
+          <image src={svgIcon('search', '#3F5980')} style={{ width: '17px', height: '17px' }} />
         </view>
       </view>
 
       {routeSvg ? (
-        <svg content={routeSvg} style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' }} />
+        <image src={routeSvg} style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' }} />
       ) : null}
 
       {stops.map((s) => (
@@ -433,7 +436,7 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
               {s.dist ? (
                 <view className={cls('mk-dist-row')}>
                   <text className={cls('mk-dist')}>{s.dist}</text>
-                  <svg content={svgIcon('chevronRight', '#7E93D6')} style={{ width: '11px', height: '11px' }} />
+                  <image src={svgIcon('chevronRight', '#7E93D6')} style={{ width: '11px', height: '11px' }} />
                 </view>
               ) : null}
             </view>
@@ -457,7 +460,7 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
       {/* 定位能力没接入前不放定位按钮：按不到东西的按钮比没有更糟 */}
       <view className={cls('map-fab-col')}>
         <view className={cls('map-fab')} bindtap={() => setView('spots')}>
-          <svg content={svgIcon('map', '#2A3A57')} style={{ width: '20px', height: '20px' }} />
+          <image src={svgIcon('map', '#2A3A57')} style={{ width: '20px', height: '20px' }} />
         </view>
       </view>
 
@@ -497,7 +500,7 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
               </text>
               {stops.length > 0 ? (
                 <view className={cls('sheet-more')} bindtap={() => setView('spots')}>
-                  <svg content={svgIcon('chevronRight', '#2478F2')} style={{ width: '16px', height: '16px' }} />
+                  <image src={svgIcon('chevronRight', '#2478F2')} style={{ width: '16px', height: '16px' }} />
                 </view>
               ) : null}
             </view>
@@ -524,7 +527,7 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
                         />
                         {picked === s.order ? (
                           <view className={cls('spot-check')}>
-                            <svg content={svgIcon('check', '#FFFFFF')} style={{ width: '11px', height: '11px' }} />
+                            <image src={svgIcon('check', '#FFFFFF')} style={{ width: '11px', height: '11px' }} />
                           </view>
                         ) : null}
                       </view>
@@ -565,7 +568,7 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
                       {s.time} 起 · 停留 {s.stay} 分 · 门票 ¥{s.ticket}
                     </text>
                   </view>
-                  <svg content={svgIcon('chevronRight', '#C7D2E3')} style={{ width: '13px', height: '13px' }} />
+                  <image src={svgIcon('chevronRight', '#C7D2E3')} style={{ width: '13px', height: '13px' }} />
                 </view>
               );
             })}
@@ -576,13 +579,13 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
             {plays.map((p) => (
               <view key={p.id} className={cls('sp-row')} bindtap={() => onPlay(p.id)}>
                 <view className={cls('sp-icon')}>
-                  <svg content={svgIcon('sparkles', '#2478F2')} style={{ width: '18px', height: '18px' }} />
+                  <image src={svgIcon('sparkles', '#2478F2')} style={{ width: '18px', height: '18px' }} />
                 </view>
                 <view className={cls('sp-main')}>
                   <text className={cls('sp-name')}>{p.title}</text>
                   <text className={cls('sp-meta')}>{p.note}</text>
                 </view>
-                <svg content={svgIcon('chevronRight', '#C7D2E3')} style={{ width: '13px', height: '13px' }} />
+                <image src={svgIcon('chevronRight', '#C7D2E3')} style={{ width: '13px', height: '13px' }} />
               </view>
             ))}
           </scroll-view>
@@ -594,7 +597,7 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
 
 /** 水滴形定位针：圆头 + 下尖，数字叠在上半部圆心 */
 function pinSvg(color: string): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="54" viewBox="0 0 22 27"><path d="M11 0.6C5.2 0.6 0.6 5.2 0.6 11c0 7.4 10.4 15.6 10.4 15.6S21.4 18.4 21.4 11C21.4 5.2 16.8 0.6 11 0.6Z" fill="${color}"/></svg>`;
+  return svgDataUri(`<svg xmlns="http://www.w3.org/2000/svg" width="44" height="54" viewBox="0 0 22 27"><path d="M11 0.6C5.2 0.6 0.6 5.2 0.6 11c0 7.4 10.4 15.6 10.4 15.6S21.4 18.4 21.4 11C21.4 5.2 16.8 0.6 11 0.6Z" fill="${color}"/></svg>`);
 }
 
 /** 收起成圆点：位置太密的点，或已经选中了别的点（此时只留 badge，不展示名字和距离） */

@@ -6,6 +6,9 @@
 #import <Lynx/LynxEnv.h>
 #import <Lynx/LynxLoadMeta.h>
 
+/** 见 FPDataUriImageLoader.m：SDWebImage 不认 data: URI，需要我们自己补一个 loader */
+extern void FPInstallDataUriImageLoader(void);
+
 #define kScheme @"app"
 
 // WKWebView 在 file:// 下 fetch 不到 wasm，用自定义 scheme 当静态文件服务器
@@ -342,6 +345,9 @@
 
   // 不用 Xcode 的话就让 LynxEnv 自己按默认路径初始化，这里显式准备一次，
   // 避免首次 loadTemplate 时才懒加载导致首屏空白
+  // 必须早于任何图片加载：bundle 里的图片全是 rspeedy 内联的 data URI
+  FPInstallDataUriImageLoader();
+
   LynxEnv *env = [LynxEnv sharedInstance];
   env.logBoxEnabled = YES;
   env.devtoolEnabled = NO;
@@ -389,7 +395,8 @@
 
 /** 渲染出错时不显示红屏，但要在日志里留痕：原生端缺 UI 组件（如 svg）就是从这里发现的 */
 - (void)lynxView:(LynxView *)view didRecieveError:(NSError *)error {
-  NSLog(@"[FunnyPlus] lynx error: %@", error.localizedDescription);
+  NSString *info = [[error.userInfo description] stringByReplacingOccurrencesOfString:@"\n" withString:@" "];
+  NSLog(@"[FunnyPlus] lynx error code=%ld info=%@", (long)error.code, info);
 }
 @end
 

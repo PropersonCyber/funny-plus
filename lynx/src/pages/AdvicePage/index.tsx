@@ -1,5 +1,6 @@
 import { useCallback, useState } from '@lynx-js/react';
 
+import { svgDataUri } from '../../icon-svg.js';
 import { svgIcon } from '../../icons.js';
 import { MOCK } from '../../mock.js';
 import type { Demand, Plan } from '../../data.js';
@@ -61,7 +62,7 @@ export function AdvicePage({ demand, plans, planIndex, onBack, onPlan }: Props) 
         return seg;
       })
       .join('');
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">${arcs}</svg>`;
+    return svgDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">${arcs}</svg>`);
   })();
 
   const onOpen = useCallback(() => onPlan(), [onPlan]);
@@ -73,12 +74,12 @@ export function AdvicePage({ demand, plans, planIndex, onBack, onPlan }: Props) 
       <view className={cls('page')}>
         <view className={cls('page-head')}>
           <view className={cls('icon-btn')} bindtap={onBack}>
-            <svg content={svgIcon('chevronLeft', '#2A3A57')} style={{ width: '18px', height: '18px' }} />
+            <image src={svgIcon('chevronLeft', '#2A3A57')} style={{ width: '18px', height: '18px' }} />
           </view>
           <text className={cls('page-title')}>智能建议</text>
           <view className={cls('head-link')} bindtap={onBack}>
             <text className={cls('head-link-text')}>收起</text>
-            <svg content={svgIcon('chevronRight', '#2478F2')} style={{ width: '13px', height: '13px', marginLeft: '2px' }} />
+            <image src={svgIcon('chevronRight', '#2478F2')} style={{ width: '13px', height: '13px', marginLeft: '2px' }} />
           </view>
         </view>
 
@@ -95,7 +96,7 @@ export function AdvicePage({ demand, plans, planIndex, onBack, onPlan }: Props) 
             </view>
             <view className={cls('tip-hl')}>
               <view className={cls('tip-hl-icon')}>
-                <svg content={svgIcon('sparkles', '#F5A03C')} style={{ width: '16px', height: '16px' }} />
+                <image src={svgIcon('sparkles', '#F5A03C')} style={{ width: '16px', height: '16px' }} />
               </view>
               <view className={cls('tip-hl-main')}>
                 <text className={cls('tip-hl-title')}>{MOCK.advice.tips.highlight.title}</text>
@@ -105,7 +106,7 @@ export function AdvicePage({ demand, plans, planIndex, onBack, onPlan }: Props) 
             {MOCK.advice.tips.items.map((t) => (
               <view key={t} className={cls('tip-row')}>
                 <view className={cls('tip-check')}>
-                  <svg content={svgIcon('shield', '#20B98A')} style={{ width: '12px', height: '12px' }} />
+                  <image src={svgIcon('shield', '#20B98A')} style={{ width: '12px', height: '12px' }} />
                 </view>
                 <text className={cls('tip-text')}>{t}</text>
               </view>
@@ -120,7 +121,7 @@ export function AdvicePage({ demand, plans, planIndex, onBack, onPlan }: Props) 
           </view>
           <view className={cls('advice-body')}>
             <view className={cls('advice-icon')}>
-              <svg content={svgIcon('transport', '#FFFFFF')} style={{ width: '20px', height: '20px' }} />
+              <image src={svgIcon('transport', '#FFFFFF')} style={{ width: '20px', height: '20px' }} />
             </view>
             <view className={cls('advice-main')}>
               <text className={cls('advice-title')}>{MOCK.advice.transport.title}</text>
@@ -152,7 +153,7 @@ export function AdvicePage({ demand, plans, planIndex, onBack, onPlan }: Props) 
         <view className={cls('card')}>
           <text className={cls('card-title')}>预算分配</text>
           <view className={cls('donut-row')}>
-            <svg content={donut} style={{ width: '108px', height: '108px' }} />
+            <image src={donut} style={{ width: '108px', height: '108px' }} />
             <view className={cls('legend')}>
               {split.map((b) => (
                 <view key={b.label} className={cls('legend-row')}>

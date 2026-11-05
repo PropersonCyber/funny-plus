@@ -36,3 +36,42 @@ export const SVG: Record<string, string> = {
 export function icon(name: string, color: string): string {
   return (SVG[name] ?? '').split('currentColor').join(color);
 }
+
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+/**
+ * ASCII 字符串转 base64。
+ *
+ * 手写而不用 btoa：业务 JS 跑在 Worker / Lynx runtime 里，不能假设 btoa 存在。
+ * 只处理 ASCII —— 图标串全是纯英文、数字和符号（有单测盯着），
+ * 真混进中文就得改成 UTF-8 版本，否则会编码出错字。
+ */
+export function base64Ascii(input: string): string {
+  let out = '';
+  for (let i = 0; i < input.length; i += 3) {
+    const c1 = input.charCodeAt(i);
+    const c2 = i + 1 < input.length ? input.charCodeAt(i + 1) : NaN;
+    const c3 = i + 2 < input.length ? input.charCodeAt(i + 2) : NaN;
+    out += B64[c1 >> 2];
+    out += B64[((c1 & 3) << 4) | (Number.isNaN(c2) ? 0 : c2 >> 4)];
+    out += Number.isNaN(c2) ? '=' : B64[((c2 & 15) << 2) | (Number.isNaN(c3) ? 0 : c3 >> 6)];
+    out += Number.isNaN(c3) ? '=' : B64[c3 & 63];
+  }
+  return out;
+}
+
+/**
+ * 图标一律画成纯白，颜色交给渲染时的 `tint-color`。
+ *
+ * 为什么不把颜色直接烧进 SVG 再编码（原来那版做法）：
+ *   1. LynxUIImage 对 SVG 的解码依赖 LynxServiceImageProtocol 的
+ *      loadSVGImageWithURL:，而 LynxService 4.2.0 里根本没有这个实现，
+ *      结果每个图标都静默空白（日志里是 com.lynx.error 399）。
+ *   2. 颜色独立出来后，同一图标在选/未选两种状态下不用各存一份 base64。
+ *
+ * 原生端 `<image>` 认 data URI（PNG/JPEG），所以这里把 SVG 先转成位图。
+ * 实现见 svgDataUri 的注释——当前走的是「先画成 PNG」那条路。
+ */
+export function svgDataUri(svg: string): string {
+  return svg ? `data:image/svg+xml;base64,${base64Ascii(svg)}` : '';
+}

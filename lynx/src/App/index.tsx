@@ -455,8 +455,8 @@ export function App() {
               track('tab_switch', { tab: t.id });
             }}
           >
-            <svg
-              content={tab === t.id ? filledIcon(t.icon, '#2478F2') : tabSvg(t.icon, false)}
+            <image
+              src={tab === t.id ? filledIcon(t.icon, '#2478F2') : tabSvg(t.icon, false)}
               style={{ width: '23px', height: '23px', marginBottom: '2px' }}
             />
             <text className={cls(tab === t.id ? 'tab-label tab-label-on' : 'tab-label')}>

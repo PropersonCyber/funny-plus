@@ -104,14 +104,14 @@ export function HomePage({ city, onPickCity, onOpenCity, onPlan, onTab, onAdvice
         <view className={cls('home-in')}>
           <view className={cls('ai-card')} bindtap={onPlan}>
             <view className={cls('ai-icon-box')}>
-              <svg content={filledIcon('sparkle', '#FFFFFF')} style={{ width: '20px', height: '20px' }} />
+              <image src={filledIcon('sparkle', '#FFFFFF')} style={{ width: '20px', height: '20px' }} />
             </view>
             <view className={cls('ai-text')}>
               <text className={cls('ai-title')}>AI 规划你的专属旅行</text>
               <text className={cls('ai-sub')}>告诉我想法，生成最佳行程</text>
             </view>
             <view className={cls('ai-go')}>
-              <svg content={svgIcon('chevronRight', '#8A99B3')} style={{ width: '14px', height: '14px' }} />
+              <image src={svgIcon('chevronRight', '#8A99B3')} style={{ width: '14px', height: '14px' }} />
             </view>
           </view>
 
@@ -133,7 +133,7 @@ export function HomePage({ city, onPickCity, onOpenCity, onPlan, onTab, onAdvice
             </view>
             <view className={cls('section-more-row')} bindtap={onPickCity}>
               <text className={cls('section-more')}>查看更多</text>
-              <svg content={svgIcon('chevronRight', '#A5B2C7')} style={{ width: '12px', height: '12px', marginLeft: '2px' }} />
+              <image src={svgIcon('chevronRight', '#A5B2C7')} style={{ width: '12px', height: '12px', marginLeft: '2px' }} />
             </view>
           </view>
 
@@ -172,7 +172,7 @@ export function HomePage({ city, onPickCity, onOpenCity, onPlan, onTab, onAdvice
               bindtap={() => setWeeklyIndex((i) => i + 1)}
             >
               <text className={cls('section-more')}>换一批</text>
-              <svg content={svgIcon('refresh', '#A5B2C7')} style={{ width: '13px', height: '13px' }} />
+              <image src={svgIcon('refresh', '#A5B2C7')} style={{ width: '13px', height: '13px' }} />
             </view>
           </view>
 
@@ -190,7 +190,7 @@ export function HomePage({ city, onPickCity, onOpenCity, onPlan, onTab, onAdvice
               <text className={cls('weekly-desc')}>{weekly?.note ?? ''}</text>
             </view>
             <view className={cls('weekly-go')}>
-              <svg content={svgIcon('chevronRight', '#8A99B3')} style={{ width: '13px', height: '13px' }} />
+              <image src={svgIcon('chevronRight', '#8A99B3')} style={{ width: '13px', height: '13px' }} />
             </view>
           </view>
 
@@ -201,7 +201,7 @@ export function HomePage({ city, onPickCity, onOpenCity, onPlan, onTab, onAdvice
             </view>
             <view className={cls('section-more-row')} bindtap={() => plays[0] && onPlay(plays[0].id)}>
               <text className={cls('section-more')}>更多玩法</text>
-              <svg content={svgIcon('chevronRight', '#A5B2C7')} style={{ width: '12px', height: '12px', marginLeft: '2px' }} />
+              <image src={svgIcon('chevronRight', '#A5B2C7')} style={{ width: '12px', height: '12px', marginLeft: '2px' }} />
             </view>
           </view>
           <view className={cls('play-row')}>
@@ -241,7 +241,7 @@ export function HomePage({ city, onPickCity, onOpenCity, onPlan, onTab, onAdvice
             </view>
             <view className={cls('section-more-row')} bindtap={onAllGuides}>
               <text className={cls('section-more')}>查看更多</text>
-              <svg content={svgIcon('chevronRight', '#A5B2C7')} style={{ width: '12px', height: '12px', marginLeft: '2px' }} />
+              <image src={svgIcon('chevronRight', '#A5B2C7')} style={{ width: '12px', height: '12px', marginLeft: '2px' }} />
             </view>
           </view>
           <view className={cls('guide-row')}>
@@ -274,13 +274,13 @@ export function HomePage({ city, onPickCity, onOpenCity, onPlan, onTab, onAdvice
       {stuck ? <view className={cls('loc-bar')} /> : null}
       <view className={cls('loc-row')}>
         <view className={cls('loc-chip')} bindtap={onPickCity}>
-          <svg content={svgIcon('pin', '#2478F2')} style={{ width: '14px', height: '14px', marginRight: '5px' }} />
+          <image src={svgIcon('pin', '#2478F2')} style={{ width: '14px', height: '14px', marginRight: '5px' }} />
           <text className={cls('loc-city')}>{city}</text>
         </view>
         <view className={cls('loc-tools')}>
           {/* 搜索入口：本期唯一能搜的是城市，直接进城市页那个真搜索框，别再开到规划弹窗 */}
           <view className={cls('loc-scan')} bindtap={onPickCity}>
-            <svg content={svgIcon('search', '#1B4F8F')} style={{ width: '20px', height: '20px' }} />
+            <image src={svgIcon('search', '#1B4F8F')} style={{ width: '20px', height: '20px' }} />
           </view>
         </view>
       </view>

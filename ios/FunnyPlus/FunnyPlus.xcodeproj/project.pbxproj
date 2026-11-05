@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		028AC1977D2A3DC878C6C7A8 /* libPods-FunnyPlus.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 3C117FF8C8D53D37AF0D433C /* libPods-FunnyPlus.a */; };
 		16F72DD8B809433F89506621 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 2C8DFFA1795D425FA97521A1 /* main.m */; };
+		A1B2C3D4E5F60718293A4B5C /* FPDataUriImageLoader.m in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5D /* FPDataUriImageLoader.m */; };
 		727129B9090D4FCB9AE2C284 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 221AC4980F214A7EB7D5755E /* Assets.xcassets */; };
 		FB9DCE1029124E7EA28BA11D /* web in Resources */ = {isa = PBXBuildFile; fileRef = CB2F0A4F97F44A07A6BE6F14 /* web */; };
 /* End PBXBuildFile section */
@@ -16,6 +17,7 @@
 /* Begin PBXFileReference section */
 		221AC4980F214A7EB7D5755E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2C8DFFA1795D425FA97521A1 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B5D /* FPDataUriImageLoader.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FPDataUriImageLoader.m; sourceTree = "<group>"; };
 		3C117FF8C8D53D37AF0D433C /* libPods-FunnyPlus.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-FunnyPlus.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		85B7120BE86941CFF7B6188E /* Pods-FunnyPlus.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-FunnyPlus.release.xcconfig"; path = "Target Support Files/Pods-FunnyPlus/Pods-FunnyPlus.release.xcconfig"; sourceTree = "<group>"; };
 		9FE20030E6F745C390DA66DB /* FunnyPlus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FunnyPlus.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -39,6 +41,7 @@
 			isa = PBXGroup;
 			children = (
 				2C8DFFA1795D425FA97521A1 /* main.m */,
+				A1B2C3D4E5F60718293A4B5D /* FPDataUriImageLoader.m */,
 				CB2F0A4F97F44A07A6BE6F14 /* web */,
 				221AC4980F214A7EB7D5755E /* Assets.xcassets */,
 			);
@@ -189,6 +192,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				16F72DD8B809433F89506621 /* main.m in Sources */,
+				A1B2C3D4E5F60718293A4B5C /* FPDataUriImageLoader.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

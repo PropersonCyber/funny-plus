@@ -44,10 +44,10 @@ export function PlayDetailPage({ play, places, collected, visitedIds, onToggleCo
         <view className={cls('play-cover-mask')} />
         <view className={cls('play-head')}>
           <view className={cls('play-back')} bindtap={onBack}>
-            <svg content={svgIcon('chevronLeft', '#FFFFFF')} style={{ width: '18px', height: '18px' }} />
+            <image src={svgIcon('chevronLeft', '#FFFFFF')} style={{ width: '18px', height: '18px' }} />
           </view>
           <view className={cls(collected ? 'play-fav play-fav-on' : 'play-fav')} bindtap={onFav}>
-            <svg content={svgIcon(collected ? 'check' : 'sparkles', '#FFFFFF')} style={{ width: '16px', height: '16px' }} />
+            <image src={svgIcon(collected ? 'check' : 'sparkles', '#FFFFFF')} style={{ width: '16px', height: '16px' }} />
             <text className={cls('play-fav-text')}>{collected ? '已收藏' : '收藏'}</text>
           </view>
         </view>

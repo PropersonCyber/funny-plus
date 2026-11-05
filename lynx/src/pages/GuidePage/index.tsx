@@ -162,7 +162,7 @@ export function GuidePage({ city, plans }: Props) {
       <view className={cls('page page-shell')}>
         <view className={cls('gd-list-head')}>
           <view className={cls('gd-back')} bindtap={() => setShowAll(false)}>
-            <svg content={svgIcon('chevronLeft', '#2A3A57')} style={{ width: '18px', height: '18px' }} />
+            <image src={svgIcon('chevronLeft', '#2A3A57')} style={{ width: '18px', height: '18px' }} />
           </view>
           <text className={cls('gd-list-title')}>完整避坑指南 · {city}</text>
         </view>
@@ -258,7 +258,7 @@ export function GuidePage({ city, plans }: Props) {
         <view className={cls('gd-sheet')}>
           <view className={cls('gd-title-row2')}>
             <text className={cls('gd-spot')}>{spotName}</text>
-            <svg content={svgIcon('chevronRight', '#A5B2C7')} style={{ width: '18px', height: '18px' }} />
+            <image src={svgIcon('chevronRight', '#A5B2C7')} style={{ width: '18px', height: '18px' }} />
           </view>
           <view className={cls('gd-rating')}>
             <text className={cls('gd-star')}>★</text>
@@ -300,7 +300,7 @@ export function GuidePage({ city, plans }: Props) {
           <view className={cls('gd-avoid')}>
             {/* 卡片底部已有「查看完整避坑指南」，标题行再挂个箭头是重复入口，别留 */}
             <view className={cls('gd-avoid-head')}>
-              <svg content={svgIcon('shield', '#1E9E6A')} style={{ width: '17px', height: '17px', marginRight: '6px' }} />
+              <image src={svgIcon('shield', '#1E9E6A')} style={{ width: '17px', height: '17px', marginRight: '6px' }} />
               <text className={cls('gd-avoid-title')}>出发前避坑</text>
             </view>
             {rows.map((r) => (
@@ -322,7 +322,7 @@ export function GuidePage({ city, plans }: Props) {
               }}
             >
               <text className={cls('gd-cta-text')}>查看完整避坑指南</text>
-              <svg content={svgIcon('arrowRight', '#2478F2')} style={{ width: '13px', height: '13px', marginLeft: '4px' }} />
+              <image src={svgIcon('arrowRight', '#2478F2')} style={{ width: '13px', height: '13px', marginLeft: '4px' }} />
             </view>
           </view>
 

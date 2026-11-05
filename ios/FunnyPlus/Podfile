@@ -17,6 +17,10 @@ target 'FunnyPlus' do
   # 原生端的 fetch 会直接抛一个 message 为空的异常（界面上看就是「请求失败」但查不到原因）
   pod 'LynxService/Http', :path => 'vendor/LynxService'
   pod 'LynxService/Log', :path => 'vendor/LynxService'
+  # 图标是 <image src="data:image/svg+xml;base64,...">，原生端解码 SVG 要靠
+  # LynxServiceImageProtocol 的 loadSVGImageWithURL:，实现就在这个子包里
+  # （会带进 SDWebImage 和 SDWebImageWebPCoder）
+  pod 'LynxService/Image', :path => 'vendor/LynxService'
 end
 
 # 两处不得不改的：
@@ -45,10 +49,18 @@ post_install do |installer|
     t.build_configurations.each do |cfg|
       # Xcode 27 的 SDK 只接受 15.0+，而 podspec 写的是 10.0 / 9.0
       cfg.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
-      # podspec 的 compiler_flags 里带 -Werror。Lynx 4.2.0 发布时用的是更早的 SDK，
-      # 在 iOS 27 上 setMenuVisible:animated: / showCGGlyphs: 这类早已废弃的 API
-      # 会被 -Werror 顶成编译错误。只在 Pods 目标里压掉，不影响我们自己的代码。
-      cfg.build_settings['WARNING_CFLAGS'] = '$(inherited) -Wno-error'
     end
+  end
+
+  # podspec 的 compiler_flags 里带 -Werror，而且是按「每个源文件」写进 PBXBuildFile 的
+  # COMPILER_FLAGS，比 target 级的 WARNING_CFLAGS 优先级高，压不住。
+  # Lynx 4.2.0 发布时用的 SDK 更早，在 iOS 27 上 setMenuVisible:animated: /
+  # showCGGlyphs: 这些早就废弃的 API 会被它顶成编译错误。
+  # 逐个改 COMPILER_FLAGS，必须在 save 之前做，否则文件一写就被覆盖回去。
+  installer.pods_project.objects.each do |obj|
+    next unless obj.isa == 'PBXBuildFile'
+    flags = obj.settings && obj.settings['COMPILER_FLAGS']
+    next if flags.nil? || !flags.include?('-Werror')
+    obj.settings['COMPILER_FLAGS'] = flags.gsub('-Werror', '-Wno-error=deprecated-declarations')
   end
 end

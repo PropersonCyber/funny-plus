@@ -168,29 +168,29 @@ export function PlanSheet({ demand, cities, onClose, onPlanned }: Props) {
         <view className={cls('ps-card')}>
           <view className={cls('ps-row')}>
             <view className={cls('ps-icon ps-icon-orange')}>
-              <svg content={svgIcon('pin', '#F5A03C')} style={{ width: '16px', height: '16px' }} />
+              <image src={svgIcon('pin', '#F5A03C')} style={{ width: '16px', height: '16px' }} />
             </view>
             <text className={cls('ps-label')}>目的地</text>
             <view className={cls('ps-select')} bindtap={() => setPicker('destination')}>
               <text className={cls('ps-select-text')}>{draft.destination}</text>
-              <svg content={svgIcon('chevronRight', '#8A99B3')} style={{ width: '14px', height: '14px' }} />
+              <image src={svgIcon('chevronRight', '#8A99B3')} style={{ width: '14px', height: '14px' }} />
             </view>
           </view>
 
           <view className={cls('ps-row')}>
             <view className={cls('ps-icon ps-icon-blue')}>
-              <svg content={svgIcon('itinerary', '#2478F2')} style={{ width: '16px', height: '16px' }} />
+              <image src={svgIcon('itinerary', '#2478F2')} style={{ width: '16px', height: '16px' }} />
             </view>
             <text className={cls('ps-label')}>天数</text>
             <view className={cls('ps-select')} bindtap={() => setPicker('dayCount')}>
               <text className={cls('ps-select-text')}>{draft.dayCount} 天</text>
-              <svg content={svgIcon('chevronRight', '#8A99B3')} style={{ width: '14px', height: '14px' }} />
+              <image src={svgIcon('chevronRight', '#8A99B3')} style={{ width: '14px', height: '14px' }} />
             </view>
           </view>
 
           <view className={cls('ps-row')}>
             <view className={cls('ps-icon ps-icon-green')}>
-              <svg content={svgIcon('profile', '#35C08A')} style={{ width: '16px', height: '16px' }} />
+              <image src={svgIcon('profile', '#35C08A')} style={{ width: '16px', height: '16px' }} />
             </view>
             <text className={cls('ps-label')}>人数</text>
             <view className={cls('ps-stepper')}>
@@ -206,18 +206,18 @@ export function PlanSheet({ demand, cities, onClose, onPlanned }: Props) {
 
           <view className={cls('ps-row')}>
             <view className={cls('ps-icon ps-icon-violet')}>
-              <svg content={svgIcon('budget', '#8B7CFF')} style={{ width: '16px', height: '16px' }} />
+              <image src={svgIcon('budget', '#8B7CFF')} style={{ width: '16px', height: '16px' }} />
             </view>
             <text className={cls('ps-label')}>人均预算</text>
             <view className={cls('ps-select')} bindtap={() => setPicker('budgetLevel')}>
               <text className={cls('ps-select-text')}>{BUDGET_LABEL[draft.budgetLevel]}</text>
-              <svg content={svgIcon('chevronRight', '#8A99B3')} style={{ width: '14px', height: '14px' }} />
+              <image src={svgIcon('chevronRight', '#8A99B3')} style={{ width: '14px', height: '14px' }} />
             </view>
           </view>
 
           <view className={cls('ps-row')}>
             <view className={cls('ps-icon ps-icon-orange')}>
-              <svg content={svgIcon('sparkles', '#F5A03C')} style={{ width: '16px', height: '16px' }} />
+              <image src={svgIcon('sparkles', '#F5A03C')} style={{ width: '16px', height: '16px' }} />
             </view>
             <text className={cls('ps-label')}>偏好</text>
             {/* 多选用滚轮不直观，保留 chip 但只占一行：横滑，不换行撑高弹窗 */}
@@ -238,18 +238,18 @@ export function PlanSheet({ demand, cities, onClose, onPlanned }: Props) {
 
           <view className={cls('ps-row')}>
             <view className={cls('ps-icon ps-icon-blue')}>
-              <svg content={svgIcon('transport', '#2478F2')} style={{ width: '16px', height: '16px' }} />
+              <image src={svgIcon('transport', '#2478F2')} style={{ width: '16px', height: '16px' }} />
             </view>
             <text className={cls('ps-label')}>交通方式</text>
             <view className={cls('ps-select')} bindtap={() => setPicker('transport')}>
               <text className={cls('ps-select-text')}>{TRANSPORTS.find((t) => t.value === draft.transport)?.label ?? '公共交通'}</text>
-              <svg content={svgIcon('chevronRight', '#8A99B3')} style={{ width: '14px', height: '14px' }} />
+              <image src={svgIcon('chevronRight', '#8A99B3')} style={{ width: '14px', height: '14px' }} />
             </view>
           </view>
 
           <view className={cls('ps-row ps-row-last ps-row-notes')}>
             <view className={cls('ps-icon ps-icon-green')}>
-              <svg content={svgIcon('more', '#35C08A')} style={{ width: '16px', height: '16px' }} />
+              <image src={svgIcon('more', '#35C08A')} style={{ width: '16px', height: '16px' }} />
             </view>
             <text className={cls('ps-label')}>补充要求</text>
             <view className={cls('ps-notes')}>
