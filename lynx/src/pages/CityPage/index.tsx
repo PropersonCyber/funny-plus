@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from '@lynx-js/react';
 
-import { diagnostic, locateCity } from '../../geo.js';
+import { diagnostic, locateCity, locationStamp } from '../../geo.js';
 
 import { svgIcon } from '../../icons.js';
 import { toast } from '../../toast.js';
@@ -47,6 +47,9 @@ export function CityPage({ city, cities, onPick, onBack }: Props) {
    * 绝不退回 city：那是用户选的目的地，不是定位。
    */
   const [loc, setLoc] = useState<{ city: string; note: string }>({ city: '', note: '' });
+  // 依赖定位快照：坐标是异步到 Worker 的，首帧往往是空的。
+  // 不重跑的话会永远停在「没定位」——effect 只跑一次时就是这么卡住的。
+  const stamp = locationStamp();
   useEffect(() => {
     let alive = true;
     locateCity()
@@ -68,7 +71,7 @@ export function CityPage({ city, cities, onPick, onBack }: Props) {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [stamp]);
 
   return (
     <view className={cls('city-page')}>

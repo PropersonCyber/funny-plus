@@ -1,5 +1,6 @@
 import { api } from './api.js';
 import { readLocal, writeLocal } from './storage.js';
+import { getHostLocation, locationStamp } from './hostBridge.js';
 
 /**
  * 定位 + 地图能力的接入层。
@@ -10,83 +11,32 @@ import { readLocal, writeLocal } from './storage.js';
  * 现状（在 iPhone 18 Pro / iOS 27.2 模拟器上逐条验过）：
  *   - 壳侧能拿到坐标，locationd 日志有 `client authorized for location` 和
  *     `Sending location to client`，注入脚本里 globalProps 也确实写进去了；
- *   - 但业务代码跑在纯 Worker 里，`globalThis.lynx` 是 undefined ——
- *     实测 Worker 全局只有 WorkerGlobalScope / indexedDB / postMessage /
- *     importScripts，没有 lynx、没有 __globalProps、没有 parent。
+ *   - 业务代码里 **`globalThis.lynx` 是 undefined**：web 渲染器（纯 Worker）和
+ *     原生 Lynx 两种情况都实测过，一样没有。所以 `lynx.__globalProps.__fpLocation`
+ *     这条路从来就没通过，别再往这个方向查。
  *
- * 所以下面这些读取（globalProps / __fpLocation / GlobalEventEmitter）在这个 web
- * 渲染器上都拿不到东西，**保留它们是给 Lynx 原生渲染器留的门**：真机走原生
- * Lynx 时 `lynx.__globalProps` 是真的存在的，那时代码不用改就能用。
- * 在当前 web 渲染器上定位会如实返回 unsupported，界面据此显示「定位未接入」，
- * 不编造城市。
+ * 能用的只有 React 层的 `useGlobalProps()`，见 hostBridge.ts。
  *
  * 逆地理 / 真实耗时都走 `server/src/routes/geo.ts`，key 不下发到前端。
  */
+
+export { locationStamp };
 
 export type GeoPoint = { lng: number; lat: number; accuracy?: number; at?: number };
 
 type RawLocation = { lng?: unknown; lat?: unknown; accuracy?: unknown; at?: unknown; error?: unknown };
 
-/**
- * 宿主推过来的最近一次定位。
- *
- * 模块加载时就订阅，不等组件挂载：壳可能在页面脚本跑起来之前就拿到了坐标，
- * 那一次推送要是没接住，就只能等下一次定位（而 requestLocation 是一次性的）。
- */
-let pushed: RawLocation | null = null;
-let subscribed = false;
-
-/** 订阅宿主推送。返回是否订阅成功——Worker 里没有 lynx JSModule 时（web 预览 / 单测）为 false */
-export function subscribeLocation(): boolean {
-  if (subscribed) return true;
-  const g = globalThis as any;
-  try {
-    const emitter = g?.lynx?.getJSModule?.('GlobalEventEmitter');
-    if (!emitter || typeof emitter.addListener !== 'function') return false;
-    emitter.addListener('__fpLocation', (payload: unknown) => {
-      if (payload && typeof payload === 'object') pushed = payload as RawLocation;
-    });
-    subscribed = true;
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-subscribeLocation();
-
-/**
- * 读定位快照。
- *
- * 三处取值都试，按可靠性从高到低：
- *   1. `globalThis.lynx.__globalProps` —— 官方 React runtime 内部就是这么读的
- *      （`Object.assign(lynx.__globalProps, newData)`），Worker 里有这个全局；
- *   2. `globalThis.__globalProps` —— 有些构建把 globalProps 直接摊到全局；
- *   3. 壳写进来的同名旁路 `globalThis.__fpLocation` —— 只在 web 预览里有效。
- *
- * 为什么不怕「多试几处显得脏」：这条链路已经在真机上错过两次（window 方案、
- * 注入时机），每次都是「看着应该能行」。宁可三个位置都查一遍，也不要再猜一次。
- */
+/** 最近一次宿主下发的定位快照（值由 hostBridge 存，App 根组件负责灌） */
 function snapshot(): RawLocation | null {
-  if (pushed) return pushed;
-  const g = globalThis as any;
-  const holder = g?.lynx?.__globalProps ?? g?.__globalProps;
-  const loc = holder?.__fpLocation ?? g?.__fpLocation;
-  return loc && typeof loc === 'object' ? (loc as RawLocation) : null;
+  const loc = getHostLocation();
+  return loc ? (loc as RawLocation) : null;
 }
 
-/** globalProps 容器里有没有 __fpLocation 这个键（用于区分「壳没注入」和「注入了没坐标」） */
+/** 宿主有没有下发过定位数据：区分「没接进来」和「接了但坐标还没回来」 */
 function hasChannel(): boolean {
-  if (pushed) return true;
-  const g = globalThis as any;
-  const holder = g?.lynx?.__globalProps ?? g?.__globalProps;
-  return !!(holder && '__fpLocation' in holder) || !!g?.__fpLocation;
+  return getHostLocation() !== null;
 }
 
-/**
- * 坐标时效：超过 5 分钟不用——人在高铁上，10 分钟前的城市已经错了，
- * 与其拿旧坐标定位到隔壁城市，不如说「定位已过期」让用户自己选。
- */
 const STALE_MS = 5 * 60 * 1000;
 
 /**

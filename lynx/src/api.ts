@@ -1,4 +1,5 @@
 import { readLocal, writeLocal } from './storage.js';
+import { hostApiBase } from './hostBridge.js';
 
 /**
  * 后端调用层（原生壳 / web 预览共用）。
@@ -9,7 +10,17 @@ import { readLocal, writeLocal } from './storage.js';
  * 让每个调用点自己塞 Authorization 早晚会漏，尤其是新增的路由。
  */
 declare const __API_BASE__: string;
-const BASE = typeof __API_BASE__ === 'string' ? __API_BASE__ : '';
+
+/**
+ * 后端地址三级回落：构建期注入 → 宿主 globalProps → 空串（走相对路径，dev server 代理）。
+ *
+ * 原生 Lynx 没有 origin，fetch('/api/...') 会直接失败，所以壳把地址放进
+ * `__fpApiBase` 随 globalProps 一起下发；web 预览时那一项不存在，照旧走代理。
+ */
+function resolveBase(): string {
+  if (typeof __API_BASE__ === 'string' && __API_BASE__) return __API_BASE__;
+  return hostApiBase();
+}
 const TIMEOUT_MS = 8000;
 
 export class ApiError extends Error {}
@@ -38,7 +49,7 @@ async function request<T>(path: string, init?: Init): Promise<T> {
       ...(token ? { authorization: `Bearer ${token}` } : {}),
     };
     // 显式给 HeadersInit 类型：对象字面量里的 authorization 会被推成 string，和 fetch 的签名对不上
-    const res = await fetch(`${BASE}${path}`, {
+    const res = await fetch(`${resolveBase()}${path}`, {
       ...init,
       headers: headers as Record<string, string>,
       ...(ctl ? { signal: ctl.signal } : {}),

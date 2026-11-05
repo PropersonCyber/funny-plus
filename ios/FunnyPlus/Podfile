@@ -1,7 +1,54 @@
-platform :ios, '13.0'
+require "fileutils"
+
+# 原生 Lynx SDK。
+#
+# 为什么用本地 path 而不是 pod 'Lynx', '4.2.0'：
+# CocoaPods 装 Lynx 要走 :git clone，而本机的 git 走 HTTPS 时好时坏（Homebrew 卡在
+# brew update 也是同一类网络问题）。release 直链用 curl 拉是稳的，所以由
+# scripts/fetch-lynx.sh 下载到 vendor/，pod install 只做本地编译。
+platform :ios, '15.0'
 install! 'cocoapods', :deterministic_uuids => false
 
 target 'FunnyPlus' do
-  pod 'Lynx', '4.2.0'
-  pod 'LynxBase', '4.2.0'
+  pod 'Lynx', :path => 'vendor/Lynx'
+  pod 'LynxBase', :path => 'vendor/LynxBase'
+  pod 'LynxServiceAPI', :path => 'vendor/LynxServiceAPI'
+  # LynxServiceAPI 只有协议，真正干活的实现要单独引：没有 LynxService/Http，
+  # 原生端的 fetch 会直接抛一个 message 为空的异常（界面上看就是「请求失败」但查不到原因）
+  pod 'LynxService/Http', :path => 'vendor/LynxService'
+  pod 'LynxService/Log', :path => 'vendor/LynxService'
+end
+
+# 两处不得不改的：
+#
+# 1. 部署目标：podspec 写的是 iOS 10.0（PrimJS 甚至 9.0），但 Xcode 27 的 SDK
+#    只接受 15.0+，不抬直接报 "range of supported deployment target versions is 15.0 to 27.2.x"。
+#
+# 2. 软链：Lynx 源码内部按 `base/include/xxx.h` 相对仓库根自引用，而 podspec 写死了
+#    ${PODS_ROOT}/LynxBase 这类路径；:path 引用时 CocoaPods 不拷源码到 Pods/<name>，
+#    那两个目录不存在，所有 `base/include/*` 就都解析不到。下面补软链修掉。
+post_install do |installer|
+  root = File.expand_path(__dir__)
+  pods = File.join(root, 'Pods')
+
+  # 用 :path 引本地源码时，CocoaPods 不会把源码拷到 Pods/<name>，而 Lynx 的 podspec
+  # 里写死了相对 ${PODS_ROOT}/LynxBase 这类路径（用于 base/include/xxx.h 的自引用）。
+  # 补一层软链，既让 podspec 的路径生效，也不用把 32MB 源码复制一份。
+  %w[Lynx LynxBase LynxServiceAPI LynxService].each do |name|
+    link = File.join(pods, name)
+    target = File.join(root, 'vendor', name)
+    FileUtils.rm_rf(link) if File.symlink?(link) || File.exist?(link)
+    File.symlink(File.join('..', 'vendor', name), link) if File.exist?(target)
+  end
+
+  installer.pods_project.targets.each do |t|
+    t.build_configurations.each do |cfg|
+      # Xcode 27 的 SDK 只接受 15.0+，而 podspec 写的是 10.0 / 9.0
+      cfg.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+      # podspec 的 compiler_flags 里带 -Werror。Lynx 4.2.0 发布时用的是更早的 SDK，
+      # 在 iOS 27 上 setMenuVisible:animated: / showCGGlyphs: 这类早已废弃的 API
+      # 会被 -Werror 顶成编译错误。只在 Pods 目标里压掉，不影响我们自己的代码。
+      cfg.build_settings['WARNING_CFLAGS'] = '$(inherited) -Wno-error'
+    end
+  end
 end

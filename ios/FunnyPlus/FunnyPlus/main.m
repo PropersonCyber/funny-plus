@@ -1,6 +1,10 @@
 #import <UIKit/UIKit.h>
 #import <WebKit/WebKit.h>
 #import <CoreLocation/CoreLocation.h>
+#import <Lynx/LynxView.h>
+#import <Lynx/LynxViewBuilder.h>
+#import <Lynx/LynxEnv.h>
+#import <Lynx/LynxLoadMeta.h>
 
 #define kScheme @"app"
 
@@ -118,6 +122,8 @@
  */
 @interface FPBridge : NSObject
 @property(nonatomic, weak) WKWebView *web;
+/** 原生 Lynx 渲染器。弱引用：由宿主 VC 持有 */
+@property(nonatomic, weak) LynxView *lynxView;
 + (instancetype)shared;
 /** provider 回跳：funnyplus://auth?provider=wechat&code=xxx */
 + (BOOL)handleURL:(NSURL *)url;
@@ -165,6 +171,28 @@
  */
 - (void)replay {
   if (!_hasResult) return;
+
+  // 原生 Lynx 渲染器：直接调官方 API。
+  // updateGlobalPropsWithDictionary: 会把 props 真正推进 Worker 的 lynx.__globalProps
+  // （web 渲染器的同名实现是空函数，所以之前那条路在这里才成立）。
+  if (self.lynxView) {
+    NSMutableDictionary *props = [NSMutableDictionary dictionary];
+    if (!_lastLoc) {
+      props[@"__fpLocation"] = @{ @"error": _lastErr.length ? _lastErr : @"failed" };
+    } else {
+      double at = [[NSDate date] timeIntervalSince1970] * 1000.0;
+      props[@"__fpLocation"] = @{
+        @"lng": @(_lastLoc.coordinate.longitude),
+        @"lat": @(_lastLoc.coordinate.latitude),
+        @"accuracy": @(_lastLoc.horizontalAccuracy),
+        @"at": @(at),
+      };
+    }
+    dispatch_async(dispatch_get_main_queue(), ^{
+      [self.lynxView updateGlobalPropsWithDictionary:props];
+    });
+    return;
+  }
 
   NSString *payload;
   if (!_lastLoc) {
@@ -290,6 +318,81 @@
 }
 @end
 
+/**
+ * 原生 Lynx 宿主。
+ *
+ * 和 WebHostController 并存：web 那套留着做对照，切回来只需改 SceneDelegate 里一行。
+ *
+ * 为什么必须走原生：web 渲染器把业务 JS 关在纯 Worker 里，实测 Worker 全局只有
+ * WorkerGlobalScope / indexedDB / postMessage / importScripts，
+ * `lynx`、`__globalProps`、`parent` 全是 undefined；主线程无论写 globalProps 还是
+ * sendGlobalEvent 都没有任何 API 能到达 Worker。原生 Lynx 的 globalProps 是
+ * 真的跨线程通道（updateGlobalPropsWithDictionary:），定位靠它才通。
+ */
+@interface LynxHostController : UIViewController <LynxViewClient>
+@end
+
+@implementation LynxHostController {
+  LynxView *_lynx;
+}
+
+- (void)viewDidLoad {
+  [super viewDidLoad];
+  self.view.backgroundColor = [UIColor colorWithRed:0.96 green:0.97 blue:1.0 alpha:1.0];
+
+  // 不用 Xcode 的话就让 LynxEnv 自己按默认路径初始化，这里显式准备一次，
+  // 避免首次 loadTemplate 时才懒加载导致首屏空白
+  LynxEnv *env = [LynxEnv sharedInstance];
+  env.logBoxEnabled = YES;
+  env.devtoolEnabled = NO;
+
+  _lynx = [[LynxView alloc] initWithBuilderBlock:^(LynxViewBuilder *builder) {
+    builder.frame = self.view.bounds;
+    builder.enableJSRuntime = YES;
+  }];
+  _lynx.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+  [self.view addSubview:_lynx];
+
+  // 定位结果要往 globalProps 里写，桥里得先拿到 view 引用
+  [FPBridge shared].lynxView = _lynx;
+
+  NSString *bundlePath = [[NSBundle mainBundle] pathForResource:@"main.lynx" ofType:@"bundle" inDirectory:@"web"];
+  if (!bundlePath.length) {
+    NSLog(@"[FunnyPlus] 缺 main.lynx.bundle，检查 Copy Bundle Resources");
+    return;
+  }
+  // 后端地址随 bundle 一起给：原生端没有 origin，拿不到相对路径
+  NSString *apiBase = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"APIBase"];
+  NSDictionary *globalProps = @{ @"__fpApiBase": apiBase.length ? apiBase : @"http://127.0.0.1:8787" };
+  [_lynx updateGlobalPropsWithDictionary:globalProps];
+
+  // 用 binaryData 直接喂字节，而不是 loadTemplateFromURL:
+  // 后者对 file:// 的读取没有回调也没有错误，前端跑不起来时完全查不到原因。
+  NSData *bundleData = [NSData dataWithContentsOfFile:bundlePath];
+  if (!bundleData.length) return;
+
+  LynxLoadMeta *meta = [LynxLoadMeta new];
+  meta.url = bundlePath;
+  meta.binaryData = bundleData;
+  meta.loadMode = LynxLoadModeNormal;
+  meta.globalProps = [[LynxTemplateData alloc] initWithDictionary:globalProps];
+
+  _lynx.client = self;
+  [_lynx loadTemplate:meta];
+  [[FPBridge shared] flush];
+
+  // 城市级定位一次就够，别压在首屏上
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.6 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    [[LocationHub shared] start];
+  });
+}
+
+/** 渲染出错时不显示红屏，但要在日志里留痕：原生端缺 UI 组件（如 svg）就是从这里发现的 */
+- (void)lynxView:(LynxView *)view didRecieveError:(NSError *)error {
+  NSLog(@"[FunnyPlus] lynx error: %@", error.localizedDescription);
+}
+@end
+
 @interface WebHostController : UIViewController <WKNavigationDelegate>
 @end
 
@@ -338,7 +441,7 @@
 - (void)scene:(UIScene *)scene willConnectToSession:(UISceneSession *)session options:(UISceneConnectionOptions *)options {
   if (![scene isKindOfClass:[UIWindowScene class]]) return;
   self.window = [[UIWindow alloc] initWithWindowScene:(UIWindowScene *)scene];
-  self.window.rootViewController = [[WebHostController alloc] init];
+  self.window.rootViewController = [[LynxHostController alloc] init];
   [self.window makeKeyAndVisible];
 }
 

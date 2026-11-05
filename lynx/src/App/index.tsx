@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from '@lynx-js/react';
+import { useCallback, useEffect, useMemo, useRef, useState, useGlobalProps } from '@lynx-js/react';
 
 import '../styles/base.scss';
 import { HomePage } from '../pages/HomePage/index.js';
@@ -18,6 +18,7 @@ import { PlayDetailPage } from '../pages/PlayDetailPage/index.js';
 import { HotDetailPage } from '../pages/HotDetailPage/index.js';
 import { GuideListPage } from '../pages/GuideListPage/index.js';
 import { hydrate, loadStore, newTripId, saveStore } from '../storage.js';
+import { setHostProps } from '../hostBridge.js';
 import type { SavedTrip } from '../storage.js';
 import { track } from '../track.js';
 import { ToastHost, toast } from '../toast.js';
@@ -67,6 +68,12 @@ const initialStore = (): Store => {
 };
 
 export function App() {
+  // globalProps 只能通过官方 Hook 拿：直接读 globalThis.lynx 在原生和 web 两边都是
+  // undefined（实测），定位坐标是壳经 updateGlobalPropsWithDictionary: 下发的。
+  // 直接同步塞进去而不是放 useEffect：城市页在首帧就会读定位，
+  // 等 effect 跑完再写的窗口期内会先渲染成「定位未接入」。
+  setHostProps(useGlobalProps());
+
   // 本机存档要先等持久层读完（IndexedDB / 注入桥都是异步），没读完就渲染会闪一下默认数据
   const [booted, setBooted] = useState(false);
   const [tab, setTab] = useState<TabId>('home');
