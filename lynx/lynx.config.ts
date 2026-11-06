@@ -26,7 +26,12 @@ export default defineConfig({
     web: {},
     lynx: {},
   },
-  // 原生端 <image src> 不认相对路径的静态资源，直接内联成 data URI
+  // 小于 400KB 的图片内联成 data URI 打进 bundle。
+  //
+  // 原生端一开始全军覆没，曾以为是 SDWebImage 不认 data: scheme —— 实测不是：
+  // 真因是 LynxView.setClient: 把 client 同时当成了 imageFetcher，而壳里的
+  // controller 没实现 LynxImageFetcher，loader 发现 respondsToSelector 全 NO 就
+  // 不加载了。见 ios/FunnyPlus/FunnyPlus/main.m 里 `_lynx.imageFetcher = nil`。
   output: {
     dataUriLimit: { image: 400 * 1024 },
     // CSS Modules 的类名带上所属文件，调试时一眼看出样式在哪个模块

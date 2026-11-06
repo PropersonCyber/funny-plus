@@ -6,8 +6,9 @@
 #import <Lynx/LynxEnv.h>
 #import <Lynx/LynxLoadMeta.h>
 
-/** 见 FPDataUriImageLoader.m：SDWebImage 不认 data: URI，需要我们自己补一个 loader */
-extern void FPInstallDataUriImageLoader(void);
+/** 见 FPSVGImageLoader.m：SDK 的 LynxServiceImageProtocol 把 SVG 留成 @optional 没实现 */
+extern void FPInstallSVGImageService(void);
+
 
 #define kScheme @"app"
 
@@ -345,8 +346,8 @@ extern void FPInstallDataUriImageLoader(void);
 
   // 不用 Xcode 的话就让 LynxEnv 自己按默认路径初始化，这里显式准备一次，
   // 避免首次 loadTemplate 时才懒加载导致首屏空白
-  // 必须早于任何图片加载：bundle 里的图片全是 rspeedy 内联的 data URI
-  FPInstallDataUriImageLoader();
+  // 图标是 SVG data URI，SDK 没带解码器，得赶在首帧前补上
+  FPInstallSVGImageService();
 
   LynxEnv *env = [LynxEnv sharedInstance];
   env.logBoxEnabled = YES;
@@ -384,6 +385,11 @@ extern void FPInstallDataUriImageLoader(void);
   meta.globalProps = [[LynxTemplateData alloc] initWithDictionary:globalProps];
 
   _lynx.client = self;
+  // setClient: 内部会把 client 同时赋给 imageFetcher / resourceFetcher（LynxView.mm:1393）。
+  // 本类不是 LynxImageFetcher，LynxImageLoader 发现它 respondsToSelector 全为 NO 就
+  // 不加载了 —— 表现是位图（封面、地图缩略图）全空白且没有任何错误日志。
+  // 置回 nil 后 shouldUseImageService 成立，请求回到 LynxImageService + SDWebImage。
+  _lynx.imageFetcher = nil;
   [_lynx loadTemplate:meta];
   [[FPBridge shared] flush];
 
