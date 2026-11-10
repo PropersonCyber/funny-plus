@@ -2,7 +2,6 @@ import { useCallback, useState } from '@lynx-js/react';
 
 import { svgDataUri } from '../../icon-svg.js';
 import { svgIcon } from '../../icons.js';
-import { MOCK } from '../../mock.js';
 import type { Demand, Plan } from '../../data.js';
 import styles from './index.module.scss';
 import { makeCls } from '../../styles/cls.js';
@@ -46,6 +45,41 @@ export function AdvicePage({ demand, plans, planIndex, onBack, onPlan }: Props) 
         color: CATEGORY_COLOR[b.category] ?? '#A5B2C7',
       }))
     : [];
+
+  // 以前这三张卡是设计稿里的固定文案（高铁+公交 ¥980 / 春熙路太古里 / 4月19日为周末），
+  // 换城市、换方案都不变 —— 和旁边按真实金额算的饼图并排放，等于在冒充数据。
+  // 没有数据源的部分（房价、天气、高峰预测）如实标注未接入，不编。
+  const transportItem = plan?.budget.items.find((b) => b.category === 'transport');
+  const lodgingItem = plan?.budget.items.find((b) => b.category === 'lodging');
+  const tripDays = plan?.days.length ?? 0;
+  // 交通方式从行程条目里取实际用到的那几种，去重后展示
+  const modes = plan
+    ? Array.from(new Set(plan.days.flatMap((d) => d.items.map((i) => i.transportMode))))
+    : [];
+  const MODE_LABEL: Record<string, string> = {
+    walk: '步行', bus: '公交', metro: '地铁', taxi: '打车', car: '自驾', train: '高铁',
+  };
+  const modeLabels = modes.map((m) => MODE_LABEL[m] ?? m);
+  // 时间来源：只要有一条是直线折算，就不能说「时间可控」
+  const allRouted = plan
+    ? plan.days.every((d) => d.items.every((i) => i.transportSource !== 'straight'))
+    : false;
+
+  // 提醒全部从方案本身推出来：有依据的才写，没有数据源的（班次、天气、高峰）不写
+  const observedTips: string[] = [];
+  if (!plan) {
+    observedTips.push('还没有方案，先规划一次');
+  } else {
+    if (!allRouted) observedTips.push('部分路段时长是直线距离折算，到达时刻请留余量');
+    if (demand.party >= 4) observedTips.push(`${demand.party} 人同行，中巴/包车需核对核载人数`);
+    const ticketItem = plan.budget.items.find((b) => b.category === 'tickets');
+    if (ticketItem && ticketItem.evidence === 'price') {
+      observedTips.push('门票按公示价估算，以景区当日票价为准');
+    }
+    const pending = plan.days.flatMap((d) => d.items).filter((i) => !i.placeId).length;
+    if (pending > 0) observedTips.push(`有 ${pending} 项是通用安排（用餐/休息），不是收录地点`);
+    if (observedTips.length === 0) observedTips.push('暂无需要特别提示的项');
+  }
 
   // 饼图用 SVG 画：按百分比累积 dashoffset
   const donut = (() => {
@@ -99,11 +133,17 @@ export function AdvicePage({ demand, plans, planIndex, onBack, onPlan }: Props) 
                 <image src={svgIcon('sparkles', '#F5A03C')} style={{ width: '16px', height: '16px' }} />
               </view>
               <view className={cls('tip-hl-main')}>
-                <text className={cls('tip-hl-title')}>{MOCK.advice.tips.highlight.title}</text>
-                <text className={cls('tip-hl-note')}>{MOCK.advice.tips.highlight.note}</text>
+                <text className={cls('tip-hl-title')}>时间与花费都按方案实算</text>
+                <text className={cls('tip-hl-note')}>
+                  {plan
+                    ? `${tripDays} 天 · 合计 ¥${total}，人均 ¥${plan.budget.perPerson}；路段时间${
+                        allRouted ? '全部来自地图服务' : '含直线折算，标「估算」处精度较低'
+                      }。`
+                    : '还没有方案，先规划一次再来看。'}
+                </text>
               </view>
             </view>
-            {MOCK.advice.tips.items.map((t) => (
+            {observedTips.map((t) => (
               <view key={t} className={cls('tip-row')}>
                 <view className={cls('tip-check')}>
                   <image src={svgIcon('shield', '#20B98A')} style={{ width: '12px', height: '12px' }} />
@@ -124,16 +164,24 @@ export function AdvicePage({ demand, plans, planIndex, onBack, onPlan }: Props) 
               <image src={svgIcon('transport', '#FFFFFF')} style={{ width: '20px', height: '20px' }} />
             </view>
             <view className={cls('advice-main')}>
-              <text className={cls('advice-title')}>{MOCK.advice.transport.title}</text>
-              <text className={cls('advice-price')}>人均 {MOCK.advice.transport.perPerson}</text>
+              <text className={cls('advice-title')}>
+                {modeLabels.length ? modeLabels.join(' + ') : '尚无方案'}
+              </text>
+              <text className={cls('advice-price')}>
+                {transportItem ? `人均 ¥${transportItem.amount}` : '—'}
+              </text>
               <view className={cls('tag-row')}>
-                {MOCK.advice.transport.tags.map((t) => (
+                {(transportItem?.basis ? [transportItem.basis] : []).map((t) => (
                   <text key={t} className={cls('tag')}>{t}</text>
                 ))}
               </view>
             </view>
           </view>
-          <text className={cls('card-note')}>对比：{MOCK.advice.transport.crossPrice}（含打车与地铁换乘）</text>
+          <text className={cls('card-note')}>
+            {transportItem
+              ? `按当前方案实算；${allRouted ? '路段时间来自地图服务' : '部分路段为直线折算，见行程页「估算」标记'}`
+              : '先规划一次行程，这里会按你方案里的交通分项展示'}
+          </text>
         </view>
 
         <view className={cls('card')}>
@@ -141,13 +189,14 @@ export function AdvicePage({ demand, plans, planIndex, onBack, onPlan }: Props) 
             <text className={cls('card-title')}>住宿建议</text>
             <text className={cls('badge-soft')}>推荐</text>
           </view>
-          <text className={cls('advice-title')}>{MOCK.advice.hotel.title}</text>
-          <text className={cls('card-note')}>{MOCK.advice.hotel.note}</text>
-          <view className={cls('tag-row')}>
-            {MOCK.advice.hotel.tags.map((t) => (
-              <text key={t} className={cls('tag')}>{t}</text>
-            ))}
-          </view>
+          <text className={cls('advice-title')}>
+            {lodgingItem ? `约 ¥${lodgingItem.amount}（${tripDays} 晚合计，人均）` : '尚无方案'}
+          </text>
+          <text className={cls('card-note')}>
+            {lodgingItem
+              ? `${lodgingItem.basis}。具体酒店未接入数据源，这里只给总量估算。`
+              : '先规划一次行程，这里会按你方案里的住宿分项展示'}
+          </text>
         </view>
 
         <view className={cls('card')}>
@@ -183,7 +232,7 @@ export function AdvicePage({ demand, plans, planIndex, onBack, onPlan }: Props) 
           <text className={cls('btn-primary-text')}>重新规划一次</text>
         </view>
 
-        <text className={cls('mock-note')}>出行方式与住宿建议为设计稿示例数据（mock）</text>
+        <text className={cls('mock-note')}>出行方式与住宿为按当前方案实算；具体班次、酒店与天气未接入数据源</text>
       </view>
     </scroll-view>
   );

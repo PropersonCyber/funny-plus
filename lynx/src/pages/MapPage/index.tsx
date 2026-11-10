@@ -6,7 +6,6 @@ import emptyState from '../../assets/ip/empty-state.png';
 import markerBase from '../../assets/map/marker-base.png';
 import { svgDataUri } from '../../icon-svg.js';
 import { svgIcon, MAP_ART, COLOR } from '../../icons.js';
-import { MOCK } from '../../mock.js';
 import type { Demand, Plan } from '../../data.js';
 import { distanceKm, placeById } from '../../data.js';
 import { track } from '../../track.js';

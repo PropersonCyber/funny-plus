@@ -109,7 +109,6 @@ export function TripDetailPage({ demand, plans, planIndex, versions, onBack, onN
               <text className={cls('card-note')}>还没有方案，先规划一次。</text>
             )}
           </view>
-PUT 127.=127:
           {versions.length > 0 ? (
             <view className={cls('card')}>
               <text className={cls('card-title')}>变更记录</text>

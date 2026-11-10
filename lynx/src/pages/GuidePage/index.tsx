@@ -140,7 +140,7 @@ export function GuidePage({ city, plans }: Props) {
 
   const hero = (spot && SPOT_IMG[spot.id]) || CITY_IMG[city] || cityChengdu;
   const spotName = spot?.name ?? city;
-  const tags = spot?.tags ?? ['热门', '步行友好'];
+  const tags = spot?.tags ?? [];  // 没有标签就留空，不编「热门/步行友好」
 
   // 先放 scope 命中当前景点的条目，再放全城的：同名分类下景点条目优先
   const orderedFacts = useMemo(() => {
@@ -261,9 +261,9 @@ export function GuidePage({ city, plans }: Props) {
             <image src={svgIcon('chevronRight', '#A5B2C7')} style={{ width: '18px', height: '18px' }} />
           </view>
           <view className={cls('gd-rating')}>
-            <text className={cls('gd-star')}>★</text>
-            <text className={cls('gd-score')}>4.7</text>
-            <text className={cls('gd-score-note')}>12.6 万人评价</text>
+            <text className={cls('gd-score')}>{facts.length}</text>
+            <text className={cls('gd-score-note')}>条避坑信息 · 均待核验</text>
+            {/* 无评分数据源：原先写死 4.7 / 12.6 万人在冒充真实评分，改为报真实收录量 */}
           </view>
           <view className={cls('gd-tags')}>
             {tags.slice(0, 3).map((t) => (
@@ -328,10 +328,10 @@ export function GuidePage({ city, plans }: Props) {
 
           <text className={cls('gd-about-title')}>景点介绍</text>
           <text className={cls('gd-about')}>
-            {spotName}是{city}的热门目的地之一，{tags.join('、')}是这里的关键词。上面三条来自已核验的避坑信息，
+            {spotName}是{city}的热门目的地之一{tags.length ? `，${tags.join('、')}是这里的关键词` : ''}。上面几条来自已收录的避坑信息，
             出发前建议先看人流与交通两条，能省掉现场排队和绕路的时间。
           </text>
-          <text className={cls('mock-note')}>评分、评价人数与介绍文案为设计稿示例（mock）</text>
+          <text className={cls('mock-note')}>本页避坑信息均为「待核实」，出发前请自行确认；评分与评价人数未接入数据源。</text>
         </view>
       </view>
     </scroll-view>

@@ -13,7 +13,6 @@ import mascotExplore from '../../assets/ip/mascot-explore.png';
 import { MAP_ART } from '../../icons.js';
 import { svgIcon, COLOR, QICON } from '../../icons.js';
 import { filledIcon } from '../../icons-filled.js';
-import { MOCK } from '../../mock.js';
 import type { City, Guide, Play } from '../../../../shared/types/index.js';
 import { toast } from '../../toast.js';
 import styles from './index.module.scss';
