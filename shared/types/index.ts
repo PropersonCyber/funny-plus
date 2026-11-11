@@ -23,10 +23,15 @@ export interface Place {
   city: string
   lng: number
   lat: number
-  /** 开放时段，当日分钟数 */
+  /** 开放时段，当日分钟数。多档营业时间取最保守的交集（见 scripts/verify-amap.ts） */
   open: [number, number]
-  /** 门票人均（元） */
-  ticket: number
+  /** 高德原始营业时间文本（含季节区间、停止检票、周几闭馆）；有它才能让人复核上面的时段怎么来的 */
+  openText?: string
+  /**
+   * 门票人均（元）；null = 票价未核实，界面必须显示「暂无票价」。
+   * 不要用 0 顶替未知：0 的含义是免费，把未知写成 0 等于对外撒谎。
+   */
+  ticket: number | null
   /** 建议停留（分钟） */
   stayMin: number
   /** 步行强度 1-3 */
@@ -64,8 +69,11 @@ export interface ItineraryItem {
    * 必须随数据走——界面要标「估算」，用户才知道哪个到达时刻能信。
    */
   transportSource?: 'route' | 'straight'
-  /** 该项人均花费（元） */
-  cost: number
+  /**
+   * 该项人均花费（元）；null = 票价未核实（继承 Place.ticket 的 null）。
+   * 预算求和按 0 计入并单独提示「未核实」，不能既当免费又不说明。
+   */
+  cost: number | null
 }
 
 export interface TripDay {

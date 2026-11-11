@@ -3,13 +3,13 @@
     "id": "cq-hongyadong",
     "name": "洪崖洞",
     "city": "重庆",
-    "lng": 106.5796,
-    "lat": 29.5588,
+    "lng": 106.579027,
+    "lat": 29.562204,
     "open": [
-      540,
+      0,
       1380
     ],
-    "ticket": 0,
+    "ticket": null,
     "stayMin": 90,
     "walk": 2,
     "tags": [
@@ -19,20 +19,22 @@
     "rating": 4.8,
     "visitors": 17.6,
     "hype": "吊脚楼层层叠叠的夜色",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（洪崖洞民俗风貌区）",
+    "trust": "credible",
+    "openText": "周一至周日 00:00-24:00；景区23点关灯",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "cq-jiefangbei",
     "name": "解放碑",
     "city": "重庆",
-    "lng": 106.5771,
-    "lat": 29.5573,
+    "lng": 106.577034,
+    "lat": 29.557204,
     "open": [
       0,
       1440
     ],
-    "ticket": 0,
+    "ticket": null,
     "stayMin": 60,
     "walk": 1,
     "tags": [
@@ -42,20 +44,21 @@
     "rating": 4.7,
     "visitors": 15.1,
     "hype": "山城最热闹的十字路口",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（人民解放纪念碑）；营业时间高德无数据，沿用原收录值",
+    "trust": "pending",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "cq-cikou",
     "name": "磁器口古镇",
     "city": "重庆",
-    "lng": 106.4498,
-    "lat": 29.5823,
+    "lng": 106.449705,
+    "lat": 29.581184,
     "open": [
-      480,
-      1290
+      0,
+      1440
     ],
-    "ticket": 0,
+    "ticket": null,
     "stayMin": 120,
     "walk": 3,
     "tags": [
@@ -65,20 +68,22 @@
     "rating": 4.5,
     "visitors": 8.8,
     "hype": "一条街吃遍老重庆小吃",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（磁器口古镇）",
+    "trust": "credible",
+    "openText": "周一至周日 00:00-24:00",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "cq-liziba",
     "name": "李子坝轻轨站",
     "city": "重庆",
-    "lng": 106.5328,
-    "lat": 29.5528,
+    "lng": 106.537916,
+    "lat": 29.553629,
     "open": [
-      0,
-      1440
+      390,
+      1380
     ],
-    "ticket": 0,
+    "ticket": null,
     "stayMin": 30,
     "walk": 1,
     "tags": [
@@ -88,20 +93,22 @@
     "rating": 4.6,
     "visitors": 10.2,
     "hype": "轻轨穿楼的魔幻一幕",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（李子坝单轨穿楼观景平台）",
+    "trust": "credible",
+    "openText": "周一至周日 06:30-23:00；具体营业状态以当天开放情况为准",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "cq-elingerchang",
     "name": "鹅岭二厂",
     "city": "重庆",
-    "lng": 106.5389,
-    "lat": 29.5494,
+    "lng": 106.540183,
+    "lat": 29.551101,
     "open": [
-      600,
-      1320
+      0,
+      1440
     ],
-    "ticket": 0,
+    "ticket": null,
     "stayMin": 90,
     "walk": 2,
     "tags": [
@@ -111,20 +118,22 @@
     "rating": 4.4,
     "visitors": 5.7,
     "hype": "老厂房改出来的文创坡地",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（TESTBED2贰厂文创公园）",
+    "trust": "credible",
+    "openText": "周一至周日 00:00-24:00",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "cq-nanshan",
     "name": "南山一棵树观景台",
     "city": "重庆",
-    "lng": 106.5983,
-    "lat": 29.54,
+    "lng": 106.602505,
+    "lat": 29.545316,
     "open": [
       540,
-      1350
+      1410
     ],
-    "ticket": 30,
+    "ticket": null,
     "stayMin": 60,
     "walk": 2,
     "tags": [
@@ -134,20 +143,22 @@
     "rating": 4.6,
     "visitors": 7.9,
     "hype": "一眼看尽两江交汇的观景台",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（南山一棵树景区）",
+    "trust": "credible",
+    "openText": "周一至周日 09:00-23:30",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "cq-sanxia",
     "name": "三峡博物馆",
     "city": "重庆",
-    "lng": 106.5486,
-    "lat": 29.562,
+    "lng": 106.550513,
+    "lat": 29.562014,
     "open": [
       540,
       1020
     ],
-    "ticket": 0,
+    "ticket": null,
     "stayMin": 120,
     "walk": 2,
     "tags": [
@@ -157,20 +168,22 @@
     "rating": 4.7,
     "visitors": 6.3,
     "hype": "读懂重庆从这座馆开始",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（重庆中国三峡博物馆）",
+    "trust": "credible",
+    "openText": "1/1-12/31 周二–周日 09:00–17:00开放 最晚进入16:30；1/1-12/31 周一 全天不开放；元旦节,春节,清明节,劳动节,端午节,中秋节,国庆节 09:00–18:00开放 最晚进入17:30",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "cq-cableway",
     "name": "长江索道",
     "city": "重庆",
-    "lng": 106.5839,
-    "lat": 29.5585,
+    "lng": 106.59241,
+    "lat": 29.553272,
     "open": [
-      450,
-      1350
+      480,
+      1260
     ],
-    "ticket": 20,
+    "ticket": null,
     "stayMin": 40,
     "walk": 1,
     "tags": [
@@ -180,20 +193,22 @@
     "rating": 4.5,
     "visitors": 9.6,
     "hype": "横跨长江的空中巴士",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（重庆长江索道）",
+    "trust": "credible",
+    "openText": "1月至2月,12月 周一至周日 08:00-21:00；3月至11月 周一至周日 08:00-22:00 最晚进入21:00",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "cq-huguang",
     "name": "湖广会馆",
     "city": "重庆",
-    "lng": 106.5866,
-    "lat": 29.5586,
+    "lng": 106.586915,
+    "lat": 29.557921,
     "open": [
       540,
-      1020
+      1080
     ],
-    "ticket": 30,
+    "ticket": null,
     "stayMin": 60,
     "walk": 1,
     "tags": [
@@ -203,20 +218,22 @@
     "rating": 4.4,
     "visitors": 4.1,
     "hype": "移民史里的会馆老院子",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（湖广会馆）",
+    "trust": "credible",
+    "openText": "周一至周日 09:00-18:00 最晚进入17:00",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "cq-tanzishi",
     "name": "弹子石老街",
     "city": "重庆",
-    "lng": 106.5912,
-    "lat": 29.5483,
+    "lng": 106.588015,
+    "lat": 29.579709,
     "open": [
       600,
       1320
     ],
-    "ticket": 0,
+    "ticket": null,
     "stayMin": 90,
     "walk": 2,
     "tags": [
@@ -227,20 +244,22 @@
     "rating": 4.3,
     "visitors": 3.6,
     "hype": "石阶老街配江景夜色",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（长嘉汇弹子石老街）",
+    "trust": "credible",
+    "openText": "周一至周日 10:00-22:00 最晚进入22:00",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "cq-guanyinqiao",
     "name": "观音桥商圈",
     "city": "重庆",
-    "lng": 106.5319,
-    "lat": 29.5756,
+    "lng": 106.532427,
+    "lat": 29.574602,
     "open": [
-      600,
+      0,
       1440
     ],
-    "ticket": 0,
+    "ticket": null,
     "stayMin": 60,
     "walk": 1,
     "tags": [
@@ -250,20 +269,22 @@
     "rating": 4.6,
     "visitors": 8.4,
     "hype": "本地人真正逛街的地方",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（观音桥步行街）",
+    "trust": "credible",
+    "openText": "周一至周日 00:00-24:00",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "cq-zhazidong",
     "name": "渣滓洞",
     "city": "重庆",
-    "lng": 106.4295,
-    "lat": 29.5622,
+    "lng": 106.433435,
+    "lat": 29.585496,
     "open": [
       540,
-      1020
+      990
     ],
-    "ticket": 0,
+    "ticket": null,
     "stayMin": 60,
     "walk": 2,
     "tags": [
@@ -273,20 +294,22 @@
     "rating": 4.5,
     "visitors": 4.8,
     "hype": "一段沉重的红岩历史",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（渣滓洞监狱旧址）",
+    "trust": "credible",
+    "openText": "周一至周日 09:00-16:30",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "cd-panda",
     "name": "成都大熊猫繁育研究基地",
     "city": "成都",
-    "lng": 104.147,
-    "lat": 30.733,
+    "lng": 104.138176,
+    "lat": 30.740573,
     "open": [
       450,
-      1080
+      1020
     ],
-    "ticket": 55,
+    "ticket": null,
     "stayMin": 180,
     "walk": 3,
     "tags": [
@@ -296,20 +319,22 @@
     "rating": 4.8,
     "visitors": 16.8,
     "hype": "与可爱的大熊猫来一场治愈之旅",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（成都大熊猫繁育研究基地）",
+    "trust": "credible",
+    "openText": "03-16至10-31 周一至周日 07:30-17:00；11-01至03-15 周一至周日 08:00-16:30",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "cd-kuanzhai",
     "name": "宽窄巷子",
     "city": "成都",
-    "lng": 104.055,
-    "lat": 30.669,
+    "lng": 104.053307,
+    "lat": 30.663869,
     "open": [
       0,
       1440
     ],
-    "ticket": 0,
+    "ticket": null,
     "stayMin": 90,
     "walk": 2,
     "tags": [
@@ -319,20 +344,22 @@
     "rating": 4.7,
     "visitors": 12.3,
     "hype": "感受老成都的市井烟火气",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（宽窄巷子景区）",
+    "trust": "credible",
+    "openText": "周一，周三至周日 00:00-24:00",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "cd-jinli",
     "name": "锦里古街",
     "city": "成都",
-    "lng": 104.047,
-    "lat": 30.645,
+    "lng": 104.049828,
+    "lat": 30.645994,
     "open": [
-      540,
-      1380
+      0,
+      1440
     ],
-    "ticket": 0,
+    "ticket": null,
     "stayMin": 90,
     "walk": 2,
     "tags": [
@@ -343,20 +370,22 @@
     "rating": 4.6,
     "visitors": 10.5,
     "hype": "灯笼亮起时的老街味道",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（锦里古街）",
+    "trust": "credible",
+    "openText": "00:00-24:00；亮灯时间20:00,商户09:00-22:00(酒吧除外)",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "cd-wuhou",
     "name": "武侯祠",
     "city": "成都",
-    "lng": 104.0472,
-    "lat": 30.6442,
+    "lng": 104.047992,
+    "lat": 30.646168,
     "open": [
-      480,
-      1200
+      510,
+      1110
     ],
-    "ticket": 50,
+    "ticket": null,
     "stayMin": 90,
     "walk": 2,
     "tags": [
@@ -366,20 +395,22 @@
     "rating": 4.6,
     "visitors": 11.8,
     "hype": "三国文化的历史沉淀",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（成都武侯祠博物馆）",
+    "trust": "credible",
+    "openText": "08:30-18:30 最晚进入17:30",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "cd-dongjiao",
     "name": "东郊记忆",
     "city": "成都",
-    "lng": 104.142,
-    "lat": 30.672,
+    "lng": 104.122906,
+    "lat": 30.668697,
     "open": [
-      600,
-      1320
+      0,
+      1440
     ],
-    "ticket": 0,
+    "ticket": null,
     "stayMin": 120,
     "walk": 2,
     "tags": [
@@ -389,20 +420,22 @@
     "rating": 4.5,
     "visitors": 7.4,
     "hype": "工业厂房里的成都青年",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（东郊记忆）",
+    "trust": "credible",
+    "openText": "周一至周日 00:00-24:00，2026年2月15日至2026年2月23日正常营业",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "cd-chunxi",
     "name": "春熙路",
     "city": "成都",
-    "lng": 104.081,
-    "lat": 30.657,
+    "lng": 104.078021,
+    "lat": 30.656609,
     "open": [
       0,
       1440
     ],
-    "ticket": 0,
+    "ticket": null,
     "stayMin": 60,
     "walk": 1,
     "tags": [
@@ -412,20 +445,21 @@
     "rating": 4.7,
     "visitors": 14.2,
     "hype": "成都最热闹的逛街与夜景",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（春熙路）；营业时间高德无数据，沿用原收录值",
+    "trust": "pending",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "cd-dufu",
     "name": "杜甫草堂",
     "city": "成都",
-    "lng": 104.029,
-    "lat": 30.66,
+    "lng": 104.028514,
+    "lat": 30.660153,
     "open": [
-      480,
-      1140
+      540,
+      1080
     ],
-    "ticket": 50,
+    "ticket": null,
     "stayMin": 90,
     "walk": 2,
     "tags": [
@@ -435,20 +469,22 @@
     "rating": 4.6,
     "visitors": 9.2,
     "hype": "杜甫住过四年的一座园子",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（成都杜甫草堂博物馆）",
+    "trust": "credible",
+    "openText": "周一至周日 09:00-18:00",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "cd-renmin",
     "name": "人民公园",
     "city": "成都",
-    "lng": 104.0616,
-    "lat": 30.6598,
+    "lng": 104.057641,
+    "lat": 30.65699,
     "open": [
-      360,
-      1320
+      0,
+      1440
     ],
-    "ticket": 0,
+    "ticket": null,
     "stayMin": 90,
     "walk": 1,
     "tags": [
@@ -459,20 +495,22 @@
     "rating": 4.5,
     "visitors": 6.8,
     "hype": "盖碗茶里坐一下午",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（人民公园）",
+    "trust": "credible",
+    "openText": "00:00-24:00具体营业状态以当天开放情况为准",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "cd-wenshu",
     "name": "文殊院",
     "city": "成都",
-    "lng": 104.0762,
-    "lat": 30.6726,
+    "lng": 104.072527,
+    "lat": 30.675418,
     "open": [
-      540,
+      480,
       1020
     ],
-    "ticket": 0,
+    "ticket": null,
     "stayMin": 90,
     "walk": 2,
     "tags": [
@@ -483,20 +521,22 @@
     "rating": 4.6,
     "visitors": 6.1,
     "hype": "闹市里的一炷香",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（文殊院）",
+    "trust": "credible",
+    "openText": "周一至周日 08:00-17:00 最晚进入16:30",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "cd-qingyang",
     "name": "青羊宫",
     "city": "成都",
-    "lng": 104.04,
-    "lat": 30.6657,
+    "lng": 104.042609,
+    "lat": 30.661542,
     "open": [
       480,
-      1080
+      1040
     ],
-    "ticket": 10,
+    "ticket": null,
     "stayMin": 60,
     "walk": 1,
     "tags": [
@@ -506,20 +546,22 @@
     "rating": 4.4,
     "visitors": 4.3,
     "hype": "青羊宫里的道观清静",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（青羊宫）",
+    "trust": "credible",
+    "openText": "08:00-17:20 最晚进入17:00",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "cd-wangjianglou",
     "name": "望江楼公园",
     "city": "成都",
-    "lng": 104.0946,
-    "lat": 30.6282,
+    "lng": 104.092217,
+    "lat": 30.629277,
     "open": [
-      360,
+      540,
       1080
     ],
-    "ticket": 20,
+    "ticket": null,
     "stayMin": 90,
     "walk": 2,
     "tags": [
@@ -530,20 +572,22 @@
     "rating": 4.3,
     "visitors": 3.8,
     "hype": "锦江边看竹影与楼影",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（望江楼公园）",
+    "trust": "credible",
+    "openText": "周一至周日 09:00-18:00 最晚进入17:00；望江楼公园北门入口为文物保护区，将在18:00关闭。 南门、西门为园林开放区入口，将在21:00关闭。21:00后，市民游客可从公园西面小门进入园区。",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "cd-taikoo",
     "name": "太古里",
     "city": "成都",
-    "lng": 104.0805,
-    "lat": 30.6536,
+    "lng": 104.083809,
+    "lat": 30.653358,
     "open": [
       600,
-      1440
+      1320
     ],
-    "ticket": 0,
+    "ticket": null,
     "stayMin": 90,
     "walk": 1,
     "tags": [
@@ -554,20 +598,22 @@
     "rating": 4.7,
     "visitors": 9.7,
     "hype": "灰瓦与玻璃挨着逛",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（成都太古里）",
+    "trust": "credible",
+    "openText": "周一至周四 10:00-22:00；周五至周日 10:00-22:30",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "bj-gugong",
     "name": "故宫博物院",
     "city": "北京",
-    "lng": 116.3972,
-    "lat": 39.9163,
+    "lng": 116.397029,
+    "lat": 39.917839,
     "open": [
       510,
-      1020
+      960
     ],
-    "ticket": 60,
+    "ticket": null,
     "stayMin": 180,
     "walk": 2,
     "tags": [
@@ -578,20 +624,22 @@
     "rating": 4.9,
     "visitors": 21.3,
     "hype": "六百年宫城的一次穿行",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（故宫博物院）",
+    "trust": "credible",
+    "openText": "旺季4月1日至10月31日 周二至周日 08:30-17:00 16:00停止检票，淡季11月1日至3月31日 周二至周日 08:30-16:30 15:30停止检票，周一全天关闭，节假日营业时间以官方通知为准",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "bj-tiantan",
     "name": "天坛公园",
     "city": "北京",
-    "lng": 116.4106,
-    "lat": 39.8822,
+    "lng": 116.410829,
+    "lat": 39.881913,
     "open": [
-      360,
-      1260
+      480,
+      1320
     ],
-    "ticket": 34,
+    "ticket": null,
     "stayMin": 90,
     "walk": 2,
     "tags": [
@@ -602,20 +650,22 @@
     "rating": 4.8,
     "visitors": 13.4,
     "hype": "祈年殿的蓝瓦与回音",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（天坛公园）",
+    "trust": "credible",
+    "openText": "1月至3月,11月至12月 周一至周日 06:30-22:00 最晚进入21:00 园中园08:00-17:00(16:30停止入园)；4月至10月 周一至周日 06:00-22:00 最晚进入21:00 园中园08:00-18:00(17:30停止入园)",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "bj-yiheyuan",
     "name": "颐和园",
     "city": "北京",
-    "lng": 116.2755,
-    "lat": 39.9999,
+    "lng": 116.275179,
+    "lat": 39.999617,
     "open": [
       390,
       1140
     ],
-    "ticket": 30,
+    "ticket": null,
     "stayMin": 150,
     "walk": 3,
     "tags": [
@@ -626,20 +676,22 @@
     "rating": 4.8,
     "visitors": 12.1,
     "hype": "长廊与湖面走一整个下午",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（颐和园）",
+    "trust": "credible",
+    "openText": "1月至3月,11月至12月 周一至周日 06:30-19:00 最晚进入18:00；4月至10月 周一至周日 06:00-20:00 最晚进入19:00",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "bj-nanluoguxiang",
     "name": "南锣鼓巷",
     "city": "北京",
-    "lng": 116.4034,
-    "lat": 39.9371,
+    "lng": 116.402394,
+    "lat": 39.937182,
     "open": [
-      600,
-      1380
+      0,
+      1440
     ],
-    "ticket": 0,
+    "ticket": null,
     "stayMin": 90,
     "walk": 2,
     "tags": [
@@ -650,20 +702,22 @@
     "rating": 4.5,
     "visitors": 10.8,
     "hype": "胡同里的老北京日常",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（南锣鼓巷）",
+    "trust": "credible",
+    "openText": "周一至周日 00:00-24:00",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "bj-798",
     "name": "798 艺术区",
     "city": "北京",
-    "lng": 116.4955,
-    "lat": 39.9844,
+    "lng": 116.494784,
+    "lat": 39.985063,
     "open": [
-      600,
-      1200
+      0,
+      1440
     ],
-    "ticket": 0,
+    "ticket": null,
     "stayMin": 120,
     "walk": 2,
     "tags": [
@@ -674,20 +728,22 @@
     "rating": 4.4,
     "visitors": 8.6,
     "hype": "厂房、画廊与咖啡",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（798·751园区）",
+    "trust": "credible",
+    "openText": "00:00-24:00；艺术中心开放,不同店铺,艺术馆的开放时间不同。通常798艺术区开放时间:周二至周日10:00-18:00",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "bj-shichahai",
     "name": "什刹海",
     "city": "北京",
-    "lng": 116.3869,
-    "lat": 39.9404,
+    "lng": 116.385121,
+    "lat": 39.941893,
     "open": [
       0,
       1440
     ],
-    "ticket": 0,
+    "ticket": null,
     "stayMin": 90,
     "walk": 2,
     "tags": [
@@ -699,20 +755,22 @@
     "rating": 4.6,
     "visitors": 9.4,
     "hype": "后海边骑车绕一圈",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（什刹海）",
+    "trust": "credible",
+    "openText": "周一至周日 00:00-24:00",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "bj-dongwuyuan",
     "name": "北京动物园",
     "city": "北京",
-    "lng": 116.3356,
-    "lat": 39.9399,
+    "lng": 116.336701,
+    "lat": 39.942105,
     "open": [
       450,
-      1050
+      1020
     ],
-    "ticket": 15,
+    "ticket": null,
     "stayMin": 150,
     "walk": 3,
     "tags": [
@@ -722,20 +780,22 @@
     "rating": 4.6,
     "visitors": 8.1,
     "hype": "市中心的百年动物园",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（北京动物园）",
+    "trust": "credible",
+    "openText": "1月至3月,11月至12月 周一至周日 07:30-17:00 最晚进入17:00；4月至10月 周一至周日 07:30-18:00 最晚进入18:00",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "bj-wangfujing",
     "name": "王府井大街",
     "city": "北京",
-    "lng": 116.4109,
-    "lat": 39.9148,
+    "lng": 116.411122,
+    "lat": 39.916176,
     "open": [
       600,
       1320
     ],
-    "ticket": 0,
+    "ticket": null,
     "stayMin": 90,
     "walk": 1,
     "tags": [
@@ -745,20 +805,21 @@
     "rating": 4.5,
     "visitors": 11.2,
     "hype": "老街变身商业街",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（王府井大街）；营业时间高德无数据，沿用原收录值",
+    "trust": "pending",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "bj-tiananmen",
     "name": "天安门广场",
     "city": "北京",
-    "lng": 116.3975,
-    "lat": 39.9087,
+    "lng": 116.397755,
+    "lat": 39.903182,
     "open": [
       300,
-      1140
+      1230
     ],
-    "ticket": 0,
+    "ticket": null,
     "stayMin": 45,
     "walk": 1,
     "tags": [
@@ -768,20 +829,22 @@
     "rating": 4.8,
     "visitors": 18.7,
     "hype": "清晨升旗与广场的开阔",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（天安门广场）",
+    "trust": "credible",
+    "openText": "周一至周日 05:00-20:30",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "bj-guobo",
     "name": "中国国家博物馆",
     "city": "北京",
-    "lng": 116.401,
-    "lat": 39.9047,
+    "lng": 116.401304,
+    "lat": 39.905374,
     "open": [
       540,
       1020
     ],
-    "ticket": 0,
+    "ticket": null,
     "stayMin": 150,
     "walk": 2,
     "tags": [
@@ -792,20 +855,22 @@
     "rating": 4.8,
     "visitors": 12.6,
     "hype": "一天走完半部中国史",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（中国国家博物馆）",
+    "trust": "credible",
+    "openText": "周一全天关闭(法定节假日除外)；11月1日至次年5月31日周二至周日09:00-17:00(16:00停止入馆)；6月1日至10月31日周二至周日09:00-17:30(16:30停止入馆)",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "bj-jingshan",
     "name": "景山公园",
     "city": "北京",
-    "lng": 116.3967,
-    "lat": 39.9236,
+    "lng": 116.396551,
+    "lat": 39.925875,
     "open": [
       390,
-      1260
+      1200
     ],
-    "ticket": 2,
+    "ticket": null,
     "stayMin": 60,
     "walk": 2,
     "tags": [
@@ -816,20 +881,22 @@
     "rating": 4.7,
     "visitors": 7.3,
     "hype": "万春亭俯瞰整条中轴线",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（景山公园）",
+    "trust": "credible",
+    "openText": "1月至3月,11月至12月 周一至周日 06:30-20:00 最晚进入19:30；4月至10月 周一至周日 06:00-21:00 最晚进入20:30",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "bj-beihai",
     "name": "北海公园",
     "city": "北京",
-    "lng": 116.3892,
-    "lat": 39.9254,
+    "lng": 116.391802,
+    "lat": 39.928775,
     "open": [
       390,
       1260
     ],
-    "ticket": 10,
+    "ticket": null,
     "stayMin": 120,
     "walk": 2,
     "tags": [
@@ -840,20 +907,22 @@
     "rating": 4.7,
     "visitors": 8.9,
     "hype": "白塔之下划一次船",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（北海公园）",
+    "trust": "credible",
+    "openText": "淡季:06:30-20:00,旺季:06:00-21:00",
+    "verifiedAt": "2026-11-11"
   },
   {
     "id": "cd-339",
     "name": "成都339",
     "city": "成都",
-    "lng": 104.1147,
-    "lat": 30.6675,
+    "lng": 104.094743,
+    "lat": 30.662078,
     "open": [
       600,
       1320
     ],
-    "ticket": 100,
+    "ticket": null,
     "stayMin": 60,
     "walk": 1,
     "tags": [
@@ -863,7 +932,9 @@
     "rating": 4.7,
     "visitors": 9.6,
     "hype": "339 米高空的熊猫塔夜景",
-    "source": "产品组按公开信息整理（未做官方核验）",
-    "trust": "pending"
+    "source": "高德地图 POI（成都339购物中心）",
+    "trust": "credible",
+    "openText": "周一至周四,周日 10:00-22:00；周五至周六 10:00-22:30",
+    "verifiedAt": "2026-11-11"
   }
 ]

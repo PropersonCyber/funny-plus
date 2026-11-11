@@ -13,6 +13,7 @@ import { CompareSheet } from '../CompareSheet/index.js';
 import { track } from '../../track.js';
 import styles from './index.module.scss';
 import { makeCls } from '../../styles/cls.js';
+import { ticketText } from '../../ticketText.js';
 
 const cls = makeCls(styles);
 
@@ -211,7 +212,7 @@ export function ItineraryPage({
                         {/* 「立即入园」是设计稿的固定文案，票种还没接；这里只说能确定的事 */}
                         {item.kind === 'meal'
                           ? `用餐 · 约 ${Math.round((item.stayMin / 60) * 10) / 10} 小时`
-                          : `门票 ${item.cost > 0 ? `¥${item.cost}` : '免费'} · 停留约 ${Math.round((item.stayMin / 60) * 10) / 10} 小时`}
+                          : `门票 ${ticketText(item.cost)} · 停留约 ${Math.round((item.stayMin / 60) * 10) / 10} 小时`}
                       </text>
                       {/* 营业时段与可信状态必须跟票价挨着，页脚一句「待核实」盖不住逐条数字 */}
                       {item.kind === 'place' ? <text className={cls('tl-meta')}>{placeNote(item.placeId)}</text> : null}
@@ -311,7 +312,12 @@ function placeNote(placeId?: string): string {
   const place = placeById(placeId);
   if (!place) return '';
   const when = place.verifiedAt ? `核验 ${place.verifiedAt}` : '未记录核验时间';
-  return `开放 ${clock(place.open[0])}-${clock(place.open[1])} · ${trustLabel[place.trust]} · ${when}`;
+  // 规划时段是从 openText 收紧算出来的（多档取交集、关灯时刻封顶），把原文带上，
+  // 用户才能判断「周一闭馆」「16:00 停止检票」这类约束有没有被吃掉
+  const span = `开放 ${clock(place.open[0])}-${clock(place.open[1])}`;
+  return place.openText
+    ? `${span}（${place.openText}）· ${trustLabel[place.trust]} · ${when}`
+    : `${span} · ${trustLabel[place.trust]} · ${when}`;
 }
 
 /**

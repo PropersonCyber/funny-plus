@@ -27,8 +27,13 @@ export function estimateBudget(demand: Demand, days: TripDay[]): BudgetBreakdown
         ? UNIT.carPerDay * dayCount
         : UNIT.publicPerPersonDay * dayCount * party
 
+  // 票价未核实（cost === null）按 0 参与求和，但要在 uncertain 里单独说明，不能静默当免费
   const ticketTotal = days.reduce(
-    (sum, d) => sum + d.items.filter((i) => i.kind === 'place').reduce((s, i) => s + i.cost, 0),
+    (sum, d) => sum + d.items.filter((i) => i.kind === 'place').reduce((s, i) => s + (i.cost ?? 0), 0),
+    0
+  )
+  const unknownTicket = days.reduce(
+    (n, d) => n + d.items.filter((i) => i.kind === 'place' && i.cost === null).length,
     0
   )
 
@@ -54,9 +59,13 @@ export function estimateBudget(demand: Demand, days: TripDay[]): BudgetBreakdown
     {
       category: 'tickets',
       amount: Math.round(ticketTotal * party),
-      basis: `景点门票合计 ${ticketTotal} 元/人 × ${party} 人（未含儿童/学生票差异）`,
-      // 票价来自地点收录，但仍是公示价，没做过实名或官方时点核验
-      evidence: 'price'
+      // 全部票价未知时不能说「按公示价算的」：那时总额其实是 0，口径必须降级成估算
+      basis:
+        ticketTotal === 0 && unknownTicket > 0
+          ? `门票全部未核实，暂按 0 元计入（${unknownTicket} 个景点待核价）`
+          : `景点门票合计 ${ticketTotal} 元/人 × ${party} 人（未含儿童/学生票差异）`,
+      // price 的含义是「有门票公示价可依」；一个票价都没核实时只能是估算
+      evidence: ticketTotal > 0 ? 'price' : 'estimate'
     },
     {
       category: 'food',
@@ -75,7 +84,11 @@ export function estimateBudget(demand: Demand, days: TripDay[]): BudgetBreakdown
   const total = items.reduce((s, i) => s + i.amount, 0)
   const uncertain: string[] = []
   if (nights > 0) uncertain.push('住宿价格未按实际日期询价，旺季可能上浮')
-  if (days.some((d) => d.items.some((i) => i.cost > 0))) uncertain.push('门票为公示价，优惠政策需实名核验')
+  // 只看 place 类条目：餐费条目也带 cost（60 元），混进来会让这条提示永远成立
+  if (days.some((d) => d.items.some((i) => i.kind === 'place' && (i.cost ?? 0) > 0)))
+    uncertain.push('门票为公示价，优惠政策需实名核验')
+  // 票价拿不到的景点必须先说清楚，否则总额看着完整、实际少算了几个景点
+  if (unknownTicket > 0) uncertain.push(`有 ${unknownTicket} 个景点票价未核实，未计入总额`)
   if (transport === 'car') uncertain.push('自驾未计入高速通行费')
   if (transport === 'compare') uncertain.push('交通方式尚未选定，波动最大')
 

@@ -8,6 +8,7 @@ import pandaImg from '../../assets/gen/panda.jpg';
 import jinliImg from '../../assets/gen/jinli.jpg';
 import { svgIcon } from '../../icons.js';
 import { spotImg } from '../../spot-img.js';
+import { ticketText } from '../../ticketText.js';
 import styles from './index.module.scss';
 import { makeCls } from '../../styles/cls.js';
 
@@ -25,7 +26,7 @@ const COVER: Record<string, string> = {
 type Props = {
   play: { id: string; title: string; note: string; coverImage: string };
   /** 关联景点，顺序就是玩法的推荐顺序 */
-  places: { id: string; name: string; city: string; ticket: number; stayMin: number; tags: string[] }[];
+  places: { id: string; name: string; city: string; ticket: number | null; stayMin: number; tags: string[] }[];
   collected: boolean;
   visitedIds: string[];
   onToggleCollect: () => void;
@@ -67,7 +68,7 @@ export function PlayDetailPage({ play, places, collected, visitedIds, onToggleCo
               <view className={cls('spot-main')}>
                 <text className={cls('spot-name')}>{p.name}</text>
                 <text className={cls('spot-meta')}>
-                  {p.city} · ¥{p.ticket} · 建议 {p.stayMin} 分钟
+                  {p.city} · {ticketText(p.ticket)} · 建议 {p.stayMin} 分钟
                 </text>
               </view>
               <view

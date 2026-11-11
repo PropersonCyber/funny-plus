@@ -57,6 +57,13 @@
       "when": 1793709472104,
       "tag": "0007_place_hype",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794385122507,
+      "tag": "0008_burly_darkhawk",
+      "breakpoints": true
     }
   ]
 }

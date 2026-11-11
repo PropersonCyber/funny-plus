@@ -46,8 +46,10 @@ export const places = pgTable(
     lat: doublePrecision('lat').notNull(),
     openStart: integer('open_start').notNull(),
     openEnd: integer('open_end').notNull(),
-    /** 门票人均（元） */
-    ticket: integer('ticket').notNull(),
+    /** 高德原始营业时间文本；可追溯「时段是怎么来的」，没有就是没核验过 */
+    openText: text('open_text'),
+    /** 门票人均（元）；null = 票价未核实，不能用 0 冒充免费 */
+    ticket: integer('ticket'),
     /** 建议停留（分钟） */
     stayMin: integer('stay_min').notNull(),
     /** 步行强度 1-3 */

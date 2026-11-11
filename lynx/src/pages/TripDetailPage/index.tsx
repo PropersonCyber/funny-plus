@@ -177,8 +177,16 @@ const dayTitle = (day: Plan['days'][number]): string => {
   return names.length ? names.join(' · ') : '这一天没有安排';
 };
 
-/** 当天门票人均，和预算里的 ¥ 口径一致（园区/场馆的公示价） */
-const dayCost = (day: Plan['days'][number]): string => `¥${dayPlaces(day).reduce((s, i) => s + i.cost, 0)}/人`;
+/**
+ * 当天门票人均，和预算里的 ¥ 口径一致（园区/场馆的公示价）。
+ * 有未核实的票价时标「起」：只把已核实的部分求和，不能给出一个看着完整、其实少算的数字。
+ */
+const dayCost = (day: Plan['days'][number]): string => {
+  const items = dayPlaces(day);
+  const unknown = items.filter((i) => i.cost === null).length;
+  const sum = items.reduce((s, i) => s + (i.cost ?? 0), 0);
+  return unknown > 0 ? `¥${sum} 起/人` : `¥${sum}/人`;
+};
 
 const dayDuration = (day: Plan['days'][number]): string => {
   if (!day.items.length) return '0 小时';

@@ -199,9 +199,17 @@ export function revisePlan(
     nextDay = retime({ index: day.index, items: day.items.filter((i) => i !== placesInDay[placesInDay.length - 1]) })
     note = `第 ${dayIndex} 天减少一个景点，节奏放缓`
   } else if (/省|便宜|预算|贵/.test(instruction)) {
-    const expensive = [...day.items.filter((i) => i.kind === 'place')].sort((a, b) => b.cost - a.cost)[0]
-    if (!expensive || expensive.cost === 0) return { supported: false, reason: '这一天已没有收费景点，省钱空间主要在其他支出' }
-    const cheap = nearest(prevPlace(day, expensive), unused.filter((p) => p.ticket < expensive.cost))
+    // 票价未核实（cost === null）的景点不参与「最贵」比较：拿 null 排序会把未知当成 0，选出错的替换目标
+    const expensive = [...day.items.filter((i) => i.kind === 'place' && i.cost !== null)].sort(
+      (a, b) => (b.cost ?? 0) - (a.cost ?? 0)
+    )[0]
+    if (!expensive || (expensive.cost ?? 0) === 0)
+      return { supported: false, reason: '这一天已没有收费景点，省钱空间主要在其他支出' }
+    const budget = expensive.cost ?? 0
+    const cheap = nearest(
+      prevPlace(day, expensive),
+      unused.filter((p) => p.ticket !== null && p.ticket < budget)
+    )
     if (!cheap) return { supported: false, reason: '附近没有更便宜的可替代景点' }
     nextDay = retime(replaceItem(day, expensive, cheap, transport))
     note = `第 ${dayIndex} 天把「${expensive.title}」换成「${cheap.name}」，省门票`

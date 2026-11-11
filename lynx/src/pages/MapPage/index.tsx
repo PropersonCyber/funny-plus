@@ -22,6 +22,7 @@ import {
 } from '../../mapProjection.js';
 import { legGeometry } from '../../routeGeometry.js';
 import { Gesture, IDENTITY, project, type View } from '../../mapGesture.js';
+import { ticketText } from '../../ticketText.js';
 
 const cls = makeCls(styles);
 
@@ -45,7 +46,7 @@ type Stop = {
   order: number;
   time: string;
   stay: number;
-  ticket: number;
+  ticket: number | null;
   /** 到上一个点的直线距离，如 1.2km / 900m，地图标签上显示 */
   dist: string;
   /** 真实投影坐标（百分比）。防重叠可能把 marker 挪开，这两个值留作路线与比例尺的基准 */
@@ -476,7 +477,7 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
             <view className={cls('poi-main')}>
               <text className={cls('poi-name')}>{pickedSpot.name}</text>
               <text className={cls('poi-meta')}>
-                {pickedSpot.time} 起 · 停留 {pickedSpot.stay} 分 · 门票 ¥{pickedSpot.ticket}
+                {pickedSpot.time} 起 · 停留 {pickedSpot.stay} 分 · 门票 {ticketText(pickedSpot.ticket)}
               </text>
               <view className={cls('poi-tags')}>
                 {pickedSpot.tags.slice(0, 3).map((t) => (
@@ -533,7 +534,7 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
                       <view className={cls('spot-text')}>
                         <text className={cls('spot-name')}>{s.name}</text>
                         <text className={cls('spot-meta')}>
-                          {s.time} 起 · {s.ticket > 0 ? `¥${s.ticket}` : '免费'}
+                          {s.time} 起 · {ticketText(s.ticket)}
                         </text>
                       </view>
                     </view>
@@ -564,7 +565,7 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
                   <view className={cls('sp-main')}>
                     <text className={cls('sp-name')}>{s.name}</text>
                     <text className={cls('sp-meta')}>
-                      {s.time} 起 · 停留 {s.stay} 分 · 门票 ¥{s.ticket}
+                      {s.time} 起 · 停留 {s.stay} 分 · 门票 {ticketText(s.ticket)}
                     </text>
                   </view>
                   <image src={svgIcon('chevronRight', '#C7D2E3')} style={{ width: '13px', height: '13px' }} />
