@@ -44,3 +44,21 @@ export const onetap = {
 }
 export const onetapConfigured = () =>
   onetap.provider.length > 0 && onetap.appKey.length > 0 && onetap.secret.length > 0
+
+/**
+ * AI 通道走公司 ops-ai-gateway（OpenAI 兼容），不直连模型厂商。
+ * key 只在服务端：一旦随包下发，任何人都能拿它烧额度，且模型侧无法区分是我们还是别人。
+ *
+ * 默认模型 deepseek-v4.1-flash 是按「中文口语对话 + tool calling + 流式」三项实测选定的，
+ * 换模型前要重新验证这三项，尤其 tool calling —— 部分 flash 档模型只支持纯文本。
+ */
+const aiBaseUrl = (process.env.AI_BASE_URL ?? 'https://ops-ai-gateway.yc345.tv/v1').trim()
+const aiKey = (process.env.AI_API_KEY ?? '').trim()
+const aiModel = (process.env.AI_MODEL ?? 'deepseek-v4.1-flash').trim()
+
+export const aiGateway = {
+  baseUrl: aiBaseUrl,
+  apiKey: aiKey,
+  model: aiModel,
+  configured: () => aiKey.length > 0
+}

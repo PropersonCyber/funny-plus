@@ -134,3 +134,38 @@
 .chat-mic-on {
   background-color: #2478f2;
 }
+
+.chat-input-field {
+  flex: 1;
+  font-size: 12px;
+  color: #172b4d;
+  background-color: transparent;
+  border-width: 0;
+}
+
+/* 发送中只是变淡，不禁用点击：真正防重入靠组件里的 sending 判断，
+   这里再设 pointer-events 之类会让用户以为卡死 */
+.chat-send-busy {
+  opacity: 0.55;
+}
+
+/* 方案卡：设在 AI 气泡内部，所以不再叠阴影，避免和 bubble-ai 的投影重成两层 */
+.plan-box {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background-color: #f5f9ff;
+}
+
+.plan-name {
+  font-size: 12px;
+  font-weight: bold;
+  color: #172b4d;
+  margin-bottom: 4px;
+}
+
+.plan-day {
+  font-size: 11px;
+  color: #5a6b85;
+  line-height: 17px;
+}

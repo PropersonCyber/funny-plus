@@ -2,6 +2,7 @@ import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { sql } from 'drizzle-orm'
 import { db } from './db/client.ts'
+import { aiRoute } from './routes/ai.ts'
 import { authRoute } from './routes/auth.ts'
 import { contentRoute } from './routes/content.ts'
 import { factsRoute } from './routes/facts.ts'
@@ -28,6 +29,7 @@ app.route('/api/facts', factsRoute)
 app.route('/api/places', placesRoute)
 app.route('/api/trips', tripsRoute)
 app.route('/api/geo', geoRoute)
+app.route('/api/ai', aiRoute)
 
 app.onError((err, c) => {
   console.error('[api]', err)

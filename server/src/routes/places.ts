@@ -5,7 +5,7 @@ import { places } from '../db/schema.ts'
 import type { Place } from '@/types/index.ts'
 
 /** 库里的行 → 前端契约：open 还原成 [开始, 结束] 元组，其余同名 */
-const toApi = (r: typeof places.$inferSelect): Place => ({
+export const toApi = (r: typeof places.$inferSelect): Place => ({
   id: r.id,
   name: r.name,
   city: r.city,
