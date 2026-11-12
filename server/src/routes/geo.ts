@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { readFile } from 'node:fs/promises'
 import { amap, amapSign } from '../env.ts'
 
 /**
@@ -223,4 +224,104 @@ geoRoute.get('/static-config', (c) => {
   const jsKey = (process.env.AMAP_JS_KEY ?? '').trim()
   if (!jsKey) return c.json({ key: '', enable: false, code: 'not_configured' })
   return c.json({ key: jsKey, enable: true })
+})
+
+/**
+ * 静态地图底图代理。
+ *
+ * 为什么必须有这一层：
+ *   - key 不能下发：Web 服务 key 带私钥签名，进包等于把配额交出去
+ *   - 响应可能是图、也可能是 JSON：高德所有失败都回 HTTP 200 + JSON body，
+ *     只看状态码会把 {"status":"0"} 当成图，前端拿到一张裂图还没有任何提示
+ *
+ * 协议 3.5 明令不得「存储、缓存或技术手段抓取」服务图片，
+ * 所以这里**不写缓存**，也不加 CDN 头：请求 → 透传 → 丢弃。
+ */
+geoRoute.get('/staticmap', async (c) => {
+  if (!amap.configured()) return c.json({ error: '地图服务未配置', code: 'not_configured' }, 503)
+
+  const parsePoint = (s: string): Point | null => {
+    const [lng, lat] = s.split(',').map(Number)
+    if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null
+    if (Math.abs(lng) > 180 || Math.abs(lat) > 90) return null
+    return { lng, lat }
+  }
+
+  const center = parsePoint(c.req.query('center') ?? '')
+  if (!center) return c.json({ error: 'center 需为 lng,lat', code: 'bad_coord' }, 400)
+
+  // 高德会静默夹取：zoom>17 按 17 出、size>1024 按 1024 出。
+  // 我们这边先夹，前端拿到的尺寸才是它以为的那个，否则 marker 会整体偏出画面
+  const zoomRaw = Number(c.req.query('zoom') ?? 13)
+  const zoom = Math.min(17, Math.max(3, Number.isFinite(zoomRaw) ? Math.round(zoomRaw) : 13))
+
+  const [wRaw, hRaw] = (c.req.query('size') ?? '750*900').split('*').map(Number)
+  const clampSize = (v: number, d: number) => Math.min(1024, Math.max(64, Number.isFinite(v) ? Math.round(v) : d))
+  const w = clampSize(wRaw, 750)
+  const h = clampSize(hRaw, 900)
+
+  const scale = c.req.query('scale') === '2' ? '2' : '1'
+
+  const params: Record<string, string> = {
+    key: amap.key,
+    location: `${center.lng.toFixed(6)},${center.lat.toFixed(6)}`,
+    zoom: String(zoom),
+    size: `${w}*${h}`,
+    scale
+  }
+
+  // paths / markers 原样透传，但先做形状校验：
+  // 这一层对外是公开接口，不限制字符集就成了任意内容的免费高德出图服务
+  for (const name of ['paths', 'markers', 'labels'] as const) {
+    const v = c.req.query(name)
+    if (!v) continue
+    if (v.length > 4000 || !/^[0-9A-Za-z\u4e00-\u9fa5.,:*;|_#@\-]+$/.test(v)) {
+      return c.json({ error: `${name} 参数格式不合法`, code: 'bad_param' }, 400)
+    }
+    params[name] = v
+  }
+
+  if (amap.signed()) params.sig = amapSign(params)
+
+  const url = `${AMAP_BASE}/v3/staticmap?${new URLSearchParams(params)}`
+  const res = await fetch(url, { signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) }).catch(() => null)
+  if (!res) return c.json({ error: '地图服务不可达', code: 'upstream_error' }, 502)
+
+  const type = res.headers.get('content-type') ?? ''
+  // 正常是 image/png；失败是高德回的 JSON（状态码依然是 200）
+  if (!type.startsWith('image/')) {
+    const body = (await res.json().catch(() => null)) as { info?: string; infocode?: string } | null
+    return c.json(
+      { error: body?.info ?? '地图服务返回异常', code: 'upstream_error', infocode: body?.infocode },
+      502
+    )
+  }
+
+  const buf = new Uint8Array(await res.arrayBuffer())
+  return c.body(buf, 200, {
+    'Content-Type': type,
+    // 不缓存：协议不允许留存地图图片，也避免把「过期底图」当真相
+    'Cache-Control': 'no-store, no-cache, must-revalidate',
+    'Pragma': 'no-cache'
+  })
+})
+
+/**
+ * 3D 地图页。
+ *
+ * key 由服务端注入，前端只拿一个 `/api/geo/map3d` 地址 —— 客户端永远看不到高德 key。
+ * 页面用 JS API 2.0 渲染 3D（viewMode + pitch），必须在 DOM 里跑，
+ * 所以只能做成独立页面交给 webview / iframe（详见文件的头部说明）。
+ */
+geoRoute.get('/map3d', async (c) => {
+  if (!amap.configured()) return c.text('地图服务未配置', 503)
+  const file = new URL('../../public/map3d.html', import.meta.url)
+  const html = await readFile(file, 'utf8').catch(() => null)
+  if (!html) return c.text('3D 地图页缺失', 500)
+  // 只替换占位符，避免 key 出现在响应日志以外的任何地方
+  const out = html.replace('__AMAP_KEY_PLACEHOLDER__', amap.key)
+  return c.body(out, 200, {
+    'Content-Type': 'text/html; charset=utf-8',
+    'Cache-Control': 'no-store'
+  })
 })

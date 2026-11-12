@@ -195,3 +195,120 @@ export function simplifyPath(points: XY[], tolerance = 0.4): XY[] {
   for (let i = 0; i < points.length; i++) if (keep[i]) out.push(points[i]);
   return out;
 }
+
+/* ============================================================
+ * 静态底图（高德 /v3/staticmap）用的投影
+ *
+ * 和上面 makeProjection 的区别：
+ *   makeProjection 是「把点铺满屏幕」，缩放比例由点集自己决定 —— 配合自绘插画用；
+ *   这里反过来，屏幕上的缩放由**底图 zoom** 决定，点只能去适应它。
+ * 两套不能混用：拿 makeProjection 去配真底图，每换一天行程底图就得跟着变 zoom，
+ * 而静态图是按固定 zoom 出的，结果就是路线和路网对不上。
+ * ============================================================ */
+
+/** 经纬度 → 世界像素坐标（Web Mercator，与高德静态图内部一致） */
+/**
+ * 高德静态图的 zoom 是按 **512px 瓦片**算的，不是 Web Mercator 常见的 256px。
+ *
+ * 这是实测标定出来的，不是抄来的：同一条折线在 location/zoom/size 不变时，
+ * 用 256 预测出的端点会整体偏 ~50px、线长差 2.048 倍；换成 512 后端点误差 0-4px、
+ * 长度比 1.024（残差是线宽和抗锯齿）。写死 256 的话，路线会整体缩水一半且位置偏移。
+ */
+const AMAP_STATIC_TILE = 512;
+export function projectToWorld(p: GeoPoint, zoom: number): { x: number; y: number } {
+  const scale = AMAP_STATIC_TILE * Math.pow(2, zoom);
+  const x = ((p.lng + 180) / 360) * scale;
+  const sinLat = Math.sin((p.lat * Math.PI) / 180);
+  // 极区会被拉飞，夹到 ±85.05（墨卡托的极点），和各家底图的做法一致
+  const clamped = Math.max(-0.9999, Math.min(0.9999, sinLat));
+  const y = (0.5 - Math.log((1 + clamped) / (1 - clamped)) / (4 * Math.PI)) * scale;
+  return { x, y };
+}
+
+export type StaticMapView = {
+  center: GeoPoint;
+  zoom: number;
+  /** 底图像素尺寸（不乘 scale=2，那个只影响清晰度不影响覆盖范围） */
+  width: number;
+  height: number;
+};
+
+export type StaticMapProjection = {
+  /** 返回屏幕百分比坐标，和 MapPage 里 left/bottom 的百分比同一套 */
+  project: (p: GeoPoint) => XY;
+  /** 点是否落在底图范围内；范围外的点画出来会飘在留白里，调用方据此决定要不要画 */
+  contains: (p: GeoPoint) => boolean;
+  /** 1 个 x 百分比代表多少公里，用于比例尺 */
+  kmPerUnit: (p: GeoPoint) => number;
+};
+
+export function makeStaticMapProjection(view: StaticMapView): StaticMapProjection {
+  const { center, zoom, width, height } = view;
+  const cw = projectToWorld(center, zoom);
+
+  /** 世界像素 → 图片内像素（相对图片左上角） */
+  const toImagePx = (p: GeoPoint) => {
+    const wpt = projectToWorld(p, zoom);
+    return { x: wpt.x - cw.x + width / 2, y: wpt.y - cw.y + height / 2 };
+  };
+
+  const project = (p: GeoPoint): XY => {
+    const px = toImagePx(p);
+    // 图片像素 → 百分比。y 转成「从底部算」，因为 MapPage 用 bottom 定位
+    return { x: (px.x / width) * 100, y: (1 - px.y / height) * 100 };
+  };
+
+  const contains = (p: GeoPoint): boolean => {
+    const px = toImagePx(p);
+    return px.x >= 0 && px.x <= width && px.y >= 0 && px.y <= height;
+  };
+
+  // 1 个百分比 = width/100 像素；zoom 下 1 像素对应的弧度是 2π/(512·2^zoom)
+  const kmPerUnit = (p: GeoPoint): number => {
+    const mPerPx = (2 * Math.PI * EARTH_RADIUS_KM * Math.cos((p.lat * Math.PI) / 180)) /
+      (AMAP_STATIC_TILE * Math.pow(2, zoom));
+    return mPerPx * (width / 100);
+  };
+
+  return { project, contains, kmPerUnit };
+}
+
+/**
+ * 给一组点选一个合适的 zoom：让所有点都落进底图的可视区，并留出边距。
+ *
+ * 只在 3~17 里取整（高德静态图的有效区间，再大也不给）。返回的是能让「最远两点」
+ * 刚好塞进 (width*usage, height*usage) 的最大 zoom —— 取最大而不是居中，
+ * 因为用户更希望看清细节，铺得开不如看得清。
+ */
+export function fitZoom(
+  points: GeoPoint[],
+  width: number,
+  height: number,
+  usage = 0.78
+): number {
+  if (points.length === 0) return 13;
+  if (points.length === 1) return 14;
+
+  let best = 3;
+  for (let z = 17; z >= 3; z--) {
+    const pts = points.map((p) => projectToWorld(p, z));
+    const spanX = Math.max(...pts.map((p) => p.x)) - Math.min(...pts.map((p) => p.x));
+    const spanY = Math.max(...pts.map((p) => p.y)) - Math.min(...pts.map((p) => p.y));
+    if (spanX <= width * usage && spanY <= height * usage) {
+      best = z;
+      break;
+    }
+  }
+  return best;
+}
+
+/** 点集的中心（用世界坐标的包围盒中心，不是简单经纬度平均：跨日期变更线时前者才对） */
+export function boundsCenter(points: GeoPoint[]): GeoPoint {
+  if (points.length === 0) return { lng: 0, lat: 0 };
+  const lngs = points.map((p) => p.lng);
+  const lats = points.map((p) => p.lat);
+  return {
+    lng: (Math.min(...lngs) + Math.max(...lngs)) / 2,
+    lat: (Math.min(...lats) + Math.max(...lats)) / 2
+  };
+}

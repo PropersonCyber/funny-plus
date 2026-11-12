@@ -104,7 +104,7 @@ export function AdvicePage({ demand, plans, planIndex, onBack, onPlan }: Props) 
   const closeTips = useCallback(() => setTipsOpen(false), []);
 
   return (
-    <scroll-view className={cls('scroll')} scroll-y>
+    <scroll-view className={cls('scroll')} scroll-y bounces={false}>
       <view className={cls('page')}>
         <view className={cls('page-head')}>
           <view className={cls('icon-btn')} bindtap={onBack}>

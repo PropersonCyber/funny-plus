@@ -29,7 +29,7 @@ export function ProfilePage({ trips, activeId, onSwitch, onDelete, collections, 
   const activePlan = trip?.plans[trip.planIndex] ?? trip?.plans[0];
 
   return (
-    <scroll-view className={cls('scroll')} scroll-y>
+    <scroll-view className={cls('scroll')} scroll-y bounces={false}>
       <view className={cls('me')}>
         <view className={cls('me-sky')} />
 

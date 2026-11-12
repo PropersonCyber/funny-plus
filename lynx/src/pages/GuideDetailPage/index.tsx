@@ -172,7 +172,7 @@ export function GuideDetailPage({ guide, onBack, collected, onToggleCollect }: P
 
   return (
     <view className={cls('gd-page')}>
-      <scroll-view className={cls('scroll')} scroll-y>
+      <scroll-view className={cls('scroll')} scroll-y bounces={false}>
         <view className={cls('gd-root')}>
           <view className={cls('gd-hero')}>
             <image src={cover} mode="aspectFill" className={cls('gd-hero-img')} />

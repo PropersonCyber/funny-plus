@@ -55,17 +55,18 @@
   display: flex;
   flex-direction: row;
   margin-bottom: 18px;
+  flex-wrap: nowrap;
 }
 
 .city-card {
   display: flex;
   flex-direction: column;
-  /* Lynx 的 flex-basis 必须带单位才认；只写 flex:1 会按内容宽度分配，
-     三张卡文字长短不同宽度就不等了（第三张明显更窄） */
-  flex-grow: 1;
-  flex-shrink: 1;
-  flex-basis: 0px;
-  width: 0;
+  /* 进了横滑容器后不能再 flex-basis:0 + width:0：那套是给「三等分均分」用的，
+     在 nowrap 的行里会缩成 0 宽。改成固定基准宽度，每张卡一样宽、可横滑露出全量 */
+  flex-grow: 0;
+  flex-shrink: 0;
+  flex-basis: 142px;
+  width: 142px;
   margin-right: 12px;
   border-radius: 14px;
   overflow: hidden;

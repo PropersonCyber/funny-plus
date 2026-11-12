@@ -198,6 +198,49 @@
   height: 70px;
 }
 
+/* 收起把手：热区做高到 24px，视觉只是一条 4px 的短横 —— 直接拿细线当热区点不准 */
+.sheet-grabber-hit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  margin-top: -6px;
+}
+
+.sheet-grabber {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background-color: #c3d0e6;
+}
+
+/* 收起后留在底部的入口。必须浮在地图上方，否则点不到 */
+.sheet-reopen {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  height: 36px;
+  padding: 0 14px 0 10px;
+  border-radius: 18px;
+  background-color: #ffffff;
+  box-shadow: 0 4px 12px rgba(31, 71, 135, 0.18);
+}
+
+/* chevronRight 转 -90° 当向上箭头用：图标库里没有 chevronUp，
+   为这一个地方加一张 SVG 不值当 */
+.sheet-reopen-icon {
+  transform: rotate(-90deg);
+  margin-right: 4px;
+}
+
+.sheet-reopen-text {
+  font-size: 12px;
+  font-weight: bold;
+  color: #2478f2;
+}
 .map-sheet {
   position: absolute;
   left: 10px;
@@ -354,6 +397,35 @@
   justify-content: center;
 }
 
+/* 3D 开关。和搜索按钮同尺寸，保证顶栏三个胶囊对齐 */
+.map-3d-label {
+  font-size: 12px;
+  font-weight: bold;
+  color: #3f5980;
+}
+.map-3d-label.on {
+  color: #ffffff;
+}
+.map-3d-on {
+  background-color: #4169f5;
+  border-color: #4169f5;
+}
+
+/* 3D 覆盖层：盖住 2D 底图与 SVG 折线，但让顶栏和底部卡片继续浮在上面 */
+.map-3d-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 5;
+}
+
+.map-3d-pending {
+  /* 加载中先透明：盖一块白比保持 2D 更糟 */
+  opacity: 0;
+}
+
 /* 标记底盘：圆环 + 水滴尖是一张 PNG 的一体形状。
    分开用 CSS 画圆和三角时，两者只在单点相切、一定会露出接缝，
    所以整块交给图，照片单独塞进中间的镂空孔。
@@ -398,14 +470,6 @@
 }
 
 /* 当天景点卡：横向滚动，点一张选中地图上对应的点 */
-.sheet-more {
-  width: 22px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-left: 6px;
-}
 .spot-strip {
   height: 168px;
 }

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>Funny+ 3D 地图</title>
+<style>
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#F5F7FC;
+    font-family:"PingFang SC",system-ui,sans-serif}
+  #map{width:100%;height:100%}
+  /* 高德自己的 logo 与审图号不许遮掉（服务协议 7.7），这里只做位置上移，避免被底部卡片压住 */
+  .amap-logo{bottom:auto !important;top:8px !important;left:8px !important}
+  .amap-copyright{bottom:auto !important;top:8px !important;right:8px !important;left:auto !important}
+  #hint{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    font-size:13px;color:#68748D;background:#fff;border:1px solid #E4E8F0;
+    padding:10px 16px;border-radius:10px;white-space:nowrap}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="hint">3D 地图加载中…</div>
+<script>
+/**
+ * 高德 JS API 2.0 的 3D 地图。
+ *
+ * 为什么单独做成一个页面而不是组件：
+ * JS API 要 DOM 容器（document.createElement 出来的 div + canvas），
+ * 而 Lynx 的业务 JS 跑在 Worker 里、原生端也没有 DOM。
+ * 所以只能在 webview / iframe 里单独跑一页，用 postMessage 交换数据。
+ *
+ * 协议（和 lynx/src/mapBridge.ts 对应）：
+ *   宿主 → 这里：{ type: 'stops', stops: [{name,lng,lat,order,time}], day }
+ *              { type: 'focus', lng, lat, zoom }
+ *   这里 → 宿主：{ type: 'ready' } / { type: 'error', message }
+ * 高德 key 由服务端注入到本文件（见 server/src/routes/geo.ts 的 /map3d）。
+ */
+
+// key 由服务端在返回本页时注入，客户端拿不到 —— 不要改成从 URL 读，
+// 那样 key 会进浏览器历史与访问日志，等于把配额公开出去
+const key = '__AMAP_KEY_PLACEHOLDER__';
+const hint = document.getElementById('hint');
+
+let map = null;
+let markers = [];
+let line = null;
+
+function post(msg) {
+  const s = JSON.stringify(msg);
+  // Lynx 的 webview 与 iframe 都监听 message；两边都发一次，谁在听谁收
+  try { window.parent && window.parent.postMessage(s, '*'); } catch (e) {}
+  try { window.ReactNativeWebView && window.ReactNativeWebView.postMessage(s); } catch (e) {}
+  try { window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.funnyplus && window.webkit.messageHandlers.funnyplus.postMessage(s); } catch (e) {}
+}
+
+/** 把点位铺到地图上：起点/终点用不同颜色，中间点用序号 */
+function renderStops(stops) {
+  if (!map) return;
+  if (markers.length) { map.remove(markers); markers = []; }
+  if (line) { map.remove(line); line = null; }
+  if (!Array.isArray(stops) || stops.length === 0) return;
+
+  markers = stops.map((s, i) => {
+    const isFirst = i === 0;
+    const isLast = i === stops.length - 1;
+    const bg = isFirst ? '#4169F5' : isLast ? '#63E6E2' : '#8B7CFF';
+    const fg = isLast ? '#172033' : '#fff';
+    return new AMap.Marker({
+      position: [s.lng, s.lat],
+      content:
+        '<div style="display:flex;align-items:center;gap:6px;transform:translate(-50%,-50%)">' +
+          '<span style="width:22px;height:22px;border-radius:50%;background:' + bg +
+          ';color:' + fg + ';font-size:12px;font-weight:700;display:flex;align-items:center;' +
+          'justify-content:center;box-shadow:0 2px 8px rgba(23,32,51,.28);border:2px solid #fff">' +
+          (i + 1) + '</span>' +
+          '<span style="font-size:11px;color:#172033;background:rgba(255,255,255,.92);' +
+          'padding:2px 7px;border-radius:5px;white-space:nowrap;box-shadow:0 1px 4px rgba(23,32,51,.14)">' +
+          s.name + '</span>' +
+        '</div>',
+      offset: new AMap.Pixel(0, 0),
+      zIndex: 100 + i
+    });
+  });
+  map.add(markers);
+
+  // 路线：真实驾车路径由宿主算好后不传折线（数据量太大），
+  // 这里用 Driving 插件按坐标串再取一次，取不到就退回直连
+  if (stops.length >= 2) {
+    const path = stops.map((s) => new AMap.LngLat(s.lng, s.lat));
+    line = new AMap.Polyline({
+      path,
+      strokeColor: '#4169F5',
+      strokeWeight: 6,
+      strokeOpacity: 0.95,
+      lineJoin: 'round',
+      lineCap: 'round',
+      showDir: true
+    });
+    map.add(line);
+  }
+
+  // 视野收到所有点上
+  map.setFitView(markers, false, [60, 60, 60, 60]);
+  // 3D 视角：setFitView 会把 pitch 拉回 0，必须在它之后重置
+  applyPitch();
+}
+
+/** 倾斜角与朝向。低 zoom 时 3D 建筑很糊，所以按 zoom 给一个舒适值 */
+function applyPitch() {
+  if (!map) return;
+  const z = map.getZoom();
+  const pitch = z >= 15 ? 55 : z >= 13 ? 40 : 25;
+  map.setPitch(pitch);
+  map.setRotation(-15);
+}
+
+function boot() {
+  map = new AMap.Map('map', {
+    viewMode: '3D',
+    zoom: 14,
+    center: [104.066, 30.659],
+    pitch: 50,
+    rotation: -15,
+    showBuildingBlock: true,
+    features: ['bg', 'road', 'building', 'point'],
+    mapStyle: 'amap://styles/normal',
+    resizeEnable: true
+  });
+  map.on('complete', () => {
+    if (hint) hint.style.display = 'none';
+    // 首帧默认是平面视角：必须在 complete 之后主动给一次 pitch，
+    // 否则用户第一眼看到的是一张普通 2D 图，会以为 3D 没生效
+    applyPitch();
+    post({ type: 'ready' });
+  });
+  map.on('error', (e) => post({ type: 'error', message: String((e && e.message) || e) }));
+  // 用户手动缩放后重新校准倾斜角
+  map.on('zoomend', applyPitch);
+}
+
+window.addEventListener('message', (e) => {
+  let data = e.data;
+  if (typeof data === 'string') { try { data = JSON.parse(data); } catch (err) { return; } }
+  if (!data || !data.type || !map) return;
+  if (data.type === 'stops') renderStops(data.stops);
+  if (data.type === 'focus' && Number.isFinite(data.lng)) {
+    map.setZoomAndCenter(data.zoom || 16, [data.lng, data.lat]);
+  }
+});
+
+// 宿主也可能直接调（Lynx webview 的 eval 通道）
+window.__fpSetStops = renderStops;
+
+if (!key) {
+  if (hint) hint.textContent = '缺少地图 key';
+  post({ type: 'error', message: 'missing key' });
+} else {
+  const s = document.createElement('script');
+  s.src = 'https://webapi.amap.com/maps?v=2.0&key=' + key;
+  s.onload = () => {
+    if (!window.AMap) { post({ type: 'error', message: 'AMap not loaded' }); return; }
+    boot();
+  };
+  s.onerror = () => {
+    if (hint) hint.textContent = '地图脚本加载失败';
+    post({ type: 'error', message: 'script load failed' });
+  };
+  document.head.appendChild(s);
+}
+</script>
+</body>
+</html>

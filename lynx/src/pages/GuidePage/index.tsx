@@ -185,7 +185,7 @@ export function GuidePage({ city, plans }: Props) {
           <text className={cls('mock-note')}>另有 {expired} 条已过期信息，按 A2 默认不展示</text>
         ) : null}
 
-        <scroll-view className={cls('scroll')} scroll-y>
+        <scroll-view className={cls('scroll')} scroll-y bounces={false}>
           {list.length === 0 ? (
             <view className={cls('card gd-card')}>
               <text className={cls('card-title')}>这一类暂无未过期条目</text>
@@ -249,7 +249,7 @@ export function GuidePage({ city, plans }: Props) {
   }
 
   return (
-    <scroll-view className={cls('scroll')} scroll-y>
+    <scroll-view className={cls('scroll')} scroll-y bounces={false}>
       <view className={cls('gd-page')}>
         <view className={cls('gd-hero')}>
           <image src={hero} mode="aspectFill" style={{ width: '100%', height: '300px' }} />

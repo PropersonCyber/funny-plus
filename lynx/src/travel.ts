@@ -2,8 +2,9 @@ import type { Demand, Plan, Place } from '@/types';
 import { placesOf, setRouteMinutes } from '@/engine/placeIndex';
 import { legsOf } from './legs.js';
 import { api } from './api.js';
+import { placeById } from './data.js';
+import { legGeometry, setLegGeometry } from './routeGeometry.js';
 import { parsePolyline, type GeoPoint } from './mapProjection.js';
-import { setLegGeometry } from './routeGeometry.js';
 
 /**
  * 真实路线耗时的取数层。
@@ -96,4 +97,52 @@ async function fetchSegment(a: Place, b: Place, mode: TravelMode): Promise<Segme
     // 未配 key / 限流 / 网络不通：整批降级，不阻塞生成方案
     return null;
   }
+}
+
+/**
+ * 地图页专用：把某一天相邻路段的真实折线补齐。
+ *
+ * 为什么需要它：warmTravelMinutes 只在生成方案时跑一次，把折线留在进程内存里。
+ * 冷启动直接进地图页时缓存是空的，于是整条路线退回两点直连的虚线 ——
+ * 用户看到的是「一条假路」，而这本来是能拿到的真实路径。
+ *
+ * 只补缺的段：已经有的不再请求（静态图与路径规划共用配额，重复请求是白烧）。
+ * 返回实际补到几段，调用方据此决定要不要重画。
+ */
+export async function fillDayGeometry(
+  day: Plan['days'][number],
+  transport: Demand['transport']
+): Promise<number> {
+  const ids = day.items.map((i) => i.placeId).filter((id): id is string => !!id);
+  if (ids.length < 2) return 0;
+
+
+  const mode = modeOf(transport);
+  const missing: [string, string][] = [];
+  for (let i = 1; i < ids.length; i++) {
+    if (!legGeometry(ids[i - 1], ids[i])) missing.push([ids[i - 1], ids[i]]);
+  }
+  if (missing.length === 0) return 0;
+
+  // 和 warmTravelMinutes 一样按 4 个一批：一次全发会打到高德的并发限制
+  const BATCH = 4;
+  let filled = 0;
+  for (let i = 0; i < missing.length; i += BATCH) {
+    const chunk = missing.slice(i, i + BATCH);
+    const got = await Promise.all(
+      chunk.map(async ([aId, bId]) => {
+        const a = placeById(aId);
+        const b = placeById(bId);
+        if (!a || !b) return false;
+        const seg = await fetchSegment(a, b, mode);
+        if (!seg?.path) return false;
+        setLegGeometry(aId, bId, { path: seg.path, distanceM: seg.distanceM });
+        return true;
+      })
+    );
+    filled += got.filter(Boolean).length;
+    // 第一批全失败（没配 key / 断网 / 限流）：别再继续打
+    if (i === 0 && got.every((ok) => !ok)) break;
+  }
+  return filled;
 }

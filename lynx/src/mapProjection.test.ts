@@ -2,7 +2,10 @@ import { describe, expect, it } from '@rstest/core';
 
 import {
   DEFAULT_ASPECT,
+  boundsCenter,
+  fitZoom,
   makeProjection,
+  makeStaticMapProjection,
   niceScaleBar,
   parsePolyline,
   simplifyPath,
@@ -186,5 +189,99 @@ describe('simplifyPath', () => {
     const two = [{ x: 0, y: 0 }, { x: 1, y: 1 }];
     expect(simplifyPath(two)).toEqual(two);
     expect(simplifyPath([])).toEqual([]);
+  });
+});
+
+/**
+ * 静态底图的投影与「取景」。
+ *
+ * 第一条用实测数据钉死瓦片尺寸：高德静态图的 zoom 按 512px 瓦片算，
+ * 写成 Web Mercator 常见的 256 会让整条路线缩水一半并整体偏移。
+ * 下面的数字是在 location=104.066,30.659&zoom=13&size=600*600 上量出来的真值，
+ * 端点误差 0-4px（线宽与抗锯齿的量级）。
+ */
+describe('静态底图投影', () => {
+  const W = 600;
+  const H = 600;
+  const CENTER: GeoPoint = { lng: 104.066, lat: 30.659 };
+  const view = { center: CENTER, zoom: 13, width: W, height: H };
+
+  it('中心点落在图片正中', () => {
+    const p = makeStaticMapProjection(view);
+    const xy = p.project(CENTER);
+    expect(xy.x).toBeCloseTo(50, 6);
+    expect(xy.y).toBeCloseTo(50, 6);
+  });
+
+  it('对齐高德实测的像素位置（512px 瓦片）', () => {
+    const p = makeStaticMapProjection(view);
+    // 实测：这两点画出的折线端点是 (204,399) 与 (393,203)
+    const a = p.project({ lng: 104.058, lat: 30.652 });
+    const b = p.project({ lng: 104.074, lat: 30.666 });
+    const toPx = (xy: { x: number; y: number }) => ({
+      x: (xy.x / 100) * W,
+      y: (1 - xy.y / 100) * H,
+    });
+    const pa = toPx(a);
+    const pb = toPx(b);
+    expect(Math.abs(pa.x - 204)).toBeLessThanOrEqual(6);
+    expect(Math.abs(pa.y - 399)).toBeLessThanOrEqual(6);
+    expect(Math.abs(pb.x - 393)).toBeLessThanOrEqual(6);
+    expect(Math.abs(pb.y - 203)).toBeLessThanOrEqual(6);
+  });
+
+  it('用 256 瓦片会明显对不上，防止有人改回去', () => {
+    const p = makeStaticMapProjection(view);
+    const a = p.project({ lng: 104.058, lat: 30.652 });
+    const pxX = (a.x / 100) * W;
+    // 256 瓦片下这一点应落在 ~253px，与实测 204px 差近 50px
+    expect(Math.abs(pxX - 253)).toBeGreaterThan(20);
+  });
+
+  it('纬度越高同样的经度跨度像素越窄', () => {
+    const north = makeStaticMapProjection({ center: { lng: 104, lat: 45 }, zoom: 13, width: W, height: H });
+    const south = makeStaticMapProjection({ center: { lng: 104, lat: 25 }, zoom: 13, width: W, height: H });
+    const spanOf = (p: ReturnType<typeof makeStaticMapProjection>) =>
+      p.project({ lng: 104.05, lat: p === north ? 45 : 25 }).x;
+    // 墨卡托横向不受纬度影响，经度跨度对应的像素应当一致
+    expect(spanOf(north)).toBeCloseTo(spanOf(south), 6);
+  });
+
+  it('containing 判定与 project 的 0-100 边界一致', () => {
+    const p = makeStaticMapProjection(view);
+    expect(p.contains(CENTER)).toBe(true);
+    expect(p.contains({ lng: 104.9, lat: 30.659 })).toBe(false);
+  });
+
+  it('fitZoom 让所有点落进视野，且不越界 3-17', () => {
+    const pts = [
+      { lng: 104.04, lat: 30.64 },
+      { lng: 104.1, lat: 30.69 },
+      { lng: 104.07, lat: 30.66 },
+    ];
+    const z = fitZoom(pts, W, H);
+    expect(z).toBeGreaterThanOrEqual(3);
+    expect(z).toBeLessThanOrEqual(17);
+    const p = makeStaticMapProjection({ center: boundsCenter(pts), zoom: z, width: W, height: H });
+    for (const pt of pts) expect(p.contains(pt)).toBe(true);
+  });
+
+  it('点更散时 fitZoom 会选更小的 zoom', () => {
+    const tight = [
+      { lng: 104.060, lat: 30.655 },
+      { lng: 104.070, lat: 30.663 },
+    ];
+    const wide = [
+      { lng: 103.9, lat: 30.5 },
+      { lng: 104.3, lat: 30.9 },
+    ];
+    expect(fitZoom(wide, W, H)).toBeLessThan(fitZoom(tight, W, H));
+  });
+
+  it('单点或空集不炸', () => {
+    expect(fitZoom([], W, H)).toBe(13);
+    expect(fitZoom([CENTER], W, H)).toBe(14);
+    const p = makeStaticMapProjection({ center: boundsCenter([]), zoom: 13, width: W, height: H });
+    expect(Number.isFinite(p.project(CENTER).x)).toBe(true);
   });
 });

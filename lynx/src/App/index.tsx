@@ -12,6 +12,7 @@ import { GuideDetailPage } from '../pages/GuideDetailPage/index.js';
 import { ProfilePage } from '../pages/ProfilePage/index.js';
 import { PlanSheet } from '../pages/PlanSheet/index.js';
 import { CityPage } from '../pages/CityPage/index.js';
+import { CityListPage } from '../pages/CityListPage/index.js';
 import { DEFAULT_DEMAND, applyPlaces, planFor } from '../data.js';
 import { initialContent, fetchContent, fetchMine, EMPTY_MINE, addCollection, removeCollection, addFootprint } from '../remote.js';
 import { PlayDetailPage } from '../pages/PlayDetailPage/index.js';
@@ -83,7 +84,7 @@ export function App() {
   // 局部修改只换掉被改的那一套方案，其它方案留着做对比
   const [impact, setImpact] = useState<ChangeImpact | null>(null);
   // 设计稿里的「智能建议」不是 tab，是从首页快捷入口进的子页
-  const [route, setRoute] = useState<'advice' | 'detail' | 'assistant' | 'city' | 'guide' | 'guides' | 'hot' | 'play' | null>(null);
+  const [route, setRoute] = useState<'advice' | 'detail' | 'assistant' | 'city' | 'cityList' | 'guide' | 'guides' | 'hot' | 'play' | null>(null);
   // 内容区（城市/攻略/玩法）：先用缓存或随包种子渲染，接口回来再覆盖
   const [content, setContent] = useState(initialContent);
   // 收藏与足迹在服务端，按 clientId 归属这台设备
@@ -273,7 +274,16 @@ export function App() {
   return (
     <view className={cls('screen')}>
       <view className={cls('body')}>
-        {route === 'city' ? (
+        {route === 'cityList' ? (
+          <CityListPage
+            onBack={() => setRoute(null)}
+            onOpen={(id) => {
+              setHotCity(id);
+              setRoute('hot');
+              track('hot_open', { id, source: 'city_list' });
+            }}
+          />
+        ) : route === 'city' ? (
           <CityPage
             city={demand.destination}
             cities={content.cities.filter((c) => c.isOpen).map((c) => c.id)}
@@ -367,6 +377,10 @@ export function App() {
           <HomePage
             city={demand.destination}
             onPickCity={() => setRoute('city')}
+            onAllCities={() => {
+              setRoute('cityList');
+              track('city_list_open', { source: 'home_more' });
+            }}
             onPlan={openSheet}
             onTab={(t) => { setRoute(null); setTab(t); }}
             onAdvice={() => setRoute('advice')}

@@ -1,6 +1,6 @@
 import { api } from './api.js';
 import { readLocal, writeLocal } from './storage.js';
-import { getHostLocation, locationStamp } from './hostBridge.js';
+import { getHostLocation, hostApiBase, locationStamp } from './hostBridge.js';
 
 /**
  * 定位 + 地图能力的接入层。
@@ -191,4 +191,31 @@ export async function locateCity(): Promise<
     return { status: 'offline', reason: 'no_location' };
   }
   return resolveCity(loc.point);
+}
+
+/**
+ * 静态底图 URL。交给 `<image src>` 直接请求，因此必须是完整地址而非 JSON 接口。
+ *
+ * 后端只做透传（key 不过河、不缓存），前端拿到的永远是一张 PNG。
+ * 尺寸按「逻辑尺寸 × dpr」要：高德的 scale=2 能把有效分辨率翻倍，
+ * 但 size 上限 1024，所以 dpr 高的时候要先把逻辑尺寸压到 512 以内再用 scale=2。
+ */
+export function staticMapUrl(
+  center: { lng: number; lat: number },
+  zoom: number,
+  width: number,
+  height: number,
+  dpr = 2
+): string {
+  const useScale2 = width * 2 <= 1024 && height * 2 <= 1024 && dpr >= 2;
+  const w = Math.min(1024, Math.round(width * (useScale2 ? 1 : Math.min(1, 1024 / Math.max(width, 1)))));
+  const h = Math.min(1024, Math.round(height * (useScale2 ? 1 : Math.min(1, 1024 / Math.max(height, 1)))));
+  const qs = [
+    `center=${center.lng.toFixed(6)},${center.lat.toFixed(6)}`,
+    `zoom=${zoom}`,
+    `size=${w}*${h}`,
+    useScale2 ? 'scale=2' : 'scale=1'
+  ].join('&');
+  const base = hostApiBase();
+  return `${base}/api/geo/staticmap?${qs}`;
 }

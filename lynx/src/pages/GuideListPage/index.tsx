@@ -34,7 +34,7 @@ export function GuideListPage({ guides, onBack, onOpen }: Props) {
         </view>
       </view>
 
-      <scroll-view className={cls('scroll')} scroll-y>
+      <scroll-view className={cls('scroll')} scroll-y bounces={false}>
         {guides.map((g) => (
           <view key={g.id} className={cls('gl-row')} bindtap={() => onOpen(g.id)}>
             <image className={cls('gl-img')} src={cover(g.coverImage)} mode="aspectFill" />

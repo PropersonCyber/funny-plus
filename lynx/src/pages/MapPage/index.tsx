@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from '@lynx-js/react';
+import { useCallback, useEffect, useMemo, useRef, useState } from '@lynx-js/react';
 
 import mapArt from '../../assets/gen/map-bg.jpg';
 import mascotPeek from '../../assets/ip/mascot-peek.png';
@@ -13,15 +13,22 @@ import { toast } from '../../toast.js';
 import styles from './index.module.scss';
 import { makeCls } from '../../styles/cls.js';
 import {
+  boundsCenter,
+  fitZoom,
   makeProjection,
+  makeStaticMapProjection,
   niceScaleBar,
   simplifyPath,
   PAD_X,
   PAD_Y,
   type GeoPoint,
+  type StaticMapProjection,
 } from '../../mapProjection.js';
 import { legGeometry } from '../../routeGeometry.js';
+import { fillDayGeometry } from '../../travel.js';
 import { Gesture, IDENTITY, project, type View } from '../../mapGesture.js';
+import { staticMapUrl } from '../../geo.js';
+import { hostApiBase } from '../../hostBridge.js';
 import { ticketText } from '../../ticketText.js';
 
 const cls = makeCls(styles);
@@ -87,6 +94,9 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
   const [view, setView] = useState<'route' | 'spots' | 'play'>('route');
   // 选中某个景点后，卡片区换成该点的详情；换天要清掉，否则 index 指向的是上一天的顺序
   const [picked, setPicked] = useState<number | null>(null);
+  // 底部面板收起来才能看全地图。默认展开：收起态下用户看不到路线摘要，
+  // 而这是本页的主信息，不该一进来就藏起来。
+  const [sheetOpen, setSheetOpen] = useState(true);
   const plan = plans[Math.min(planIndex, plans.length - 1)] ?? plans[0];
 
   /**
@@ -125,7 +135,47 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
     else gestureRef.current.end();
   }, []);
 
+  // 补到折线后 bump 一次，触发下面 stops/routeSvg 重算（折线存在模块内存里，不进 state）
+  const [geoBump, setGeoBump] = useState(0);
 
+
+
+  /**
+   * 当天行程的底图取景。center/zoom 由点集算出，尺寸取一个固定的逻辑尺寸：
+   * 真机全屏约 390×760pt，要 512×1024 逻辑尺寸再用 scale=2 才够清晰（实测上限就是 1024）。
+   * 这里不读运行时尺寸 —— Lynx 里拿宽高要等布局回调，地图不该为此闪一帧。
+   */
+  const BASE_W = 512;
+  const BASE_H = 1024;
+
+  const baseView = useMemo(() => {
+    const day = plan?.days.find((d) => d.index === dayNo);
+    const places = (day?.items ?? [])
+      .map((i) => (i.placeId ? placeById(i.placeId) : undefined))
+      .filter((p): p is NonNullable<ReturnType<typeof placeById>> => !!p);
+    if (places.length === 0) return null;
+    const center = boundsCenter(places);
+    const zoom = fitZoom(places, BASE_W, BASE_H);
+    return { center, zoom };
+  }, [plan, dayNo]);
+
+  /**
+   * 底图投影：点集 → 屏幕百分比。
+   * 和 stops 里那个 makeProjection 是两套，不能混：这里必须严格按底图的 zoom 走，
+   * 否则 marker 会落在和路网无关的位置上（实测用 256 瓦片公式会偏 50px 以上）。
+   */
+  const baseProj = useMemo<StaticMapProjection | null>(
+    () =>
+      baseView
+        ? makeStaticMapProjection({
+            center: baseView.center,
+            zoom: baseView.zoom,
+            width: BASE_W,
+            height: BASE_H,
+          })
+        : null,
+    [baseView]
+  );
   const stops = useMemo<Stop[]>(() => {
     const day = plan?.days.find((d) => d.index === dayNo);
     if (!day) return [];
@@ -135,13 +185,15 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
 
     if (list.length === 0) return [];
     const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
-    // 真实等比投影：以前经度按 40%、纬度按 30% 各自归一化，东西向和南北向的比例
-    // 完全是两回事，marker 之间的视觉距离对不上标签上的米数。投影规则见 mapProjection.ts
-    const proj = makeProjection(list.map((s) => s.place));
 
     // 景点挨太近时错开，否则标记叠在一起分不清顺序。只错开 y 不够：两个点经度也接近时，
     // 光上下挪会被上下界夹回去。这里按固定候选位逐个试，全试完还挤就只留圆点。
     // 挪过的点要标出来（moved），不能让用户以为 marker 就在那儿——那是另一种假精度。
+    // 底图是真地图时，marker 必须落在底图的路网上：用底图投影。
+    // 拿不到底图取景（没有地点数据）时才退回旧的「铺满屏幕」投影，
+    // 那种情况页面显示的是空态卡片，本来也不会画 marker。
+    const proj = baseProj ?? makeProjection(list.map((s) => s.place));
+
     const placed: { x: number; y: number }[] = [];
     return list.map((s, idx) => {
       const at = proj.project(s.place);
@@ -178,6 +230,7 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
           }
         }
       }
+
       placed.push({ x, y });
       // 距离优先用路段实际行驶距离（高德给的），取不到才退回两点直线：
       // 直线会让用户以为「走过去很近」，而绕路可能是两倍
@@ -205,7 +258,98 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
         crowded,
       };
     });
-  }, [plan, dayNo]);
+  }, [plan, dayNo, geoBump]);
+
+  /**
+   * 冷启动补折线。
+   *
+   * 折线只活在进程内存里，冷启动直接进地图页时是空的，路线会退回两点直连的虚线。
+   * 这里在缺段时补拉一次，补到就 bump 一下触发重算 —— 用户多等 1 秒看到真路，
+   * 好过一进来就是一条假路。只补缺的、只补当天、只补一次。
+   */
+  const filledRef = useRef<string>('');
+  useEffect(() => {
+    const day = plan?.days.find((d) => d.index === dayNo);
+    if (!day || day.items.length < 2) return;
+    const key = `${plan?.id ?? ''}:${dayNo}`;
+    if (filledRef.current === key) return;
+    const ids = day.items.map((i) => i.placeId).filter((id): id is string => !!id);
+    let need = false;
+    for (let i = 1; i < ids.length; i++) {
+      if (!legGeometry(ids[i - 1], ids[i])) { need = true; break; }
+    }
+    if (!need) return;
+    filledRef.current = key;
+    let alive = true;
+    fillDayGeometry(day, demand.transport)
+      .then((n) => {
+        if (alive && n > 0) setGeoBump((v) => v + 1);
+      })
+      .catch(() => {
+        // 取不到就继续显示直连虚线，界面本来就有「估算」标注，不弹错
+      });
+    return () => {
+      alive = false;
+    };
+  }, [plan, dayNo, demand]);
+
+
+  /**
+   * 3D 地图地址。key 由服务端注入，这里只有一个不带 key 的路径。
+   *
+   * 3D 必须跑在 DOM 里（JS API 要 canvas 容器），而 Lynx 业务 JS 在 Worker、
+   * 原生端也没有 DOM，所以只能用 webview/iframe 承载这一页。
+   */
+  const map3dSrc = useMemo(() => `${hostApiBase()}/api/geo/map3d`, []);
+
+  /** 3D 开关。默认关：先保证 2D 一定能看，3D 是加分项 */
+  const [use3d, setUse3d] = useState(false);
+  /** 3D 页回报 ready 之后才真正覆盖上去，避免盖住后一片白 */
+  const [map3dReady, setMap3dReady] = useState(false);
+  const toggle3d = useCallback(() => {
+    setUse3d((v) => {
+      const next = !v;
+      if (!next) setMap3dReady(false);
+      return next;
+    });
+  }, []);
+  /**
+  const toggle3d = useCallback(() => {
+    setUse3d((v) => {
+      const next = !v;
+      if (!next) setMap3dReady(false);
+      return next;
+    });
+  }, []);
+
+  /**
+   * 3D 失败就认输，退回 2D。
+   *
+   * 原生端当前没有 LynxWebView 实现（Lynx 4.2.0 核心框架里没有这个 UI 类），
+   * 点开关不会报错也不会加载——所以必须有超时兜底，否则用户面对的是
+   * 一个「点了但什么都没发生」的按钮，比没有这个按钮更糟。
+   */
+  const giveUp3d = useCallback(() => {
+    setMap3dReady(false);
+    setUse3d(false);
+    toast('这个端暂时不支持 3D，已切回平面地图');
+  }, []);
+
+  useEffect(() => {
+    if (!use3d || map3dReady) return;
+    const t = setTimeout(() => giveUp3d(), 6000);
+    return () => clearTimeout(t);
+  }, [use3d, map3dReady, giveUp3d]);
+
+  /**
+   * 底图地址。它是一张 PNG 的 URL，不是 JSON 接口，所以直接交给 <image src>。
+   * 只有 center/zoom 变了才换 URL —— 每换一次就是一次真实的高德请求，
+   * 而静态图按协议不允许缓存，拖动手势绝不能触发重新请求（那会瞬间烧掉配额）。
+   */
+  const baseMapSrc = useMemo(() => {
+    if (!baseView) return mapArt;
+    return staticMapUrl(baseView.center, baseView.zoom, BASE_W, BASE_H);
+  }, [baseView]);
 
   /** 每段是否有真实折线：没有的用两点直连并标「估算」 */
   const legs = useMemo(() => {
@@ -237,7 +381,9 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
     const allPlaces = (day?.items ?? [])
       .map((i) => (i.placeId ? placeById(i.placeId) : undefined))
       .filter((p): p is NonNullable<typeof p> => !!p);
-    const proj = makeProjection(allPlaces);
+    // 路线必须和 marker 用同一个投影，否则线会从气泡旁边穿过去。
+    // 底图是真地图时用底图投影；没有底图时才用「铺满屏幕」那套。
+    const proj = baseProj ?? makeProjection(allPlaces);
 
     // stops 的 y 是「自下往上」的百分比（配 bottom 用），SVG 的 y 是自上往下，
     // 所以这里必须翻一次；viewBox 高度 216 = 100 × aspect，宽高比已经含在里面，
@@ -313,11 +459,12 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
       .map((i) => (i.placeId ? placeById(i.placeId) : undefined))
       .filter((p): p is NonNullable<typeof p> => !!p);
     if (places.length === 0) return null;
-    const proj = makeProjection(places);
+    // 比例尺同理：必须和底图用同一套投影，否则「图上这段 = 1km」会和路网对不上
+    const proj = baseProj ?? makeProjection(places);
     // 比例尺必须跟着缩放走：放大 2 倍后同样的屏幕长度只代表一半的实际距离。
     // 不联动的话它就从「可核对的量纲」退化成一条装饰线
     return niceScaleBar(proj.kmPerUnit(places[0]) / mapView.scale);
-  }, [plan, dayNo, mapView.scale]);
+  }, [plan, dayNo, mapView.scale, baseProj]);
 
   /** 比例尺文案：1km 以下按米，避免出现「0.5km」这种读起来别扭的数 */
   const scaleLabel = useMemo(() => {
@@ -355,15 +502,35 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
       bindtouchend={onTouchEnd}
       bindtouchcancel={onTouchEnd}
     >
+      {/*
+        底图：有取景信息时用高德静态图（服务端透传，key 不过河），否则退回插画。
+        退回是必要的 —— 地图服务未配置、超过配额、或当天还没有地点时，
+        用户至少要看到一张底图，而不是一块白板。
+      */}
       <image
-        src={mapArt}
+        src={baseMapSrc}
         mode="aspectFill"
         style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' }}
       />
-      {/* 插画底图只当氛围：压一层淡遮罩，让真实折线是画面上唯一的「路」。
-          不压的话，插画里那些假街道会和折线混在一起，等于又在暗示一张假地图 */}
-      <view className={cls('map-veil')} />
-
+      {/* 插画当底图时才需要压遮罩：它自带的假街道会和折线混在一起。
+          真地图上不加遮罩——那会把真实路网的清晰度白白磨掉一层 */}
+      {!baseView ? <view className={cls('map-veil')} /> : null}
+      {/*
+        3D 层。用 Lynx 内置 <webview>：Web 渲染器把它映射成 iframe，
+        原生端需要宿主提供 LynxWebView 实现（当前 iOS 壳没有）。
+        所以这里不赌平台——ready 之后才盖上去，超时或报错就自动退回 2D，
+        用户永远看到的是「一张能用的地图」，而不是一块白。
+      */}
+      {use3d ? (
+        <view className={cls('map-3d-layer')}>
+          <webview
+            src={map3dSrc}
+            bindload={() => setMap3dReady(true)}
+            binderror={() => giveUp3d()}
+            style={{ width: '100%', height: '100%' }}
+          />
+        </view>
+      ) : null}
 
       <view className={cls('map-top')}>
         <view className={cls('map-top-pill')}>
@@ -392,6 +559,13 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
           }}
         >
           <image src={svgIcon('search', '#3F5980')} style={{ width: '17px', height: '17px' }} />
+        </view>
+        {/* 3D 开关。原生端没有 LynxWebView 时会超时自动退回并提示，不留死按钮 */}
+        <view
+          className={use3d ? cls('map-top-pill map-top-icon map-3d-on') : cls('map-top-pill map-top-icon')}
+          bindtap={toggle3d}
+        >
+          <text className={use3d ? cls('map-3d-label on') : cls('map-3d-label')}>3D</text>
         </view>
       </view>
 
@@ -464,7 +638,12 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
         </view>
       </view>
 
+      {sheetOpen ? (
       <view className={cls('map-sheet')}>
+        {/* 收起把手：点一下让出地图。放在面板顶部正中，和地图手势不冲突 */}
+        <view className={cls('sheet-grabber-hit')} catchtap={() => setSheetOpen(false)}>
+          <view className={cls('sheet-grabber')} />
+        </view>
         {/* 趴在卡片上沿探头的吉祥物：锚定在卡片顶部 */}
         <image src={mascotPeek} mode="aspectFit" className={cls('sheet-peek')} />
         {pickedSpot ? (
@@ -498,11 +677,6 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
               <text className={cls('sheet-route')}>
                 {stops.length > 0 ? stops.map((s) => s.name).join(' → ') : '这一天没有可定位的点'}
               </text>
-              {stops.length > 0 ? (
-                <view className={cls('sheet-more')} bindtap={() => setView('spots')}>
-                  <image src={svgIcon('chevronRight', '#2478F2')} style={{ width: '16px', height: '16px' }} />
-                </view>
-              ) : null}
             </view>
 
             {/* 当天景点卡：点一张就选中地图上对应的点，两边是同一个 picked */}
@@ -544,7 +718,7 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
             ) : null}
           </view>
         ) : view === 'spots' ? (
-          <scroll-view className={cls('sheet-list')} scroll-y>
+          <scroll-view className={cls('sheet-list')} scroll-y bounces={false}>
             {stops.map((s) => {
               return (
                 <view
@@ -575,7 +749,7 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
             {stops.length === 0 ? <text className={cls('sp-empty')}>这一天没有排到的景点</text> : null}
           </scroll-view>
         ) : (
-          <scroll-view className={cls('sheet-list')} scroll-y>
+          <scroll-view className={cls('sheet-list')} scroll-y bounces={false}>
             {plays.map((p) => (
               <view key={p.id} className={cls('sp-row')} bindtap={() => onPlay(p.id)}>
                 <view className={cls('sp-icon')}>
@@ -591,6 +765,16 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
           </scroll-view>
         )}
       </view>
+      ) : (
+        <view className={cls('sheet-reopen')} catchtap={() => setSheetOpen(true)}>
+          <image
+            src={svgIcon('chevronRight', '#2478F2')}
+            className={cls('sheet-reopen-icon')}
+            style={{ width: '14px', height: '14px' }}
+          />
+          <text className={cls('sheet-reopen-text')}>展开路线</text>
+        </view>
+      )}
     </view>
   );
 }

@@ -1,0 +1,416 @@
+// 热门城市列表：设计稿还原。
+// 结构自上而下：山水横幅（含标题/返回/搜索/吉祥物）→ 分类 chips → 筛选行
+// → 双列城市卡。整页纵向滚动，横幅不参与滚动（跟着列表一起走会露出底色）。
+
+.hc-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background-color: #eef3fd;
+}
+
+/* ---------------- 顶部横幅 ---------------- */
+
+.hc-hero {
+  position: relative;
+  height: 186px;
+  margin: 0 12px;
+  border-radius: 0 0 22px 22px;
+  /* 不裁：吉祥物要压出横幅下沿 */
+}
+
+.hc-hero-bg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 0 0 22px 22px;
+}
+
+/* 压一层浅蓝白渐变：白色标题压在浅色山水上会糊，尤其左上角那片天空 */
+.hc-hero-veil {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 0 0 22px 22px;
+  background-image: linear-gradient(150deg, rgba(255, 255, 255, 0.72), rgba(214, 235, 255, 0.28));
+}
+
+.hc-hero-top {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 52px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hc-round {
+  width: 34px;
+  height: 34px;
+  border-radius: 17px;
+  background-color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 10px rgba(31, 71, 135, 0.14);
+}
+
+.hc-hero-text {
+  position: absolute;
+  left: 16px;
+  top: 96px;
+  display: flex;
+  flex-direction: column;
+}
+
+.hc-title-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.hc-flame {
+  width: 26px;
+  height: 26px;
+  margin-right: 6px;
+}
+
+.hc-title {
+  font-size: 25px;
+  font-weight: bold;
+  color: #10233f;
+}
+
+.hc-subtitle {
+  font-size: 11px;
+  color: #46628b;
+  margin-top: 5px;
+}
+
+/* 吉祥物压在横幅右下，下半身探到 chips 上方 */
+.hc-mascot {
+  position: absolute;
+  right: -2px;
+  bottom: -26px;
+  width: 108px;
+  height: 108px;
+}
+
+/* ---------------- 分类 chips ---------------- */
+
+.hc-chips-wrap {
+  margin: 10px 12px 0 12px;
+  padding: 8px 0 8px 10px;
+  border-radius: 22px;
+  background-color: #ffffff;
+  box-shadow: 0 6px 18px rgba(48, 104, 175, 0.07);
+}
+
+.hc-chips {
+  height: 38px;
+}
+
+.hc-chip {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  height: 34px;
+  padding: 0 13px;
+  margin-right: 8px;
+  border-radius: 17px;
+  background-color: #f2f6ff;
+}
+
+.hc-chip-on {
+  background-color: #2478f2;
+}
+
+.hc-chip-icon {
+  width: 15px;
+  height: 15px;
+  margin-right: 5px;
+  border-radius: 8px;
+}
+
+.hc-chip-text {
+  font-size: 12px;
+  font-weight: bold;
+  color: #46628b;
+}
+
+.hc-chip-text.on {
+  color: #ffffff;
+}
+
+/* ---------------- 筛选行 ---------------- */
+
+.hc-filters {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 12px 14px 8px 14px;
+}
+
+.hc-filter {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-right: 14px;
+}
+
+.hc-filter-text {
+  font-size: 12px;
+  color: #5b6f90;
+}
+
+.hc-filter-text.on {
+  color: #172b4d;
+  font-weight: bold;
+}
+
+.hc-filter-caret {
+  font-size: 9px;
+  color: #8a99b3;
+  margin-left: 3px;
+}
+
+.hc-mode {
+  margin-left: auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background-color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 下拉面板：浮在卡片上方，避免撑开布局 */
+.hc-panel {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 300px;
+  z-index: 20;
+  border-radius: 14px;
+  background-color: #ffffff;
+  padding: 6px 0;
+  box-shadow: 0 10px 28px rgba(31, 71, 135, 0.18);
+}
+
+.hc-panel-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+}
+
+.hc-panel-text {
+  font-size: 13px;
+  color: #172b4d;
+}
+
+.hc-panel-tick {
+  font-size: 12px;
+  color: #2478f2;
+}
+
+/* ---------------- 城市卡片 ---------------- */
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.hc-grid {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  padding: 0 14px;
+}
+
+.hc-card {
+  display: flex;
+  flex-direction: column;
+  width: 48.5%;
+  margin-bottom: 12px;
+  border-radius: 16px;
+  background-color: #ffffff;
+  overflow: hidden;
+  box-shadow: 0 6px 18px rgba(48, 104, 175, 0.08);
+}
+
+/* 单列模式：卡片铺满一行，一屏能看到更多城市 */
+.hc-grid-list {
+  flex-direction: column;
+}
+
+.hc-card-wide {
+  width: 100%;
+}
+
+.hc-cover-wrap {
+  position: relative;
+  width: 100%;
+  height: 128px;
+}
+
+.hc-cover {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* 底部压深，白字才有对比度；不用纯黑蒙版，照片会发灰 */
+.hc-cover-foot {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  background-image: linear-gradient(to top, rgba(6, 20, 40, 0.55), rgba(6, 20, 40, 0));
+  padding-top: 16px;
+  margin: 0 -10px -8px -10px;
+  padding-left: 10px;
+  padding-right: 10px;
+  padding-bottom: 8px;
+}
+
+.hc-city {
+  font-size: 17px;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.hc-meta {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-top: 3px;
+}
+
+.hc-rate {
+  font-size: 10px;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.hc-pipe {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0 4px;
+}
+
+.hc-visited {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.hc-rank {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 3px 9px 3px 7px;
+  border-radius: 0 0 12px 0;
+  background-image: linear-gradient(100deg, #ffb020, #ff8a3d);
+}
+
+.hc-rank-text {
+  font-size: 10px;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.hc-fav {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 13px;
+  background-color: rgba(255, 255, 255, 0.86);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hc-fav-icon {
+  font-size: 14px;
+  color: #8a99b3;
+}
+
+.hc-fav-on .hc-fav-icon {
+  color: #f2547d;
+}
+
+.hc-body {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px 10px 10px;
+}
+
+.hc-desc {
+  font-size: 11px;
+  color: #5b6f90;
+  text-overflow: ellipsis;
+}
+
+.hc-tags {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  margin-top: 7px;
+}
+
+.hc-tag {
+  font-size: 9px;
+  color: #46628b;
+  background-color: #f2f6ff;
+  border-radius: 8px;
+  padding: 2px 7px;
+  margin-right: 5px;
+  margin-bottom: 3px;
+}
+
+/* 天数标签和内容标签区分开：前者是行程长度，后者是玩什么 */
+.hc-tag-days {
+  color: #2478f2;
+  background-color: #e8f1ff;
+}
+
+/* ---------------- 空态与收尾 ---------------- */
+
+.hc-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 20px;
+}
+
+.hc-empty-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #46628b;
+}
+
+.hc-empty-note {
+  font-size: 11px;
+  color: #8a99b3;
+  margin-top: 6px;
+}
+
+.hc-bottom-space {
+  height: 18px;
+}

@@ -151,7 +151,7 @@ export function ItineraryPage({
           ))}
         </view>
 
-        <scroll-view className={cls('scroll')} scroll-y>
+        <scroll-view className={cls('scroll')} scroll-y bounces={false}>
           {impact ? (
             <view className={cls('card impact-card')}>
               <view className={cls('impact-head')}>

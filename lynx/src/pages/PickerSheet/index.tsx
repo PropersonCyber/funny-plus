@@ -42,7 +42,7 @@ export function PickerSheet({ title, options, value, onClose, onPick }: Props) {
           </view>
         </view>
 
-        <scroll-view className={cls('pk-list')} scroll-y>
+        <scroll-view className={cls('pk-list')} scroll-y bounces={false}>
           {options.map((o) => {
             const on = o.value === value;
             return (

@@ -23,6 +23,9 @@ const cls = makeCls(styles);
 type Props = {
   city: string;
   onPickCity: () => void;
+  /** 热门推荐「查看更多」：进热门城市列表页。和 onPickCity 分开——
+      定位胶囊是「我人在哪」，查看更多是「还有哪些城市」 */
+  onAllCities: () => void;
   onPlan: () => void;
   onTab: (tab: 'map' | 'itinerary' | 'guide' | 'profile') => void;
   onAdvice: () => void;
@@ -61,7 +64,7 @@ const QUICK = [
   { id: 'itinerary', title: '行程规划', img: QICON.calendar, tint: 'rgba(36,120,242,0.12)' },
 ] as const;
 
-export function HomePage({ city, onPickCity, onOpenCity, onPlan, onTab, onAdvice, onAssistant, onGuide, onAllGuides, onPlay, cities, guides, plays }: Props) {
+export function HomePage({ city, onPickCity, onAllCities, onOpenCity, onPlan, onTab, onAdvice, onAssistant, onGuide, onAllGuides, onPlay, cities, guides, plays }: Props) {
   // 当前城市排在最前，帮用户确认「切过去了」
   const cityList = cities.slice().sort((a, b) => (b.id === city ? 1 : 0) - (a.id === city ? 1 : 0));
   // 首页只露出前 3 条：一排放 4 张会把标题挤成两行，剩下的一次性堆上来也不像「精选」
@@ -89,7 +92,7 @@ export function HomePage({ city, onPickCity, onOpenCity, onPlan, onTab, onAdvice
 
   return (
     <view className={cls('home-root')}>
-      <scroll-view className={cls('scroll')} scroll-y bindscroll={onScroll}>
+      <scroll-view className={cls('scroll')} scroll-y bounces={false} bindscroll={onScroll}>
         <view className={cls('home')}>
           <view className={cls('hero')}>
             <image
@@ -130,13 +133,15 @@ export function HomePage({ city, onPickCity, onOpenCity, onPlan, onTab, onAdvice
               <image src={QICON.flame} mode="aspectFit" style={{ width: '16px', height: '16px', marginRight: '5px' }} />
               <text className={cls('section-title')}>热门推荐</text>
             </view>
-            <view className={cls('section-more-row')} bindtap={onPickCity}>
+            <view className={cls('section-more-row')} bindtap={onAllCities}>
               <text className={cls('section-more')}>查看更多</text>
               <image src={svgIcon('chevronRight', '#A5B2C7')} style={{ width: '12px', height: '12px', marginLeft: '2px' }} />
             </view>
           </view>
 
-          <view className={cls('city-row')}>
+          {/* 横滑不是「多到放不下」才加的：首页要把 3 张卡完整露出来会挤掉下面的
+              本周精选，横滑让每张卡保持可读宽度。全量在「查看更多」的城市列表页 */}
+          <scroll-view className={cls('city-row')} scroll-x bounces={false}>
             {cityList.map((c, i) => (
               <view
                 key={c.id}
@@ -159,7 +164,7 @@ export function HomePage({ city, onPickCity, onOpenCity, onPlan, onTab, onAdvice
                 </view>
               </view>
             ))}
-          </view>
+          </scroll-view>
 
           <view className={cls('section-head')}>
             <view className={cls('sec-title-row')}>

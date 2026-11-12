@@ -119,7 +119,7 @@ export function HotDetailPage({ city, places, plays, onBack, onSeeAllPlaces, onO
 
   return (
     <view className={cls('hot-page')}>
-      <scroll-view className={cls('scroll')} scroll-y>
+      <scroll-view className={cls('scroll')} scroll-y bounces={false}>
         <view className={cls('hot-root')}>
           <view className={cls('hot-hero')}>
             <image src={cover} mode="aspectFill" className={cls('hot-hero-img')} />
