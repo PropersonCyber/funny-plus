@@ -495,11 +495,17 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
       <image
         src={showArt ? mapArt : baseMapSrc}
         mode="aspectFill"
+        className={showArt ? undefined : cls('map-base')}
         style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' }}
         binderror={() => {
           if (!showArt) setBaseMapFailed(true);
         }}
       />
+      {/* 高德静态图接口不认 style 参数（实测 fresh / dark / 数字 id 全返回同一张图），
+          所以配色只能在前端做：先降饱和把「米黄底 + 蓝水 + 绿园」拉成灰阶，
+          再叠一层淡绿。不降饱和直接叠色的话，白色路网会被一起染绿，
+          路和地就分不出来了 —— 而路网是这个页面唯一需要看清的底图信息 */}
+      {showArt ? null : <view className={cls('map-tint')} />}
       {/* 插画当底图时才需要压遮罩：它自带的假街道会和折线混在一起。
           真地图上不加遮罩——那会把真实路网的清晰度白白磨掉一层 */}
       {showArt ? <view className={cls('map-veil')} /> : null}
