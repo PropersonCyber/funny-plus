@@ -397,35 +397,6 @@
   justify-content: center;
 }
 
-/* 3D 开关。和搜索按钮同尺寸，保证顶栏三个胶囊对齐 */
-.map-3d-label {
-  font-size: 12px;
-  font-weight: bold;
-  color: #3f5980;
-}
-.map-3d-label.on {
-  color: #ffffff;
-}
-.map-3d-on {
-  background-color: #4169f5;
-  border-color: #4169f5;
-}
-
-/* 3D 覆盖层：盖住 2D 底图与 SVG 折线，但让顶栏和底部卡片继续浮在上面 */
-.map-3d-layer {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 5;
-}
-
-.map-3d-pending {
-  /* 加载中先透明：盖一块白比保持 2D 更糟 */
-  opacity: 0;
-}
-
 /* 标记底盘：圆环 + 水滴尖是一张 PNG 的一体形状。
    分开用 CSS 画圆和三角时，两者只在单点相切、一定会露出接缝，
    所以整块交给图，照片单独塞进中间的镂空孔。
@@ -598,4 +569,27 @@
   width: 100%;
   height: 100%;
   background-color: rgba(240, 247, 255, 0.58);
+}
+
+/* 当天里程胶囊：贴在路线起点一侧，蓝底白字，和参考图一致。
+   锚点是第一个点的投影坐标，靠负 margin 把自身让到点的左下侧，不压住 marker 气泡 */
+.map-day-pill {
+  position: absolute;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 13px;
+  background-color: #2478f2;
+  box-shadow: 0 3px 10px rgba(36, 120, 242, 0.3);
+  /* 往左让出约一个胶囊身位、再下移半个身高：落点在点的左下，不和起点 marker 抢位置 */
+  margin-left: -96px;
+  margin-bottom: -26px;
+  z-index: 3;
+}
+.map-day-text {
+  font-size: 12px;
+  font-weight: bold;
+  color: #ffffff;
 }

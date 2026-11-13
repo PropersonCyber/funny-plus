@@ -28,7 +28,6 @@ import { legGeometry } from '../../routeGeometry.js';
 import { fillDayGeometry } from '../../travel.js';
 import { Gesture, IDENTITY, project, type View } from '../../mapGesture.js';
 import { staticMapUrl } from '../../geo.js';
-import { hostApiBase } from '../../hostBridge.js';
 import { ticketText } from '../../ticketText.js';
 
 const cls = makeCls(styles);
@@ -293,54 +292,6 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
     };
   }, [plan, dayNo, demand]);
 
-
-  /**
-   * 3D 地图地址。key 由服务端注入，这里只有一个不带 key 的路径。
-   *
-   * 3D 必须跑在 DOM 里（JS API 要 canvas 容器），而 Lynx 业务 JS 在 Worker、
-   * 原生端也没有 DOM，所以只能用 webview/iframe 承载这一页。
-   */
-  const map3dSrc = useMemo(() => `${hostApiBase()}/api/geo/map3d`, []);
-
-  /** 3D 开关。默认关：先保证 2D 一定能看，3D 是加分项 */
-  const [use3d, setUse3d] = useState(false);
-  /** 3D 页回报 ready 之后才真正覆盖上去，避免盖住后一片白 */
-  const [map3dReady, setMap3dReady] = useState(false);
-  const toggle3d = useCallback(() => {
-    setUse3d((v) => {
-      const next = !v;
-      if (!next) setMap3dReady(false);
-      return next;
-    });
-  }, []);
-  /**
-  const toggle3d = useCallback(() => {
-    setUse3d((v) => {
-      const next = !v;
-      if (!next) setMap3dReady(false);
-      return next;
-    });
-  }, []);
-
-  /**
-   * 3D 失败就认输，退回 2D。
-   *
-   * 原生端当前没有 LynxWebView 实现（Lynx 4.2.0 核心框架里没有这个 UI 类），
-   * 点开关不会报错也不会加载——所以必须有超时兜底，否则用户面对的是
-   * 一个「点了但什么都没发生」的按钮，比没有这个按钮更糟。
-   */
-  const giveUp3d = useCallback(() => {
-    setMap3dReady(false);
-    setUse3d(false);
-    toast('这个端暂时不支持 3D，已切回平面地图');
-  }, []);
-
-  useEffect(() => {
-    if (!use3d || map3dReady) return;
-    const t = setTimeout(() => giveUp3d(), 6000);
-    return () => clearTimeout(t);
-  }, [use3d, map3dReady, giveUp3d]);
-
   /**
    * 底图地址。它是一张 PNG 的 URL，不是 JSON 接口，所以直接交给 <image src>。
    * 只有 center/zoom 变了才换 URL —— 每换一次就是一次真实的高德请求，
@@ -350,6 +301,17 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
     if (!baseView) return mapArt;
     return staticMapUrl(baseView.center, baseView.zoom, BASE_W, BASE_H);
   }, [baseView]);
+
+  /**
+   * 静态图加载失败（没配 key / 配额用尽 / 网络不通）时退回插画。
+   * <image src> 失败不会抛错，不接这个信号，用户看到的就是一块白板。
+   */
+  const [baseMapFailed, setBaseMapFailed] = useState(false);
+  // 取景变了就再试一次真底图：换天 / 换方案后配额恢复，还能显示出来
+  useEffect(() => {
+    setBaseMapFailed(false);
+  }, [baseMapSrc]);
+  const showArt = !baseView || baseMapFailed;
 
   /** 每段是否有真实折线：没有的用两点直连并标「估算」 */
   const legs = useMemo(() => {
@@ -474,6 +436,29 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
   }, [scaleBar]);
   const pickedSpot = picked === null ? undefined : stops.find((s) => s.order === picked);
 
+  /**
+   * 当天里程胶囊：只回答两件事——第几天、这天一共走多远。
+   * 有真实折线的段用高德给的实际里程；缺段的退回直线折算，并在数字前加「约」，
+   * 不把估算值写成确定值。
+   */
+  const daySummary = useMemo(() => {
+    if (stops.length < 2) return '';
+    let meters = 0;
+    let estimated = false;
+    for (let i = 1; i < stops.length; i++) {
+      const a = placeById(stops[i - 1].placeId);
+      const b = placeById(stops[i].placeId);
+      if (!a || !b) continue;
+      const geo = legGeometry(a.id, b.id);
+      if (geo?.distanceM) meters += geo.distanceM;
+      else {
+        meters += distanceKm(a, b) * 1000;
+        estimated = true;
+      }
+    }
+    if (meters <= 0) return '';
+    return `第${dayNo}天 · ${estimated ? '约' : ''}${fmtMeters(meters)}`;
+  }, [stops, dayNo]);
   const onDay = useCallback((n: number) => {
     setDayNo(n);
     setPicked(null);
@@ -508,30 +493,16 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
         用户至少要看到一张底图，而不是一块白板。
       */}
       <image
-        src={baseMapSrc}
+        src={showArt ? mapArt : baseMapSrc}
         mode="aspectFill"
         style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' }}
+        binderror={() => {
+          if (!showArt) setBaseMapFailed(true);
+        }}
       />
       {/* 插画当底图时才需要压遮罩：它自带的假街道会和折线混在一起。
           真地图上不加遮罩——那会把真实路网的清晰度白白磨掉一层 */}
-      {!baseView ? <view className={cls('map-veil')} /> : null}
-      {/*
-        3D 层。用 Lynx 内置 <webview>：Web 渲染器把它映射成 iframe，
-        原生端需要宿主提供 LynxWebView 实现（当前 iOS 壳没有）。
-        所以这里不赌平台——ready 之后才盖上去，超时或报错就自动退回 2D，
-        用户永远看到的是「一张能用的地图」，而不是一块白。
-      */}
-      {use3d ? (
-        <view className={cls('map-3d-layer')}>
-          <webview
-            src={map3dSrc}
-            bindload={() => setMap3dReady(true)}
-            binderror={() => giveUp3d()}
-            style={{ width: '100%', height: '100%' }}
-          />
-        </view>
-      ) : null}
-
+      {showArt ? <view className={cls('map-veil')} /> : null}
       <view className={cls('map-top')}>
         <view className={cls('map-top-pill')}>
           <image src={svgIcon('pin', COLOR.primary)} style={{ width: '15px', height: '15px', marginRight: '5px' }} />
@@ -560,17 +531,24 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
         >
           <image src={svgIcon('search', '#3F5980')} style={{ width: '17px', height: '17px' }} />
         </view>
-        {/* 3D 开关。原生端没有 LynxWebView 时会超时自动退回并提示，不留死按钮 */}
-        <view
-          className={use3d ? cls('map-top-pill map-top-icon map-3d-on') : cls('map-top-pill map-top-icon')}
-          bindtap={toggle3d}
-        >
-          <text className={use3d ? cls('map-3d-label on') : cls('map-3d-label')}>3D</text>
-        </view>
       </view>
 
       {routeSvg ? (
         <image src={routeSvg} style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' }} />
+      ) : null}
+      {/* 当天里程胶囊：贴起点一侧，只回答「第几天、这天一共走多远」 */}
+      {daySummary ? (
+        <view
+          className={cls('map-day-pill')}
+          style={(() => {
+            // 胶囊整体在点的左侧：起点贴边时往里收一点，别让文字滑出屏幕
+            const p = project(mapView, stops[0].x, stops[0].y);
+            const x = Math.min(92, Math.max(30, p.x));
+            return { left: `${x}%`, bottom: `${p.y}%` };
+          })()}
+        >
+          <text className={cls('map-day-text')}>{daySummary}</text>
+        </view>
       ) : null}
 
       {stops.map((s) => (
@@ -777,11 +755,6 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
       )}
     </view>
   );
-}
-
-/** 水滴形定位针：圆头 + 下尖，数字叠在上半部圆心 */
-function pinSvg(color: string): string {
-  return svgDataUri(`<svg xmlns="http://www.w3.org/2000/svg" width="44" height="54" viewBox="0 0 22 27"><path d="M11 0.6C5.2 0.6 0.6 5.2 0.6 11c0 7.4 10.4 15.6 10.4 15.6S21.4 18.4 21.4 11C21.4 5.2 16.8 0.6 11 0.6Z" fill="${color}"/></svg>`);
 }
 
 /** 收起成圆点：位置太密的点，或已经选中了别的点（此时只留 badge，不展示名字和距离） */

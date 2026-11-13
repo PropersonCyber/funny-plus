@@ -52,7 +52,7 @@ npm run dev:api      # http://127.0.0.1:8787
 - **行程存本机**：多份行程 + 每份的变更记录都在 `storage.ts`（IndexedDB / 本地存储 / 宿主桥三层降级），写不进去会明确提示「刷新会丢」；服务端的示例行程是只读的。
 - **接了三个城市**（重庆、成都、北京），只开放 1–2 天。填其它城市明确报不支持，不编数据。
 - **可信状态两档**：34 个地点已用高德 POI 全量核验（`scripts/verify-amap.ts`，营业时间取最保守交集、原文存 `openText`），标 `credible`；解放碑 / 春熙路 / 王府井大街高德无营业时间，只核了坐标，仍 `pending`。**票价一律 `null`**（高德不提供门票价，见 `docs/backend.md` 第八节），界面显示「暂无票价」，预算提示「N 个景点未核实」。
-- **地图是 SVG 示意**：按经纬度归一化 + 顺序编号，没有真实底图；路线耗时 = 直线距离折算，不是导航结果。
+- **地图是 2D 静态图**：底图走高德静态图（服务端透传，key 不下发；取不到就退回插画），路线用真实的驾车/步行折线，缺段退回两点直连虚线并在里程前加「约」。没有 3D，也不做地图内搜索。
 - **局部修改只认 4 类意图**（轻松/省钱/换景点/建议词），识别不了会直说；点池排满时说明「已全部排进」，不假装能换。
 - 预约提醒、足迹徽章、多人协作、交易跳转（P1/P2）未实现。
 
@@ -63,6 +63,6 @@ npm run dev:api      # http://127.0.0.1:8787
 | `shared/engine/planner.ts` `generatePlans` | `POST /ai/plans`，返回同结构 `Plan[]` |
 | `revisePlan` | `POST /ai/plans/:id/revise`，`impact` 由后端算 |
 | 本机 `storage.ts` 多行程 | 行程 CRUD + `TripVersion` 上云（`/api/trips` 目前只读） |
-| `shared/engine/placeIndex.ts` `travelMinutes` | 地图服务路线 API |
+| `shared/engine/placeIndex.ts` `travelMinutes` | ✅ 已接 `/api/geo/direction`，拿不到的段退回直线折算 |
 | `data/places.json` 里的 `trust: pending` | 逐条核验后填 `verifiedAt` 与 `official`/`credible` |
 | `lynx/src/{places,facts}.ts` 本地副本 | ✅ 服务端已有 `GET /api/places`、`GET /api/facts`，接上后即可删副本 |

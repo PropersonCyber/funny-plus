@@ -1,5 +1,4 @@
 import { Hono } from 'hono'
-import { readFile } from 'node:fs/promises'
 import { amap, amapSign } from '../env.ts'
 
 /**
@@ -216,17 +215,6 @@ geoRoute.post('/distance', async (c) => {
 })
 
 /**
- * 静态图 key 只在「确实要用 JS API 渲染底图」时才需要，因此单独一个开关：
- * JS API key 和 Web 服务 key 不通用（混用报 10009），且 securityJsCode 下发到前端后
- * 官方明确禁止本地转存；真接底图时应该改成由服务端出图或走 <webview> 隔离，这里先只占位。
- */
-geoRoute.get('/static-config', (c) => {
-  const jsKey = (process.env.AMAP_JS_KEY ?? '').trim()
-  if (!jsKey) return c.json({ key: '', enable: false, code: 'not_configured' })
-  return c.json({ key: jsKey, enable: true })
-})
-
-/**
  * 静态地图底图代理。
  *
  * 为什么必须有这一层：
@@ -303,25 +291,5 @@ geoRoute.get('/staticmap', async (c) => {
     // 不缓存：协议不允许留存地图图片，也避免把「过期底图」当真相
     'Cache-Control': 'no-store, no-cache, must-revalidate',
     'Pragma': 'no-cache'
-  })
-})
-
-/**
- * 3D 地图页。
- *
- * key 由服务端注入，前端只拿一个 `/api/geo/map3d` 地址 —— 客户端永远看不到高德 key。
- * 页面用 JS API 2.0 渲染 3D（viewMode + pitch），必须在 DOM 里跑，
- * 所以只能做成独立页面交给 webview / iframe（详见文件的头部说明）。
- */
-geoRoute.get('/map3d', async (c) => {
-  if (!amap.configured()) return c.text('地图服务未配置', 503)
-  const file = new URL('../../public/map3d.html', import.meta.url)
-  const html = await readFile(file, 'utf8').catch(() => null)
-  if (!html) return c.text('3D 地图页缺失', 500)
-  // 只替换占位符，避免 key 出现在响应日志以外的任何地方
-  const out = html.replace('__AMAP_KEY_PLACEHOLDER__', amap.key)
-  return c.body(out, 200, {
-    'Content-Type': 'text/html; charset=utf-8',
-    'Cache-Control': 'no-store'
   })
 })
