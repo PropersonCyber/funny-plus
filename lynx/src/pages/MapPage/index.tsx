@@ -17,16 +17,16 @@ import {
   fitZoom,
   makeProjection,
   makeStaticMapProjection,
-  niceScaleBar,
   simplifyPath,
   PAD_X,
   PAD_Y,
+  unprojectFromImage,
   type GeoPoint,
   type StaticMapProjection,
 } from '../../mapProjection.js';
 import { legGeometry } from '../../routeGeometry.js';
 import { fillDayGeometry } from '../../travel.js';
-import { Gesture, IDENTITY, project, type View } from '../../mapGesture.js';
+import { Gesture, IDENTITY, isIdentity, project, unproject, type View } from '../../mapGesture.js';
 import { staticMapUrl } from '../../geo.js';
 import { ticketText } from '../../ticketText.js';
 
@@ -106,6 +106,12 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
   // touch 回调里读不到最新的 state（闭包），用 ref 并存一份
   const viewRef = useRef<View>(IDENTITY);
   const gestureRef = useRef(new Gesture());
+  // 新底图是否还在路上。手势提交后视图先不复位，等新图真正加载完再复位，
+  // 否则用户会看到「刚放大又弹回去」—— 那时新图还没到，屏幕上是旧图。
+  const pendingResetRef = useRef(false);
+  // touchend 要把手势结果提交成一次重取图，但 commitCamera 定义在后面（依赖 baseView），
+  // 用 ref 转一层，避免为了顺序把回调挪来挪去、也避免闭包拿到过期的 baseView
+  const commitRef = useRef<(v: View) => void>(() => {});
   const applyView = useCallback((v: View) => {
     viewRef.current = v;
     setMapView(v);
@@ -130,8 +136,15 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
   const onTouchEnd = useCallback((e: any) => {
     const pts = ptsOf(e);
     // 松一根手指后剩下的那根要继续能拖：以剩余触点重新起基准
-    if (pts.length > 0) gestureRef.current.begin(viewRef.current, pts);
-    else gestureRef.current.end();
+    if (pts.length > 0) {
+      gestureRef.current.begin(viewRef.current, pts);
+      return;
+    }
+    gestureRef.current.end();
+    // 手势彻底结束：把「我拖到哪、放到多大」提交成一次真实取景变更。
+    // 放着不提交的话，这只手看到的是一张被 CSS 拉大/挪动的旧图，
+    // 松手后既没有新细节，也没有任何东西记住用户在多看哪一块。
+    commitRef.current(viewRef.current);
   }, []);
 
   // 补到折线后 bump 一次，触发下面 stops/routeSvg 重算（折线存在模块内存里，不进 state）
@@ -147,7 +160,8 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
   const BASE_W = 512;
   const BASE_H = 1024;
 
-  const baseView = useMemo(() => {
+  /** 当天的「初始取景」：按点集算，换天/换方案时相机复位到这里 */
+  const dayFit = useMemo(() => {
     const day = plan?.days.find((d) => d.index === dayNo);
     const places = (day?.items ?? [])
       .map((i) => (i.placeId ? placeById(i.placeId) : undefined))
@@ -157,6 +171,20 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
     const zoom = fitZoom(places, BASE_W, BASE_H);
     return { center, zoom };
   }, [plan, dayNo]);
+
+  /**
+   * 当前底图取景。手势结束后写这里，和 dayFit 不同就说明用户看的是另一个位置/比例。
+   *
+   * 为什么要有它：底图是服务端按 center/zoom 现出的一张静态图，
+   * 想真的放大只能按新取景再取一张 —— CSS 拉伸只是把同样的像素摊大，会糊。
+   */
+  const [camera, setCamera] = useState<{ center: GeoPoint; zoom: number } | null>(null);
+  // 换天/换方案后旧取景已经无意义了，连视图变换一起复位
+  useEffect(() => {
+    setCamera(null);
+    applyView(IDENTITY);
+  }, [dayFit, applyView]);
+  const baseView = camera ?? dayFit;
 
   /**
    * 底图投影：点集 → 屏幕百分比。
@@ -175,6 +203,61 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
         : null,
     [baseView]
   );
+
+  /**
+   * 把手势结果「提交」成一次真正的取景变更：算出新的 center/zoom，重取底图。
+   *
+   * 只在松手时调用，不在 touchmove 里调 —— 静态图是服务端现出的一张 PNG，
+   * 手势中途每帧取一次会瞬间打爆配额（服务条款也不允许缓存，没法靠缓存省）。
+   *
+   * 换算规则：视口正中在旧图里的像素位置反解成经纬度作为新中心；
+   * zoom 按 2 的对数加 scale，因为高德 zoom 每 +1 视野缩小一半。
+   */
+  const commitCamera = useCallback(
+    (v: View) => {
+      const view = baseView;
+      if (!view || !baseProj) return;
+      if (isIdentity(v)) {
+        // 回到原样：不用重取，直接回到当天初始取景
+        setCamera(null);
+        return;
+      }
+
+      // 视口正中（内容坐标 50,50）落在旧图的哪个像素上 → 反解成经纬度，就是新图的中心。
+      // 不这么做的话，用户拖到的位置在重取后会跳回原点附近。
+      const c = unproject(v, 50, 50);
+      const px = { x: (c.x / 100) * BASE_W, y: ((100 - c.y) / 100) * BASE_H };
+      const center = unprojectFromImage(px, {
+        center: view.center,
+        zoom: view.zoom,
+        width: BASE_W,
+        height: BASE_H,
+      });
+
+      // 高德 zoom 是整数档：每 +1 视野缩小一半，所以 scale 的 2 的对数就是档数变化。
+      // 取整而不是保留小数 —— 服务端也只接受整数档，给小数会被它静默取整，白白多算一次。
+      const target = view.zoom + Math.log2(v.scale);
+      const zoom = Math.min(17, Math.max(3, Math.round(target)));
+
+      // 档位没变 = 这一手只是拖动（或缩放不足半档），中心点照常移动，但不必换图也能移动——
+      // 只有真正换档才需要重取，否则就是在拿同样的细节重画一遍
+      const zoomChanged = zoom !== view.zoom;
+      const moved = Math.abs(center.lng - view.center.lng) > 1e-5 || Math.abs(center.lat - view.center.lat) > 1e-5;
+      if (!zoomChanged && !moved) {
+        applyView(IDENTITY);
+        return;
+      }
+
+      // 先把新取景挂上，等新图真的换上之后再复位视图（见下面的 pendingReset）。
+      // 若在这里立刻 applyView(IDENTITY)，用户会看到自己刚放大的图瞬间弹回原大小 ——
+      // 新图还没到，屏幕上还是旧图，看起来就像「缩放被取消了」。
+      pendingResetRef.current = true;
+      setCamera({ center, zoom });
+    },
+    [baseView, baseProj, applyView]
+  );
+  // touchend 通过 ref 调它，避免 onTouchEnd 反过来依赖 baseView 造成每次手势重建回调
+  commitRef.current = commitCamera;
   const stops = useMemo<Stop[]>(() => {
     const day = plan?.days.find((d) => d.index === dayNo);
     if (!day) return [];
@@ -410,30 +493,6 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
     return svgDataUri(svg);
   }, [stops, legs, plan, dayNo, mapView]);
 
-  /**
-   * 比例尺。它由投影的 kmPerUnit 算出，不是估计值：
-   * 图上这一段线的长度就是标签上写的米数，用户可以自己核对点之间是不是真的那么近。
-   */
-  const scaleBar = useMemo(() => {
-    const day = plan?.days.find((d) => d.index === dayNo);
-    if (!day) return null;
-    const places = day.items
-      .map((i) => (i.placeId ? placeById(i.placeId) : undefined))
-      .filter((p): p is NonNullable<typeof p> => !!p);
-    if (places.length === 0) return null;
-    // 比例尺同理：必须和底图用同一套投影，否则「图上这段 = 1km」会和路网对不上
-    const proj = baseProj ?? makeProjection(places);
-    // 比例尺必须跟着缩放走：放大 2 倍后同样的屏幕长度只代表一半的实际距离。
-    // 不联动的话它就从「可核对的量纲」退化成一条装饰线
-    return niceScaleBar(proj.kmPerUnit(places[0]) / mapView.scale);
-  }, [plan, dayNo, mapView.scale, baseProj]);
-
-  /** 比例尺文案：1km 以下按米，避免出现「0.5km」这种读起来别扭的数 */
-  const scaleLabel = useMemo(() => {
-    if (!scaleBar) return '';
-    const m = scaleBar.meters;
-    return m >= 1000 ? `${m / 1000}km` : `${m}m`;
-  }, [scaleBar]);
   const pickedSpot = picked === null ? undefined : stops.find((s) => s.order === picked);
 
   /**
@@ -496,8 +555,28 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
         src={showArt ? mapArt : baseMapSrc}
         mode="aspectFill"
         className={showArt ? undefined : cls('map-base')}
-        style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' }}
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          width: '100%',
+          height: '100%',
+          // 底图必须和 marker/路线一起变换，否则双指缩放时只有标记在动、地图纹丝不动，
+          // 看上去就像「地图不能放大」。缩放锚点是画面中心，和 project() 的约定一致。
+          transform: `translate(${mapView.dx}%, ${-mapView.dy}%) scale(${mapView.scale})`,
+          // 手势中途是 CSS 拉伸（快、不花配额），松手后 commitCamera 会重取一张真正的图
+          transformOrigin: 'center center',
+        }}
+        bindload={() => {
+          // 新取景的图已经到了，这时候再把视图复位才不会让用户看到「放大又弹回」
+          if (pendingResetRef.current) {
+            pendingResetRef.current = false;
+            applyView(IDENTITY);
+          }
+        }}
         binderror={() => {
+          // 取景失败：同样要复位，否则用户被卡在「一张拉大的旧图」上
+          pendingResetRef.current = false;
           if (!showArt) setBaseMapFailed(true);
         }}
       />
@@ -505,7 +584,13 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
           所以配色只能在前端做：先降饱和把「米黄底 + 蓝水 + 绿园」拉成灰阶，
           再叠一层淡绿。不降饱和直接叠色的话，白色路网会被一起染绿，
           路和地就分不出来了 —— 而路网是这个页面唯一需要看清的底图信息 */}
-      {showArt ? null : <view className={cls('map-tint')} />}
+      {/* 蒙版跟着底图一起变换：底图被拉伸时蒙版留在原地，缩放中会看见一条没被染色的边 */}
+      {showArt ? null : (
+        <view
+          className={cls('map-tint')}
+          style={{ transform: `translate(${mapView.dx}%, ${-mapView.dy}%) scale(${mapView.scale})` }}
+        />
+      )}
       {/* 插画当底图时才需要压遮罩：它自带的假街道会和折线混在一起。
           真地图上不加遮罩——那会把真实路网的清晰度白白磨掉一层 */}
       {showArt ? <view className={cls('map-veil')} /> : null}
@@ -606,14 +691,6 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
           ) : null}
         </view>
       ))}
-
-      {/* 比例尺：这段线多长就是图上标的米数，让「示意图」也带可核对的量纲 */}
-      {scaleLabel && scaleBar ? (
-        <view className={cls('map-scale')}>
-          <view className={cls('map-scale-line')} style={{ width: `${scaleBar.units}%` }} />
-          <text className={cls('map-scale-text')}>{scaleLabel}</text>
-        </view>
-      ) : null}
 
       {/* 定位能力没接入前不放定位按钮：按不到东西的按钮比没有更糟 */}
       <view className={cls('map-fab-col')}>

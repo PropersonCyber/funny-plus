@@ -7,6 +7,9 @@ import {
   makeProjection,
   makeStaticMapProjection,
   niceScaleBar,
+  projectToWorld,
+  unprojectFromImage,
+  unprojectFromWorld,
   parsePolyline,
   simplifyPath,
   PAD_X,
@@ -283,5 +286,43 @@ describe('静态底图投影', () => {
     expect(fitZoom([CENTER], W, H)).toBe(14);
     const p = makeStaticMapProjection({ center: boundsCenter([]), zoom: 13, width: W, height: H });
     expect(Number.isFinite(p.project(CENTER).x)).toBe(true);
+  });
+});
+
+/**
+ * 反向投影是「放大后重取底图」的地基：手势结束后要凭它算出新的 center。
+ * 只要它和正向投影不是严格互逆，用户每放一次大地图就会整体漂一段，而且是累积的。
+ */
+describe('unprojectFromWorld / unprojectFromImage', () => {
+  const W = 512;
+  const H = 1024;
+  const CENTER_GEO = { lng: 104.066, lat: 30.659 };
+
+  it('和 projectToWorld 严格互逆', () => {
+    for (const zoom of [3, 8, 13, 17]) {
+      const wpt = projectToWorld(CENTER_GEO, zoom);
+      const back = unprojectFromWorld(wpt.x, wpt.y, zoom);
+      expect(back.lng).toBeCloseTo(CENTER_GEO.lng, 6);
+      expect(back.lat).toBeCloseTo(CENTER_GEO.lat, 6);
+    }
+  });
+
+  it('底图正中的像素反解出来就是底图中心', () => {
+    const view = { center: CENTER_GEO, zoom: 14, width: W, height: H };
+    const back = unprojectFromImage({ x: W / 2, y: H / 2 }, view);
+    expect(back.lng).toBeCloseTo(CENTER_GEO.lng, 6);
+    expect(back.lat).toBeCloseTo(CENTER_GEO.lat, 6);
+  });
+
+  it('和 makeStaticMapProjection.project 互逆（百分比口径）', () => {
+    const view = { center: CENTER_GEO, zoom: 14, width: W, height: H };
+    const proj = makeStaticMapProjection(view);
+    // 取底图上偏右下的一点，正向算成百分比再反解回经纬度
+    const target = { lng: CENTER_GEO.lng + 0.01, lat: CENTER_GEO.lat - 0.008 };
+    const pct = proj.project(target);
+    const px = { x: (pct.x / 100) * W, y: ((100 - pct.y) / 100) * H };
+    const back = unprojectFromImage(px, view);
+    expect(back.lng).toBeCloseTo(target.lng, 6);
+    expect(back.lat).toBeCloseTo(target.lat, 6);
   });
 });

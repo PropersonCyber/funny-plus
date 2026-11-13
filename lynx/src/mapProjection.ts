@@ -312,3 +312,28 @@ export function boundsCenter(points: GeoPoint[]): GeoPoint {
     lat: (Math.min(...lats) + Math.max(...lats)) / 2
   };
 }
+
+/**
+ * 世界像素 → 经纬度。`projectToWorld` 的逆运算。
+ *
+ * 用途：用户把地图拖走再放大时，要知道「视野正中现在是哪」才能按新中心重取底图。
+ * 只按原始点位重取的话，图会以原点为中心重画，用户刚拖到的位置就丢了。
+ */
+export function unprojectFromWorld(x: number, y: number, zoom: number): GeoPoint {
+  const scale = AMAP_STATIC_TILE * Math.pow(2, zoom);
+  const lng = (x / scale) * 360 - 180;
+  const n = Math.PI - (2 * Math.PI * y) / scale;
+  const lat = (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+  return { lng, lat };
+}
+
+/**
+ * 底图内像素 → 经纬度。和 `makeStaticMapProjection.project` 互为逆运算。
+ *
+ * 重取底图靠它：把「新视野中心」在旧图里的像素位置换算成经纬度，
+ * 就是新图该以哪为中心。
+ */
+export function unprojectFromImage(px: XY, view: StaticMapView): GeoPoint {
+  const cw = projectToWorld(view.center, view.zoom);
+  return unprojectFromWorld(cw.x + px.x - view.width / 2, cw.y + px.y - view.height / 2, view.zoom);
+}

@@ -19,8 +19,11 @@ export type View = {
 };
 
 export const IDENTITY: View = { scale: 1, dx: 0, dy: 0 };
-/** 不允许缩到比「铺满」更小：再小就露出四周空白，还会让点挤成一团 */
-export const MIN_SCALE = 1;
+/**
+ * 缩小的下限。允许缩到 0.5（视野比「铺满」大一倍），因为缩到底就是「退一步看全貌」，
+ * 这是真地图该有的行为。再小的话内容会挤成一团，也没法从取景上表达出来。
+ */
+export const MIN_SCALE = 0.5;
 export const MAX_SCALE = 5;
 /** 双指间距小于这个值就当还没张开，避免除零把 scale 炸到无穷 */
 const MIN_PINCH_DIST = 8;
@@ -43,7 +46,9 @@ const zero = (n: number) => (Math.abs(n) < 1e-9 ? 0 : n);
  */
 export function clampView(v: View): View {
   const scale = clamp(v.scale, MIN_SCALE, MAX_SCALE);
-  const maxShift = ((scale - 1) * 100) / 2 / scale;
+  // scale < 1 时「内容比视口小」，理论上能拖的范围是负的 —— 夹到 0，
+  // 不能放任它算成负数，否则 clamp 的下界会跑到上界外面，平移被强行掰到一个偏移值上
+  const maxShift = Math.max(0, ((scale - 1) * 100) / 2 / scale);
   return {
     scale,
     dx: zero(clamp(v.dx, -maxShift, maxShift)),
