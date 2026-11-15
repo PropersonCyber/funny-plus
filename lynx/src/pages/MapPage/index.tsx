@@ -692,12 +692,8 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
         </view>
       ))}
 
-      {/* 定位能力没接入前不放定位按钮：按不到东西的按钮比没有更糟 */}
-      <view className={cls('map-fab-col')}>
-        <view className={cls('map-fab')} bindtap={() => setView('spots')}>
-          <image src={svgIcon('map', '#2A3A57')} style={{ width: '20px', height: '20px' }} />
-        </view>
-      </view>
+      {/* 这里原有一个「切到景点」的悬浮按钮：顶部 tab 已有同样入口，
+          而且在任何视图下都显示，看着像坏了。多一个入口不等于更好用。 */}
 
       {sheetOpen ? (
       <view className={cls('map-sheet')}>
