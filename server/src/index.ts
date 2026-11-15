@@ -7,8 +7,10 @@ import { authRoute } from './routes/auth.ts'
 import { contentRoute } from './routes/content.ts'
 import { factsRoute } from './routes/facts.ts'
 import { geoRoute } from './routes/geo.ts'
+import { linesRoute } from './routes/lines.ts'
 import { meRoute } from './routes/me.ts'
 import { placesRoute } from './routes/places.ts'
+import { reportRoute, submitRoute } from './routes/submit.ts'
 import { tripsRoute } from './routes/trips.ts'
 
 const app = new Hono()
@@ -27,6 +29,10 @@ app.route('/api/content', contentRoute)
 app.route('/api/me', meRoute)
 app.route('/api/facts', factsRoute)
 app.route('/api/places', placesRoute)
+app.route('/api/lines', linesRoute)
+// 用户补录走 /api/submissions；「这条不对」单独一个路径，方便按规则统计误报率
+app.route('/api/submissions', submitRoute)
+app.route('/api/constraints', reportRoute)
 app.route('/api/trips', tripsRoute)
 app.route('/api/geo', geoRoute)
 app.route('/api/ai', aiRoute)

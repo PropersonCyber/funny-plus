@@ -1,5 +1,5 @@
 import { boolean, date, doublePrecision, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
-import type { ChangeImpact, Demand, Plan } from '@/types/index.ts'
+import type { ChangeImpact, Demand, LineStop, LineTicket, Plan } from '@/types/index.ts'
 
 const TRUST = ['official', 'credible', 'experience', 'pending'] as const
 
@@ -91,9 +91,13 @@ export const facts = pgTable(
     verifiedAt: date('verified_at').notNull(),
     validUntil: date('valid_until'),
     trust: text('trust', { enum: TRUST }).notNull(),
+    /** FR-04：挂到具体 POI；区域级条目不填，靠 scope 说明适用范围 */
+    placeId: text('place_id'),
+    /** POI 详情页分组：坑 / 进出 / 吃 / 住，缺省按 category 推导 */
+    poiGroup: text('poi_group', { enum: ['pitfall', 'access', 'eat', 'stay'] }),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
   },
-  (t) => [index('facts_city_idx').on(t.city)]
+  (t) => [index('facts_city_idx').on(t.city), index('facts_place_idx').on(t.placeId)]
 )
 
 /**
@@ -227,5 +231,92 @@ export const footprints = pgTable(
   (t) => [
     uniqueIndex('footprints_client_place_day_uq').on(t.clientId, t.placeId, t.visitedOn),
     index('footprints_client_idx').on(t.clientId)
+  ]
+)
+
+/**
+ * 线路（FR-01）：观光车 / 摆渡车 / 索道 / 大扶梯 / 游船。
+ *
+ * 独立成表而不是给 places 加字段：一条线把几个点连起来，末班和票种属于「线」，
+ * 挂到单个站点上，换个站就查不到了。
+ * first_bus / last_bus / interval_min / ride_min 允许为 null —— null 的含义是「未核验」，
+ * 界面据此走「暂无数据 + 补录入口」，不能用营业时间或估算值顶上。
+ */
+export const lines = pgTable(
+  'lines',
+  {
+    id: text('id').primaryKey(),
+    city: text('city').notNull(),
+    name: text('name').notNull(),
+    mode: text('mode', { enum: ['sightseeing', 'shuttle', 'cableway', 'escalator', 'ferry'] }).notNull(),
+    /** 有序站点 [{name,lng,lat,placeId?}]；站点坐标来自 POI 核验，不手敲 */
+    stops: jsonb('stops').$type<LineStop[]>().notNull(),
+    firstBus: integer('first_bus'),
+    lastBus: integer('last_bus'),
+    intervalMin: integer('interval_min'),
+    tickets: jsonb('tickets').$type<LineTicket[]>().notNull().default([]),
+    needAdvance: boolean('need_advance'),
+    capacity: integer('capacity'),
+    rideMin: integer('ride_min'),
+    seasonNote: text('season_note'),
+    /** 行程排到这个地点 = 在这儿乘车，用来把线路接进已有地点池 */
+    rideAtPlaceId: text('ride_at_place_id'),
+    source: text('source').notNull(),
+    sourceUrl: text('source_url'),
+    verifiedAt: date('verified_at'),
+    trust: text('trust', { enum: TRUST }).notNull().default('pending'),
+    /** 演示数据：班次/票价为构造值，只能用来验冲突拦截，界面必须标注 */
+    isDemo: boolean('is_demo').notNull().default(false),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+  },
+  (t) => [index('lines_city_idx').on(t.city), index('lines_ride_place_idx').on(t.rideAtPlaceId)]
+)
+
+/**
+ * 用户补录（FR-05）：空态的唯一出路。
+ * 一条 = 一次「补什么 / 补的值 / 可选来源」，天然只覆盖一个字段，不存整份对象。
+ * 同设备同目标同字段只能提交一次（唯一索引），不加验证码。
+ */
+export const dataSubmissions = pgTable(
+  'data_submissions',
+  {
+    id: text('id').primaryKey(),
+    scope: text('scope', { enum: ['line', 'place', 'fact'] }).notNull(),
+    targetId: text('target_id').notNull(),
+    /** 补的是哪个字段：lastBus / firstBus / intervalMin / ticket / openText / fact */
+    field: text('field').notNull(),
+    value: text('value').notNull(),
+    note: text('note'),
+    clientId: text('client_id').notNull(),
+    /** 核验状态：提交只进池子，不做审核队列；pending 只能让行程 warn，不能判 error */
+    status: text('status', { enum: ['pending', 'verified', 'rejected'] }).notNull().default('pending'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+  },
+  (t) => [
+    uniqueIndex('data_submissions_uq').on(t.scope, t.targetId, t.field, t.clientId),
+    index('data_submissions_target_idx').on(t.targetId)
+  ]
+)
+
+/**
+ * 「这条不对」（FR-02）：每个硬提示都必须带它，否则误报率无法测量。
+ * 只记「用户说这条不对」，不直接改数据可信度——加权规则未定，服务端不擅自判。
+ */
+export const constraintReports = pgTable(
+  'constraint_reports',
+  {
+    id: text('id').primaryKey(),
+    /** 对应 PlanIssue.id，能精确指回是哪条提示 */
+    issueId: text('issue_id').notNull(),
+    ruleCode: text('rule_code').notNull(),
+    trustLevel: text('trust_level').notNull(),
+    planId: text('plan_id'),
+    note: text('note'),
+    clientId: text('client_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+  },
+  (t) => [
+    uniqueIndex('constraint_reports_uq').on(t.issueId, t.clientId),
+    index('constraint_reports_rule_idx').on(t.ruleCode)
   ]
 )

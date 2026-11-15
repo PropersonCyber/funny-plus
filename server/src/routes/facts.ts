@@ -21,7 +21,9 @@ const toApi = (r: typeof facts.$inferSelect): TravelFact => ({
   sourceUrl: r.sourceUrl ?? undefined,
   verifiedAt: r.verifiedAt,
   validUntil: r.validUntil ?? undefined,
-  trust: r.trust
+  trust: r.trust,
+  placeId: r.placeId ?? undefined,
+  poiGroup: r.poiGroup ?? undefined
 })
 
 interface Grouped {

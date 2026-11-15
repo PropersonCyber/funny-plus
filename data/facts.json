@@ -8,7 +8,9 @@
     "source": "景区官方公众号",
     "verifiedAt": "2026-09-18",
     "validUntil": "2027-03-31",
-    "trust": "official"
+    "trust": "official",
+    "placeId": "cq-cableway",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-cq-2",
@@ -19,7 +21,8 @@
     "source": "本地用户经验（3 条一致）",
     "verifiedAt": "2026-08-30",
     "validUntil": null,
-    "trust": "experience"
+    "trust": "experience",
+    "poiGroup": "access"
   },
   {
     "id": "f-cq-3",
@@ -30,7 +33,9 @@
     "source": "第三方攻略，未见官方说明",
     "verifiedAt": "2026-07-12",
     "validUntil": null,
-    "trust": "pending"
+    "trust": "pending",
+    "placeId": "cq-hongyadong",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-cq-4",
@@ -41,7 +46,9 @@
     "source": "馆方公众号预约须知",
     "verifiedAt": "2026-09-10",
     "validUntil": "2027-06-30",
-    "trust": "official"
+    "trust": "official",
+    "placeId": "cq-sanxia",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-cq-5",
@@ -52,7 +59,8 @@
     "source": "本地用户经验（2 条一致）",
     "verifiedAt": "2026-09-22",
     "validUntil": null,
-    "trust": "experience"
+    "trust": "experience",
+    "poiGroup": "access"
   },
   {
     "id": "f-cq-6",
@@ -63,7 +71,8 @@
     "source": "气象部门高温提示",
     "verifiedAt": "2026-09-30",
     "validUntil": "2027-08-31",
-    "trust": "credible"
+    "trust": "credible",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-cq-7",
@@ -74,7 +83,8 @@
     "source": "第三方攻略，未见官方说明",
     "verifiedAt": "2026-08-05",
     "validUntil": "2026-08-31",
-    "trust": "pending"
+    "trust": "pending",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-cd-1",
@@ -85,7 +95,9 @@
     "source": "基地官网入园须知",
     "verifiedAt": "2026-09-25",
     "validUntil": "2027-03-31",
-    "trust": "official"
+    "trust": "official",
+    "poiGroup": "pitfall",
+    "placeId": "cd-panda"
   },
   {
     "id": "f-cd-2",
@@ -96,7 +108,9 @@
     "source": "地图服务实时路况",
     "verifiedAt": "2026-09-20",
     "validUntil": null,
-    "trust": "credible"
+    "trust": "credible",
+    "placeId": "cd-dongjiao",
+    "poiGroup": "access"
   },
   {
     "id": "f-cd-3",
@@ -107,7 +121,9 @@
     "source": "文旅部门客流提示",
     "verifiedAt": "2026-09-01",
     "validUntil": "2026-09-30",
-    "trust": "credible"
+    "trust": "credible",
+    "placeId": "cd-kuanzhai",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-cd-4",
@@ -118,7 +134,8 @@
     "source": "馆方公众号预约须知",
     "verifiedAt": "2026-09-12",
     "validUntil": null,
-    "trust": "credible"
+    "trust": "credible",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-cd-5",
@@ -129,7 +146,9 @@
     "source": "本地用户经验（2 条一致）",
     "verifiedAt": "2026-08-18",
     "validUntil": null,
-    "trust": "experience"
+    "trust": "experience",
+    "placeId": "cd-chunxi",
+    "poiGroup": "access"
   },
   {
     "id": "f-cd-6",
@@ -140,7 +159,8 @@
     "source": "地图服务历史路况",
     "verifiedAt": "2026-09-28",
     "validUntil": "2027-06-30",
-    "trust": "credible"
+    "trust": "credible",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-cd-7",
@@ -151,7 +171,9 @@
     "source": "第三方攻略，未见官方说明",
     "verifiedAt": "2026-07-30",
     "validUntil": "2026-08-31",
-    "trust": "pending"
+    "trust": "pending",
+    "placeId": "cd-kuanzhai",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-cq-8",
@@ -162,7 +184,9 @@
     "source": "本地用户经验（2 条一致）",
     "verifiedAt": "2026-09-05",
     "validUntil": null,
-    "trust": "experience"
+    "trust": "experience",
+    "placeId": "cq-hongyadong",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-cq-9",
@@ -173,7 +197,8 @@
     "source": "本地用户经验（2 条一致）",
     "verifiedAt": "2026-09-22",
     "validUntil": null,
-    "trust": "experience"
+    "trust": "experience",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-cd-8",
@@ -184,7 +209,9 @@
     "source": "第三方攻略，未见官方说明",
     "verifiedAt": "2026-08-14",
     "validUntil": null,
-    "trust": "pending"
+    "trust": "pending",
+    "poiGroup": "pitfall",
+    "placeId": "cd-panda"
   },
   {
     "id": "f-cd-9",
@@ -195,7 +222,9 @@
     "source": "本地用户经验（3 条一致）",
     "verifiedAt": "2026-09-08",
     "validUntil": null,
-    "trust": "experience"
+    "trust": "experience",
+    "placeId": "cd-kuanzhai",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-cq-10",
@@ -206,7 +235,8 @@
     "source": "红岩联线公众号",
     "verifiedAt": "2026-09-14",
     "validUntil": "2027-06-30",
-    "trust": "official"
+    "trust": "official",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-cq-11",
@@ -217,7 +247,8 @@
     "source": "轨道集团乘车指引",
     "verifiedAt": "2026-09-19",
     "validUntil": null,
-    "trust": "credible"
+    "trust": "credible",
+    "poiGroup": "access"
   },
   {
     "id": "f-cq-12",
@@ -228,7 +259,9 @@
     "source": "第三方攻略，未见官方说明",
     "verifiedAt": "2026-08-22",
     "validUntil": null,
-    "trust": "pending"
+    "trust": "pending",
+    "placeId": "cq-cableway",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-cq-13",
@@ -239,7 +272,8 @@
     "source": "本地用户经验（4 条一致）",
     "verifiedAt": "2026-09-26",
     "validUntil": null,
-    "trust": "experience"
+    "trust": "experience",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-cq-14",
@@ -250,7 +284,9 @@
     "source": "景区公告",
     "verifiedAt": "2026-09-30",
     "validUntil": "2026-10-08",
-    "trust": "credible"
+    "trust": "credible",
+    "placeId": "cq-hongyadong",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-cq-15",
@@ -261,7 +297,8 @@
     "source": "本地用户经验（3 条一致）",
     "verifiedAt": "2026-09-11",
     "validUntil": null,
-    "trust": "experience"
+    "trust": "experience",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-cq-16",
@@ -272,7 +309,8 @@
     "source": "第三方攻略，未见官方说明",
     "verifiedAt": "2026-08-08",
     "validUntil": null,
-    "trust": "pending"
+    "trust": "pending",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-cq-17",
@@ -283,7 +321,8 @@
     "source": "本地用户经验（2 条一致）",
     "verifiedAt": "2026-09-17",
     "validUntil": null,
-    "trust": "experience"
+    "trust": "experience",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-cq-18",
@@ -294,7 +333,8 @@
     "source": "本地用户经验（3 条一致）",
     "verifiedAt": "2026-09-06",
     "validUntil": null,
-    "trust": "experience"
+    "trust": "experience",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-cd-10",
@@ -305,7 +345,9 @@
     "source": "本地用户经验（3 条一致）",
     "verifiedAt": "2026-09-13",
     "validUntil": null,
-    "trust": "experience"
+    "trust": "experience",
+    "placeId": "cd-wuhou",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-cd-11",
@@ -316,7 +358,8 @@
     "source": "馆方公众号预约须知",
     "verifiedAt": "2026-09-21",
     "validUntil": "2027-06-30",
-    "trust": "official"
+    "trust": "official",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-cd-12",
@@ -327,7 +370,9 @@
     "source": "基地官网交通指引",
     "verifiedAt": "2026-09-24",
     "validUntil": "2027-06-30",
-    "trust": "official"
+    "trust": "official",
+    "poiGroup": "access",
+    "placeId": "cd-panda"
   },
   {
     "id": "f-cd-13",
@@ -338,7 +383,8 @@
     "source": "轨道集团运营时刻",
     "verifiedAt": "2026-09-18",
     "validUntil": "2027-03-31",
-    "trust": "credible"
+    "trust": "credible",
+    "poiGroup": "access"
   },
   {
     "id": "f-cd-14",
@@ -349,7 +395,9 @@
     "source": "第三方攻略，未见官方说明",
     "verifiedAt": "2026-08-16",
     "validUntil": null,
-    "trust": "pending"
+    "trust": "pending",
+    "placeId": "cd-kuanzhai",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-cd-15",
@@ -360,7 +408,8 @@
     "source": "气象部门能见度提示",
     "verifiedAt": "2026-09-29",
     "validUntil": "2027-03-31",
-    "trust": "credible"
+    "trust": "credible",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-cd-16",
@@ -371,7 +420,9 @@
     "source": "文旅部门客流提示",
     "verifiedAt": "2026-09-02",
     "validUntil": "2026-10-08",
-    "trust": "credible"
+    "trust": "credible",
+    "placeId": "cd-kuanzhai",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-cd-17",
@@ -382,7 +433,8 @@
     "source": "景区安全提示",
     "verifiedAt": "2026-09-07",
     "validUntil": null,
-    "trust": "credible"
+    "trust": "credible",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-cd-18",
@@ -393,7 +445,9 @@
     "source": "基地官网游园须知",
     "verifiedAt": "2026-09-25",
     "validUntil": "2027-06-30",
-    "trust": "official"
+    "trust": "official",
+    "poiGroup": "pitfall",
+    "placeId": "cd-panda"
   },
   {
     "id": "f-cd-19",
@@ -404,7 +458,9 @@
     "source": "第三方攻略，未见官方说明",
     "verifiedAt": "2026-08-11",
     "validUntil": null,
-    "trust": "pending"
+    "trust": "pending",
+    "placeId": "cd-kuanzhai",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-cd-20",
@@ -415,7 +471,8 @@
     "source": "气象部门高温提示",
     "verifiedAt": "2026-09-03",
     "validUntil": "2027-08-31",
-    "trust": "credible"
+    "trust": "credible",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-cd-21",
@@ -426,7 +483,8 @@
     "source": "本地用户经验（2 条一致）",
     "verifiedAt": "2026-09-16",
     "validUntil": null,
-    "trust": "experience"
+    "trust": "experience",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-bj-1",
@@ -437,7 +495,9 @@
     "source": "故宫博物院官网",
     "verifiedAt": "2026-10-12",
     "validUntil": "2027-06-30",
-    "trust": "official"
+    "trust": "official",
+    "placeId": "bj-gugong",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-bj-2",
@@ -448,7 +508,9 @@
     "source": "公园官方售票公告",
     "verifiedAt": "2026-10-08",
     "validUntil": "2027-06-30",
-    "trust": "official"
+    "trust": "official",
+    "placeId": "bj-tiantan",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-bj-3",
@@ -458,7 +520,9 @@
     "scope": "北京 · 故宫博物院",
     "source": "现场实测",
     "verifiedAt": "2026-09-26",
-    "trust": "credible"
+    "trust": "credible",
+    "placeId": "bj-gugong",
+    "poiGroup": "access"
   },
   {
     "id": "f-bj-4",
@@ -468,7 +532,9 @@
     "scope": "北京 · 南锣鼓巷",
     "source": "用户填报",
     "verifiedAt": "2026-09-30",
-    "trust": "experience"
+    "trust": "experience",
+    "placeId": "bj-nanluoguxiang",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-bj-5",
@@ -478,7 +544,9 @@
     "scope": "北京 · 什刹海",
     "source": "用户填报",
     "verifiedAt": "2026-09-22",
-    "trust": "experience"
+    "trust": "experience",
+    "placeId": "bj-shichahai",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-bj-6",
@@ -489,7 +557,9 @@
     "source": "园区导览图",
     "verifiedAt": "2026-10-02",
     "validUntil": "2027-04-30",
-    "trust": "credible"
+    "trust": "credible",
+    "placeId": "bj-yiheyuan",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-bj-7",
@@ -500,7 +570,9 @@
     "source": "园区公告",
     "verifiedAt": "2026-09-18",
     "validUntil": "2027-03-31",
-    "trust": "official"
+    "trust": "official",
+    "placeId": "bj-dongwuyuan",
+    "poiGroup": "pitfall"
   },
   {
     "id": "f-bj-8",
@@ -510,6 +582,8 @@
     "scope": "北京 · 798 艺术区",
     "source": "现场实测",
     "verifiedAt": "2026-09-15",
-    "trust": "credible"
+    "trust": "credible",
+    "placeId": "bj-798",
+    "poiGroup": "access"
   }
 ]

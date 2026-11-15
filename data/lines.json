@@ -1,0 +1,124 @@
+[
+  {
+    "id": "cq-cableway-line",
+    "city": "重庆",
+    "name": "长江索道",
+    "mode": "cableway",
+    "stops": [
+      { "name": "重庆长江索道北站（渝中·新华路）", "lng": 106.582889, "lat": 29.557845 },
+      { "name": "上新街索道站（南岸）", "lng": 106.594183, "lat": 29.55244 }
+    ],
+    "firstBus": null,
+    "lastBus": null,
+    "intervalMin": null,
+    "tickets": [
+      { "kind": "单程", "price": null },
+      { "kind": "往返", "price": null }
+    ],
+    "needAdvance": null,
+    "capacity": null,
+    "rideMin": null,
+    "seasonNote": "节假日分时段预约，班次以景区当日公告为准",
+    "rideAtPlaceId": "cq-cableway",
+    "source": "站点坐标取自高德 POI 核验（2026-11）；首末班、间隔、票价均需查景区官方公示后补录",
+    "verifiedAt": "2026-11-13",
+    "trust": "pending"
+  },
+  {
+    "id": "cd-panda-line",
+    "city": "成都",
+    "name": "熊猫基地观光车",
+    "mode": "sightseeing",
+    "stops": [
+      { "name": "西大门接驳站", "lng": 104.127965, "lat": 30.745002 },
+      { "name": "熊猫商业街站", "lng": 104.129375, "lat": 30.743525 },
+      { "name": "熊猫塔站", "lng": 104.134232, "lat": 30.739307 },
+      { "name": "大熊猫星星产房站", "lng": 104.137957, "lat": 30.743884 }
+    ],
+    "firstBus": null,
+    "lastBus": null,
+    "intervalMin": null,
+    "tickets": [
+      { "kind": "园内单程", "price": null },
+      { "kind": "园内通票", "price": null }
+    ],
+    "needAdvance": null,
+    "capacity": null,
+    "rideMin": null,
+    "rideAtPlaceId": "cd-panda",
+    "source": "站点坐标取自高德 POI 核验（2026-11）；首末班、间隔、票价均需查基地官方公示后补录",
+    "verifiedAt": "2026-11-13",
+    "trust": "pending"
+  },
+  {
+    "id": "bj-summer-palace-ferry",
+    "city": "北京",
+    "name": "颐和园游船",
+    "mode": "ferry",
+    "stops": [
+      { "name": "排云殿码头", "lng": 116.274059, "lat": 39.997428 },
+      { "name": "颐和园游船码头（西南角）", "lng": 116.266128, "lat": 39.987388 }
+    ],
+    "firstBus": null,
+    "lastBus": null,
+    "intervalMin": null,
+    "tickets": [
+      { "kind": "摆渡单程", "price": null }
+    ],
+    "needAdvance": null,
+    "capacity": null,
+    "rideMin": null,
+    "seasonNote": "季节性运营，冬季停航；开航时间与班次以公园公告为准",
+    "rideAtPlaceId": "bj-yiheyuan",
+    "source": "站点坐标取自高德 POI 核验（2026-11）；通航期、班次、票价均需查公园官方公告后补录",
+    "verifiedAt": "2026-11-13",
+    "trust": "pending"
+  },
+  {
+    "id": "cq-huangguang-escalator",
+    "city": "重庆",
+    "name": "两路口皇冠大扶梯",
+    "mode": "escalator",
+    "stops": [
+      { "name": "皇冠大扶梯上站（两路口）", "lng": 106.54921, "lat": 29.552279 },
+      { "name": "皇冠大扶梯下站（南区路）", "lng": 106.549192, "lat": 29.55095 }
+    ],
+    "firstBus": null,
+    "lastBus": null,
+    "intervalMin": null,
+    "tickets": [
+      { "kind": "单程", "price": null }
+    ],
+    "needAdvance": null,
+    "capacity": null,
+    "rideMin": null,
+    "rideAtPlaceId": null,
+    "source": "站点坐标取自高德 POI 核验（2026-11）；运营时间与票价需查运营方公示后补录",
+    "verifiedAt": "2026-11-13",
+    "trust": "pending"
+  },
+  {
+    "id": "demo-cq-cableway",
+    "city": "重庆",
+    "name": "长江索道（演示班次）",
+    "mode": "cableway",
+    "stops": [
+      { "name": "重庆长江索道北站（渝中·新华路）", "lng": 106.582889, "lat": 29.557845 },
+      { "name": "上新街索道站（南岸）", "lng": 106.594183, "lat": 29.55244 }
+    ],
+    "firstBus": 450,
+    "lastBus": 1020,
+    "intervalMin": 15,
+    "tickets": [
+      { "kind": "单程", "price": 20, "note": "演示值，非真实票价" }
+    ],
+    "needAdvance": true,
+    "capacity": 40,
+    "rideMin": 4,
+    "rideAtPlaceId": "cq-cableway",
+    "source": "演示数据：班次与票价为构造值，仅用于验证末班校验与冲突拦截，不是真实运营时间，不得对外当作真实信息",
+    "verifiedAt": "2026-11-13",
+    "trust": "official",
+    "isDemo": true
+  }
+]

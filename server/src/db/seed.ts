@@ -1,11 +1,12 @@
 import { readFileSync } from 'node:fs'
 import { eq } from 'drizzle-orm'
 import { db, pool } from './client.ts'
-import { cities, collections, factFeedbacks, facts, footprints, guides, places, playPlaces, plays, tripVersions, trips } from './schema.ts'
+import { cities, collections, factFeedbacks, facts, footprints, guides, lines, places, playPlaces, plays, tripVersions, trips } from './schema.ts'
+import { setLines } from '@/engine/lines'
 import { generatePlans, revisePlan } from '@/engine/planner'
 import { setPlaces } from '@/engine/placeIndex'
 import { validatePlan } from '@/engine/validate'
-import type { Demand, Place, Plan, TravelFact } from '@/types/index.ts'
+import type { Demand, Place, Plan, TransitLine, TravelFact } from '@/types/index.ts'
 
 // 数据在仓库根目录 data/*.json，这个脚本只做「读文件 → 写库」，不含业务数据字面量。
 // 重复执行是幂等的：地点/避坑/示例行程按 id upsert，版本与反馈按固定 id / 唯一索引去重。
@@ -30,6 +31,7 @@ const seedPlays = readJson<{
   days: number; chips: { icon: string; text: string }[]
   sortOrder: number; placeIds: string[]
 }[]>('plays.json')
+const seedLines = readJson<TransitLine[]>('lines.json')
 const seedFeedbacks = readJson<
   { factId: string; verdict: 'met' | 'not-applicable'; count: number; note?: string }[]
 >('feedbacks.json')
@@ -40,6 +42,17 @@ const demoDemands: Demand[] = [
   { destination: '重庆', dayCount: 2, party: 4, budgetLevel: 'low', preferences: ['夜景江湖', '美食探店'], transport: 'public', notes: '' },
   { destination: '成都', dayCount: 1, party: 2, budgetLevel: 'mid', preferences: ['亲子慢游'], transport: 'public', notes: '' }
 ]
+
+// 线路要在生成示例行程之前灌进引擎：行程里排到索道/观光车时，时间按班次算
+for (const l of seedLines) {
+  const { id, ...rest } = l
+  if (l.stops.length < 2) {
+    // 单站点线路是数据错误（PRD FR-01），宁可跳过也不要让它进库去给人算时间
+    console.warn(`[seed] 跳过线路 ${id}：站点少于 2 个`)
+    continue
+  }
+  await db.insert(lines).values({ id, ...rest }).onConflictDoUpdate({ target: lines.id, set: rest })
+}
 
 for (const p of seedPlaces) {
   const { id, open, ...rest } = p
@@ -83,6 +96,8 @@ for (const { placeIds, ...rest } of seedPlays) {
       .onConflictDoNothing()
   }
 }
+
+setLines(seedLines)
 
 // 引擎是同步纯函数，生成示例行程前必须先灌好地点池
 setPlaces(seedPlaces)
