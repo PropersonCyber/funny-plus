@@ -1,5 +1,6 @@
 import { hostApiBase } from './hostBridge.js';
 import { authToken } from './api.js';
+import type { Demand, Plan, RevisePreview, TripContext } from '../../shared/types/index.js';
 
 /**
  * AI 对话客户端（流式优先，非流式兜底）。
@@ -28,27 +29,28 @@ export type ChatSlots = {
   notes?: string;
 };
 
-export type ChatPlan = {
-  id: string;
-  paceLabel: string;
-  transport: string;
-  suitableFor: string;
-  highlights: string[];
-  budget?: unknown;
-  days: { index: number; items: string[] }[];
-  issues: { level: string; code: string; message: string }[];
-};
-
 export type ChatHandlers = {
   /** 每段文本增量调一次；非流式时只调一次、带全文 */
   onDelta: (text: string) => void;
   /** 模型正在调用哪个工具，用来显示「正在查询地点…」这类中间态 */
   onTool?: (name: string) => void;
-  /** 方案生成完给整份结果，前端直接渲染 */
-  onPlans?: (plans: ChatPlan[]) => void;
+  /**
+   * 方案生成完给整份结果。
+   * 收 Plan 而不是摘要：工作台直接渲染它，前端不再自己拼一份展示数据 ——
+   * 拼两份的结果就是「对话里说的」和「行程页排的」迟早对不上。
+   */
+  onPlans?: (plans: Plan[], demand: Demand) => void;
+  /** 咕噜提出了一次行程修改，等用户确认；确认前不落库 */
+  onRevise?: (preview: RevisePreview) => void;
 };
 
 export type ChatResult = { slots: ChatSlots; streamed: boolean };
+
+/** 修改接口的结果：degraded 表示这次没拿到服务端判断，调用方走本地兜底 */
+export type ReviseResult =
+  | { supported: true; preview: RevisePreview }
+  | { supported: false; reason: string }
+  | { degraded: true };
 
 /** 对话是长任务，不套 api.ts 的 8 秒；90 秒兜底防止请求永远挂着 */
 const CHAT_TIMEOUT_MS = 90000;
@@ -68,14 +70,14 @@ type Pending = { res: Response; done: () => void };
  * 定时器只能由调用方在「读完之后」清掉：AbortController 管的是整个请求，
  * 包括读响应体。在这里 finally 里清，等于把流式长连接当短请求，读到一半就被 abort。
  */
-async function postChat(body: unknown): Promise<Pending> {
+async function postAi(path: 'chat' | 'revise', body: unknown): Promise<Pending> {
   const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
   const timer = ctl ? setTimeout(() => ctl.abort(), CHAT_TIMEOUT_MS) : null;
   const done = () => {
     if (timer) clearTimeout(timer);
   };
   try {
-    const res = await fetch(`${base()}/api/ai/chat`, {
+    const res = await fetch(`${base()}/api/ai/${path}`, {
       method: 'POST',
       headers: headers(),
       body: JSON.stringify(body),
@@ -112,35 +114,45 @@ export function canStream(): boolean {
 async function chatNonStream(
   messages: ChatMessage[],
   slots: ChatSlots,
-  handlers: ChatHandlers
+  handlers: ChatHandlers,
+  trip?: TripContext
 ): Promise<ChatResult> {
-  const { res, done } = await postChat({ messages, slots, stream: false });
+  const { res, done } = await postAi('chat', { messages, slots, trip, stream: false });
   try {
     const body = (await res.json().catch(() => null)) as {
       text?: string;
       slots?: ChatSlots;
-      plans?: { ok?: boolean; plans?: ChatPlan[] };
+      plans?: { ok?: boolean; plans?: Plan[]; demand?: Demand };
       error?: string;
     } | null;
     if (!res.ok || !body) throw new Error(body?.error || `请求失败（${res.status}）`);
 
     if (body.text) handlers.onDelta(body.text);
-    if (body.plans?.ok && body.plans.plans?.length) handlers.onPlans?.(body.plans.plans);
+    // 没带 demand 就拼不出可用的行程（工作台还要拿它算预算/校验），宁可不给也不给半份
+    if (body.plans?.ok && body.plans.plans?.length && body.plans.demand) {
+      handlers.onPlans?.(body.plans.plans, body.plans.demand);
+    }
     return { slots: body.slots ?? slots, streamed: false };
   } finally {
     done();
   }
 }
 
-/** 问一轮，返回更新后的槽位；对话历史与槽位都由调用方持有 */
+/**
+ * 问一轮，返回更新后的槽位；对话历史与槽位都由调用方持有。
+ *
+ * trip 是「工作台上正在看的那份行程」：带上它，咕噜才是在改用户眼前这份；
+ * 不带它就变成从零规划，用户会看到咕噜答非所问。
+ */
 export async function chat(
   messages: ChatMessage[],
   slots: ChatSlots,
-  handlers: ChatHandlers
+  handlers: ChatHandlers,
+  trip?: TripContext
 ): Promise<ChatResult> {
-  if (!canStream()) return chatNonStream(messages, slots, handlers);
+  if (!canStream()) return chatNonStream(messages, slots, handlers, trip);
 
-  const { res, done } = await postChat({ messages, slots, stream: true });
+  const { res, done } = await postAi('chat', { messages, slots, trip, stream: true });
   if (!res.ok) {
     // 未配置 / 参数错这类问题降级也没用，直接抛给界面显示
     const body = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -153,7 +165,7 @@ export async function chat(
   // 退回非流式重来一次，比让用户盯着空白强
   if (!reader) {
     done();
-    return chatNonStream(messages, slots, handlers);
+    return chatNonStream(messages, slots, handlers, trip);
   }
 
   const decoder = new TextDecoder();
@@ -196,8 +208,11 @@ export async function chat(
           } else if (event === 'tool' && typeof parsed.name === 'string') {
             handlers.onTool?.(parsed.name);
           } else if (event === 'tool_result' && parsed.name === 'generatePlans') {
-            const out = parsed.output as { ok?: boolean; plans?: ChatPlan[] } | undefined;
-            if (out?.ok && out.plans?.length) handlers.onPlans?.(out.plans);
+            const out = parsed.output as { ok?: boolean; plans?: Plan[]; demand?: Demand } | undefined;
+            if (out?.ok && out.plans?.length && out.demand) handlers.onPlans?.(out.plans, out.demand);
+          } else if (event === 'tool_result' && parsed.name === 'proposeRevise') {
+            const out = parsed.output as { ok?: boolean; preview?: RevisePreview } | undefined;
+            if (out?.ok && out.preview) handlers.onRevise?.(out.preview);
           } else if (event === 'done' && parsed.slots) {
             next = parsed.slots as ChatSlots;
           } else if (event === 'error') {
@@ -212,8 +227,41 @@ export async function chat(
   }
 
   // 探测说能读流、实际一条事件都没来：这条路在这个运行时上不可用，走兜底
-  if (!received) return chatNonStream(messages, slots, handlers);
+  if (!received) return chatNonStream(messages, slots, handlers, trip);
   return { slots: next, streamed: true };
+}
+
+/**
+ * 请服务端解析一次修改，拿回「待确认」的预览。
+ *
+ * 服务端已经把「模型做不到」和「模型挂了」分开了：
+ * 前者 supported:false + 人能读懂的原因，后者走本地兜底并标 by='engine'。
+ * 这里只额外处理「请求本身失败」（未配置 / 网络不通），交给调用方决定怎么降级。
+ */
+export async function revise(
+  trip: TripContext,
+  instruction: string,
+  currentDay: number
+): Promise<ReviseResult> {
+  let res: Response;
+  let done = () => {};
+  try {
+    const pending = await postAi('revise', { trip, instruction, currentDay });
+    res = pending.res;
+    done = pending.done;
+  } catch {
+    return { degraded: true };
+  }
+  try {
+    const body = (await res.json().catch(() => null)) as
+      | { supported?: boolean; preview?: RevisePreview; reason?: string; error?: string }
+      | null;
+    if (!res.ok || !body) return { degraded: true };
+    if (body.supported && body.preview) return { supported: true, preview: body.preview };
+    return { supported: false, reason: body.reason ?? body.error ?? '这句话没识别出可执行的修改' };
+  } finally {
+    done();
+  }
 }
 
 /** 启动时问一次，决定助手入口显不显示 —— 和 /api/auth/status 同一套用法 */

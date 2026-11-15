@@ -169,3 +169,9 @@
   color: #5a6b85;
   line-height: 17px;
 }
+
+/* 选中的那套方案：白底 + 主色描边，靠边界区分而不是大面积换色 */
+.plan-box-on {
+  background-color: #ffffff;
+  border: 1px solid #2478f2;
+}

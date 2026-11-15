@@ -1,7 +1,19 @@
-import type { ChangeImpact, Demand, ItineraryItem, Pace, Plan, Place, TransportMode, TripDay } from '@/types'
-import { distanceKm, hasRoute, placeById, placesLoaded, placesOf, travelMinutes } from '@/engine/placeIndex'
+import type {
+  ChangeImpact,
+  Demand,
+  ItineraryItem,
+  Pace,
+  Plan,
+  Place,
+  ReviseOp,
+  TransportMode,
+  TripDay
+} from '@/types'
+import { distanceKm, hasRoute, placesLoaded, placesOf, travelMinutes } from '@/engine/placeIndex'
 import { estimateBudget } from '@/engine/budget'
 import { validatePlan } from '@/engine/validate'
+import { linesAtPlace, nextDeparture } from '@/engine/lines'
+import { applyReviseOp, highlightsOf, prevPlace } from '@/engine/planEdit'
 
 // 这里就是「AI 规划模块」的边界：现在用确定性模板生成，接真模型时只换这个文件，
 // 上层视图只依赖 Plan 结构，不依赖生成方式。
@@ -73,6 +85,7 @@ export function generatePlans(demand: Demand): Plan[] {
     plan.issues = validatePlan(plan, variantDemand)
     if (unmatched.length) {
       plan.issues.push({
+        id: 'pref-unmatched',
         code: 'pref-unmatched',
         level: 'info',
         message: `「${unmatched.join('」「')}」在${demand.destination}没有匹配到已收录的地点，这部分偏好未体现在行程里`
@@ -120,7 +133,8 @@ function buildDay(index: number, slice: Place[], transport: TransportMode): Trip
   slice.forEach((place) => {
     // 首站没有「上一站」，不该凭空送 20 分钟路上时间——那会把出发时间推后，
     // 后面每个到达时刻跟着漂。出发就是 09:00，到早了由营业时间兜（下一行）。
-    t += prev ? travelMinutes(prev, place, transport !== 'public') : 0
+    const leg = prev ? planLeg(prev, place, transport) : null
+    t += leg?.minutes ?? 0
     // 到得比开门时间早就在门口等，否则方案自己就会报「落在营业时段外」
     if (t < place.open[0]) t = place.open[0]
     if (!ateLunch && t >= 11 * 60 + 30) {
@@ -138,10 +152,12 @@ function buildDay(index: number, slice: Place[], transport: TransportMode): Trip
       endMin: t + stay,
       stayMin: stay,
       // 首站记 0：没有路段就是没有路段，留 20 只会让「路上耗时」合计虚高
-      transportMin: prev ? travelMinutes(prev, place, transport !== 'public') : 0,
+      transportMin: leg?.minutes ?? 0,
       // 首站没有路段，来源也就无从谈起；有路段时才标「真实 / 估算」
-      transportSource: prev ? (hasRoute(prev, place, transport !== 'public') ? 'route' : 'straight') : undefined,
+      transportSource: leg?.source,
       transportMode: transport,
+      lineId: leg?.lineId,
+      waitMin: leg?.waitMin ?? null,
       cost: place.ticket
     })
     t += stay
@@ -155,6 +171,39 @@ function buildDay(index: number, slice: Place[], transport: TransportMode): Trip
   return { index, items: items.sort((a, b) => a.startMin - b.startMin) }
 }
 
+type Leg = { minutes: number; source?: 'route' | 'straight'; lineId?: string; waitMin?: number }
+
+/**
+ * 一段路怎么走（FR-01）。
+ *
+ * 目的地站点被某条线路覆盖时，这一段就是「等下一班车再坐过去」：
+ * 时间由班次表推出来，不能再用直线距离折算——那会把「每小时一班」算成「10 分钟就到」。
+ * 班次未核验（首末班为 null）时不编班次，退回普通两点移动，但把 lineId 记上，
+ * 好让校验与线路卡知道「这一段其实是坐车的」，从而走「暂无数据 · 影响…」空态。
+ */
+function planLeg(from: Place, to: Place, transport: TransportMode): Leg {
+  const lines = linesAtPlace(to.id)
+  if (lines.length) {
+    // 多条线覆盖同一站时优先用首末班最全的那条，其次官方来源
+    const line = [...lines].sort(
+      (a, b) => trustWeight(b.trust) - trustWeight(a.trust) || (b.lastBus ?? 0) - (a.lastBus ?? 0)
+    )[0]
+    const dep = nextDeparture(line, 9 * 60)
+    if (dep !== null && line.rideMin !== null) {
+      const waitMin = Math.max(0, dep - 9 * 60)
+      return { minutes: waitMin + line.rideMin, source: 'route', lineId: line.id, waitMin }
+    }
+    // 班次或耗时未核验：时间退回普通估算，但保留 lineId 让上层知道这段本该坐车
+    return { minutes: travelMinutes(from, to, transport !== 'public'), source: hasRoute(from, to, transport !== 'public') ? 'route' : 'straight', lineId: line.id }
+  }
+  return {
+    minutes: travelMinutes(from, to, transport !== 'public'),
+    source: hasRoute(from, to, transport !== 'public') ? 'route' : 'straight'
+  }
+}
+
+const trustWeight = (trust: string): number => ({ official: 3, credible: 2, experience: 1, pending: 0 } as Record<string, number>)[trust] ?? 0
+
 const mealItem = (dayIndex: number, start: number, dinner: boolean): ItineraryItem => ({
   id: `meal-d${dayIndex}-${start}`,
   kind: 'meal',
@@ -166,14 +215,19 @@ const mealItem = (dayIndex: number, start: number, dinner: boolean): ItineraryIt
   transportMode: 'public',
   cost: 60
 })
+/** 关键词解析不出任何可执行动作时，给用户的那句话 */
+export const NO_KEYWORD_HINT = '这句话没识别出可执行的修改，试试「第二天轻松一点」「这一天换掉最贵的景点」'
 
-const highlightsOf = (days: TripDay[]): string[] =>
-  days
-    .flatMap((d) => d.items.filter((i) => i.kind === 'place'))
-    .slice(0, 4)
-    .map((i) => i.title)
-
-/** 多轮局部修改：只动受影响的当天，改完重新校验并给出变更影响（PRD 4.1 / 5.3） */
+/**
+ * 本地离线兜底：模型不可用时按关键词认出几类常见修改，**只产出动作，不执行**。
+ *
+ * 拆成「解析」与「执行」两半，是因为两条调用路径要的东西不一样：
+ * 客户端只要改完的结果，服务端要给前端一份带「哪条变了」的完整预览。
+ * 两边都从同一个关键词表出发，就不会出现「App 内改了、服务端没改」这种分裂。
+ *
+ * 这不是主路径 —— 主路径是模型解析出 ReviseOp 后交给 applyReviseOp 执行。
+ * 保留它是因为「AI 服务挂了」不该等于「行程改不动」：两者最终都走同一套执行与计算。
+ */
 export function revisePlan(
   plan: Plan,
   demand: Demand,
@@ -181,74 +235,84 @@ export function revisePlan(
   /** 当前正在看的天；指令里没写天数时改这一天，不猜第 1 天 */
   currentDay?: number
 ): { plan: Plan; impact: ChangeImpact } | { supported: false; reason: string } {
+  const guess = keywordReviseOp(plan, demand, instruction, currentDay)
+  if (!guess) return { supported: false, reason: NO_KEYWORD_HINT }
+  // 认出了意图但执行不了（点池排满 / 没有更便宜的）：原因要说具体，不能说「没听懂」
+  if ('unsupported' in guess) return { supported: false, reason: guess.unsupported }
+  const result = applyReviseOp(plan, demand, guess, 'engine')
+  if (!result.ok) return { supported: false, reason: result.reason }
+  return { plan: result.preview.plan, impact: result.preview.impact }
+}
+
+/** 关键词认得出来、但当前数据执行不了的情形，带一句能直接给用户看的原因 */
+export type KeywordResult = ReviseOp | { unsupported: string }
+
+/** 关键词 → 动作。只认出后给 id，具体改成几点、花多少钱仍由 applyReviseOp 算 */
+export function keywordReviseOp(
+  plan: Plan,
+  demand: Demand,
+  instruction: string,
+  currentDay?: number
+): KeywordResult | null {
   const dayIndex = parseDayIndex(instruction) ?? currentDay ?? 1
   const day = plan.days.find((d) => d.index === dayIndex)
-  if (!day) return { supported: false, reason: `第 ${dayIndex} 天不在本次行程里` }
-
-  const transport = plan.transport ?? 'public'
+  if (!day) return null
   const used = new Set(plan.days.flatMap((d) => d.items.map((i) => i.placeId)))
-  const unused = placesOf(demand.destination).filter((p) => !used.has(p.id))
-  const before = snapshot(plan)
-
-  let nextDay: TripDay
-  let note: string
 
   if (/轻松|少走|累|慢|老人|孩子/.test(instruction)) {
     const placesInDay = day.items.filter((i) => i.kind === 'place')
-    if (placesInDay.length <= 1) return { supported: false, reason: '这一天已经只剩一个景点，没有可精简的部分' }
-    nextDay = retime({ index: day.index, items: day.items.filter((i) => i !== placesInDay[placesInDay.length - 1]) })
-    note = `第 ${dayIndex} 天减少一个景点，节奏放缓`
-  } else if (/省|便宜|预算|贵/.test(instruction)) {
+    // 与 applyReviseOp 同一条底线：这一天只剩一个景点就没什么可精简的
+    if (placesInDay.length <= 1) return null
+    const last = placesInDay[placesInDay.length - 1]
+    return { op: 'drop', day: dayIndex, targetId: last.id, reason: `第 ${dayIndex} 天减少一个景点，节奏放缓` }
+  }
+
+  if (/省|便宜|预算|贵/.test(instruction)) {
     // 票价未核实（cost === null）的景点不参与「最贵」比较：拿 null 排序会把未知当成 0，选出错的替换目标
     const expensive = [...day.items.filter((i) => i.kind === 'place' && i.cost !== null)].sort(
       (a, b) => (b.cost ?? 0) - (a.cost ?? 0)
     )[0]
-    if (!expensive || (expensive.cost ?? 0) === 0)
-      return { supported: false, reason: '这一天已没有收费景点，省钱空间主要在其他支出' }
+    if (!expensive || (expensive.cost ?? 0) === 0) return { unsupported: '这一天已没有收费景点，省钱空间主要在其他支出' }
     const budget = expensive.cost ?? 0
     const cheap = nearest(
       prevPlace(day, expensive),
-      unused.filter((p) => p.ticket !== null && p.ticket < budget)
+      placesOf(demand.destination).filter((p) => !used.has(p.id) && p.ticket !== null && p.ticket < budget)
     )
-    if (!cheap) return { supported: false, reason: '附近没有更便宜的可替代景点' }
-    nextDay = retime(replaceItem(day, expensive, cheap, transport))
-    note = `第 ${dayIndex} 天把「${expensive.title}」换成「${cheap.name}」，省门票`
-  } else if (/换|替代|改成|不要/.test(instruction)) {
+    if (!cheap) return null
+    return {
+      op: 'replace',
+      day: dayIndex,
+      targetId: expensive.id,
+      withPlaceId: cheap.id,
+      reason: `第 ${dayIndex} 天把「${expensive.title}」换成「${cheap.name}」，省门票`
+    }
+  }
+
+  if (/换|替代|改成|不要/.test(instruction)) {
     const target = [...day.items.filter((i) => i.kind === 'place')].pop()
-    const replacement = target ? nearest(prevPlace(day, target), unused) : undefined
-    if (!target) return { supported: false, reason: `第 ${dayIndex} 天没有可替换的景点` }
+    if (!target) return null
+    const replacement = nearest(
+      prevPlace(day, target),
+      placesOf(demand.destination).filter((p) => !used.has(p.id))
+    )
     if (!replacement) {
-      // 点池被排满时说清楚是「收录不够」而不是「没有」，否则用户会以为产品在敷衍
+      // 点池被排满时要说清是「收录不够」而不是「没有」，否则用户会以为产品在敷衍
       return {
-        supported: false,
-        reason: `${demand.destination}目前收录 ${placesOf(demand.destination).length} 个地点，已全部排进这份行程，暂无可替换景点`
+        unsupported: `${demand.destination}目前收录 ${placesOf(demand.destination).length} 个地点，已全部排进这份行程，暂无可替换景点`
       }
     }
-    nextDay = retime(replaceItem(day, target, replacement, transport))
-    note = `第 ${dayIndex} 天把「${target.title}」换成「${replacement.name}」`
-  } else {
-    return { supported: false, reason: '这句话没识别出可执行的修改，试试「第二天轻松一点」「这一天换掉最贵的景点」' }
-  }
-
-  const days = plan.days.map((d) => (d.index === dayIndex ? nextDay : d))
-  // 用方案自己的交通方式重算，compare 需求直接算会把包车方案报成公交价
-  const budget = estimateBudget({ ...demand, transport }, days)
-  const nextPlan: Plan = { ...plan, days, highlights: highlightsOf(days), budget }
-  nextPlan.issues = validatePlan(nextPlan, { ...demand, transport })
-
-  const after = snapshot(nextPlan)
-  return {
-    plan: nextPlan,
-    impact: {
-      minutes: after.minutes - before.minutes,
-      cost: after.perPerson - before.perPerson,
-      recheck: nextPlan.issues.filter((i) => i.level === 'error').map((i) => i.message).slice(0, 3),
-      note
+    return {
+      op: 'replace',
+      day: dayIndex,
+      targetId: target.id,
+      withPlaceId: replacement.id,
+      reason: `第 ${dayIndex} 天把「${target.title}」换成「${replacement.name}」`
     }
   }
+
+  return null
 }
 
-/** 「第二天」「第3天」两种写法都要认，没写天数就默认第 1 天 */
 /** 「第二天」「第3天」两种写法都要认；没写天数时由调用方给当前天 */
 function parseDayIndex(text: string): number | undefined {
   const hit = text.match(/第\s*([0-9一二三四五六七八九十])\s*天/)
@@ -257,65 +321,8 @@ function parseDayIndex(text: string): number | undefined {
   return zh[hit[1]] ?? Number(hit[1])
 }
 
-const placeOf = (item: ItineraryItem): Place | undefined => (item.placeId ? placeById(item.placeId) : undefined)
-
-/** 上一站：换景点后要从这里重新算路上时间，不能用被换掉那站的旧值 */
-const prevPlace = (day: TripDay, target: ItineraryItem): Place | undefined => {
-  for (let i = day.items.indexOf(target) - 1; i >= 0; i--) {
-    const place = placeOf(day.items[i])
-    if (place) return place
-  }
-  return undefined
-}
-
 const nearest = (from: Place | undefined, pool: Place[]): Place | undefined => {
   if (pool.length === 0) return undefined
   if (!from) return pool[0]
   return pool.reduce((best, p) => (distanceKm(from, p) < distanceKm(from, best) ? p : best))
 }
-
-const replaceItem = (day: TripDay, target: ItineraryItem, place: Place, transport: TransportMode): TripDay => {
-  const prev = prevPlace(day, target)
-  // 首站被替换时没有「上一站」，沿用 target 原来的 transportMin（首站记 0），
-  // 不要拿一个路段耗时冒充出发耗时
-  const transportMin = prev ? travelMinutes(prev, place, transport !== 'public') : target.transportMin
-  const transportSource = prev
-    ? hasRoute(prev, place, transport !== 'public')
-      ? 'route'
-      : 'straight'
-    : target.transportSource
-  return {
-    index: day.index,
-    items: day.items.map((i) =>
-      i === target
-        ? {
-            ...i,
-            placeId: place.id,
-            title: place.name,
-            stayMin: place.stayMin,
-            transportMin,
-            transportSource,
-            endMin: i.startMin + place.stayMin,
-            cost: place.ticket
-          }
-        : i
-    )
-  }
-}
-
-/** 时间被删/换之后，顺延后续时间点，避免时间轴出现空洞 */
-const retime = (day: TripDay): TripDay => {
-  let t = day.items[0]?.startMin ?? 9 * 60
-  const items = day.items.map((i, idx) => {
-    const start = idx === 0 ? t : t + i.transportMin
-    const end = start + i.stayMin
-    t = end
-    return { ...i, startMin: start, endMin: end }
-  })
-  return { index: day.index, items }
-}
-
-const snapshot = (plan: Plan) => ({
-  minutes: plan.days.reduce((s, d) => s + d.items.reduce((x, i) => x + i.stayMin + i.transportMin, 0), 0),
-  perPerson: plan.budget.perPerson
-})

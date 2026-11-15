@@ -5,11 +5,12 @@ import { z } from 'zod'
 import { db } from '../db/client.ts'
 import { places } from '../db/schema.ts'
 import { aiConfigured, chatModel } from '../ai/model.ts'
+import { candidatesFor, proposeReviseOp } from '../ai/revise.ts'
 import { placesOf, placesLoaded, setPlaces } from '@/engine/placeIndex.ts'
-import { generatePlans } from '@/engine/planner.ts'
+import { NO_KEYWORD_HINT, generatePlans, keywordReviseOp } from '@/engine/planner.ts'
+import { applyReviseOp, dayBrief } from '@/engine/planEdit.ts'
 import { toApi as dbPlaceToApi } from './places.ts'
-import type { Demand, Place } from '@/types/index.ts'
-
+import type { Demand, Place, ReviseOp, RevisePreview, TripContext } from '@/types/index.ts'
 /**
  * 对话式旅行助手。
  *
@@ -28,7 +29,10 @@ const SYSTEM_PROMPT = `你是「咕噜」，趣哪玩儿的旅行助手。用中
 2. 只能提到 queryPlaces 返回的地点名。不要编造景点，不要提返回结果之外的地名。
 3. 信息不足时先追问，一次最多问两件事。目的地、天数、人数、预算档位四项齐了才调用 generatePlans。
 4. 用户说「随便」「都行」时，给出具体建议并说明理由，不要把问题原样丢回去。
-5. 当前只开放重庆、成都、北京三个目的地。用户提到其他城市要如实说明暂未开放。`
+5. 当前只开放重庆、成都、北京三个目的地。用户提到其他城市要如实说明暂未开放。
+6. 用户要做的是「改一份已经排好的行程」时，用 proposeRevise 工具，不要重新生成方案。
+   改哪一天、这一天有什么、能换成哪些地点，工具返回里都有；你只负责挑动作，不要自己算时间或价格。
+   意图不清就先问是哪一天、想怎么改，不要猜着改。`
 
 /** 生成方案所需的最小槽位；不齐就不允许调 generatePlans */
 const REQUIRED = ['destination', 'dayCount', 'party', 'budgetLevel'] as const
@@ -98,6 +102,40 @@ function ensureEngine(): Promise<void> {
 
 aiRoute.get('/status', (c) => c.json({ enabled: aiConfigured() }))
 
+/**
+ * 当前行程上下文。
+ *
+ * 对话必须看着「工作台上那份行程」说话，否则会出现「咕噜描述的和实际排的不是一回事」。
+ * ownerId 留给接账号后填：设备 id 只做本机去重，不是用户身份，所以这里既不读也不写 clientId。
+ */
+function tripContextOf(raw: unknown): TripContext | null {
+  const trip = raw as TripContext | null | undefined
+  if (!trip?.plan?.days?.length || !trip?.demand?.destination) return null
+  if (trip.demand.destination !== trip.plan.destination) return null
+  return trip
+}
+
+/** 把行程压成模型能读懂的清单：只给 id、地名、时刻、票价，票价未核实就写「未核实」 */
+function tripPrompt(trip: TripContext): string {
+  const lines = trip.plan.days.map(
+    (d) =>
+      `第 ${d.index} 天：` +
+      dayBrief(d)
+        .map((i) => `${i.title}（id=${i.id}，${i.start}-${i.end}${i.cost === null ? '，票价未核实' : ''}）`)
+        .join('；')
+  )
+  return [
+    '',
+    '## 当前旅行（工作台上正在看的那一份）',
+    `目的地：${trip.demand.destination}；天数：${trip.demand.dayCount}；人数：${trip.demand.party}；交通：${trip.demand.transport}`,
+    ...lines,
+    '用户说「改一下 / 轻松点 / 换个地方」时，指的是上面这份行程',
+    ''
+  ].join('\n')
+}
+
+aiRoute.get('/status', (c) => c.json({ enabled: aiConfigured() }))
+
 aiRoute.post('/chat', async (c) => {
   if (!aiConfigured()) {
     // 和 geo / auth 同一套口径：没配是 503 + code，前端据此隐藏入口而不是点了再报错
@@ -105,19 +143,22 @@ aiRoute.post('/chat', async (c) => {
   }
 
   const body = (await c.req.json().catch(() => null)) as
-    | { messages?: { role: 'user' | 'assistant'; content: string }[]; slots?: Slots; stream?: boolean }
+    | { messages?: { role: 'user' | 'assistant'; content: string }[]; slots?: Slots; stream?: boolean; trip?: TripContext }
     | null
   const messages = (body?.messages ?? []).filter((m) => typeof m?.content === 'string' && m.content.trim())
   if (!messages.length) return c.json({ error: '缺少对话内容', code: 'bad_param' }, 400)
 
   // 槽位跟着整轮对话走：工具里写入，结束时回传给前端，下一轮原样带回来
   const slots: Slots = { ...(body?.slots ?? {}) }
+  // 有当前行程时按「改这份行程」聊；没有时按「从零规划」聊
+  const trip = tripContextOf(body?.trip)
+  const system = trip ? `${SYSTEM_PROMPT}\n${tripPrompt(trip)}` : SYSTEM_PROMPT
 
   const result = streamText({
     model: chatModel(),
-    system: SYSTEM_PROMPT,
+    system,
     messages: messages.map((m) => ({ role: m.role, content: m.content })),
-    // 上限压得很低：对话助手只需要「补槽位 → 生成」两跳。
+    // 上限压得很低：对话助手只需要「补槽位 → 生成 → 改一天」几跳。
     // 留大空间只会让模型在循环里空转烧 token，而用户看到的只是变慢
     stopWhen: stepCountIs(6),
     tools: {
@@ -170,20 +211,55 @@ aiRoute.post('/chat', async (c) => {
           await ensureEngine()
           if (!placesLoaded()) return { ok: false, error: '地点数据未载入' }
 
-          const plans = generatePlans(toDemand(slots))
+          const demand = toDemand(slots)
+          const plans = generatePlans(demand)
           const picked = pace ? plans.filter((p) => p.pace === pace) : plans
-          return {
-            ok: true,
-            plans: (picked.length ? picked : plans).map((p) => ({
-              id: p.id,
-              paceLabel: p.paceLabel,
-              transport: p.transport,
-              suitableFor: p.suitableFor,
-              days: p.days.map((d) => ({ index: d.index, items: d.items.map((i) => i.title) })),
-              budget: p.budget,
-              issues: p.issues
-            }))
+          // 返回完整 Plan 而不是摘要：工作台渲染的就是它，前端不再自己拼一份展示数据，
+          // 否则「对话里说的」和「行程页排的」会各有一份，早晚对不上
+          return { ok: true, demand, plans: picked.length ? picked : plans }
+        }
+      }),
+
+      /**
+       * 改当前行程的一天。只产出动作，不产出数字：
+       * 执行与算钱交给 applyReviseOp，工具返回给前端的是一份「待确认」的预览。
+       */
+      proposeRevise: tool({
+        description: '在当前行程上提一次修改。用户要改已经排好的行程时用它，不要重新生成方案。',
+        inputSchema: z.object({
+          day: z.number().int().describe('改哪一天，用当前旅行里已有的天序号'),
+          op: z.enum(['drop', 'replace', 'reorder']).describe('drop = 去掉一个安排；replace = 换一个地点；reorder = 调整顺序'),
+          targetId: z.string().optional().describe('drop/replace 要动的行程项 id，必须来自当前旅行的 items'),
+          withPlaceId: z.string().optional().describe('replace 换成哪个地点 id，必须来自 candidates'),
+          order: z.array(z.string()).optional().describe('reorder 的新顺序，用这一天地点项的 id'),
+          reason: z.string().describe('一句话说清要改什么，不超过 40 字，不要出现数字或时刻')
+        }),
+        execute: async (input) => {
+          if (!trip) {
+            return { ok: false, error: '当前没有正在编辑的行程，先用 generatePlans 生成一份' }
           }
+          const day = trip.plan.days.find((d) => d.index === input.day)
+          if (!day) return { ok: false, error: `当前行程没有第 ${input.day} 天` }
+          // 把这一天的候选地点直接喂回去：模型不查这个就没依据挑「换成哪个」
+          if (input.op === 'replace' && input.targetId && !input.withPlaceId) {
+            return { ok: false, items: dayBrief(day), candidates: candidatesFor(trip.plan, trip.demand, input.day, input.targetId) }
+          }
+          const op: ReviseOp =
+            input.op === 'drop'
+              ? { op: 'drop', day: input.day, targetId: input.targetId ?? '', reason: input.reason }
+              : input.op === 'replace'
+                ? {
+                    op: 'replace',
+                    day: input.day,
+                    targetId: input.targetId ?? '',
+                    withPlaceId: input.withPlaceId ?? '',
+                    reason: input.reason
+                  }
+                : { op: 'reorder', day: input.day, order: input.order ?? [], reason: input.reason }
+          const applied = applyReviseOp(trip.plan, trip.demand, op)
+          if (!applied.ok) return { ok: false, error: applied.reason }
+          // 只回预览、不落库：用户确认前原行程一个字都不改
+          return { ok: true, preview: applied.preview }
         }
       })
     }
@@ -247,3 +323,58 @@ aiRoute.post('/chat', async (c) => {
     await stream.writeSSE({ event: 'done', data: JSON.stringify({ slots }) })
   })
 })
+
+/**
+ * 一次自然语言修改：模型解析意图 → 引擎执行并算影响 → 返回待确认的预览。
+ *
+ * 这里不落库，也不改任何已保存的行程：确认权在用户手里，前端确认后才写本机存档。
+ * 模型不可用时**不报错**，而是落回本地关键词兜底（by='engine'），主链路不阻塞——
+ * 但界面必须照实说这次是本地兜底，不能让人以为模型听懂了。
+ */
+aiRoute.post('/revise', async (c) => {
+  const body = (await c.req.json().catch(() => null)) as
+    | { trip?: TripContext; instruction?: string; currentDay?: number }
+    | null
+  const trip = tripContextOf(body?.trip)
+  const instruction = (body?.instruction ?? '').trim()
+  if (!trip) return c.json({ error: '缺少当前行程，先在工作台生成一份行程', code: 'bad_param' }, 400)
+  if (!instruction) return c.json({ error: '缺少修改要求', code: 'bad_param' }, 400)
+
+  await ensureEngine()
+  if (!placesLoaded()) return c.json({ error: '地点数据未载入', code: 'not_ready' }, 503)
+
+  const { preview, reason, by } = await resolveRevision(trip, instruction, body?.currentDay)
+  if (!preview) {
+    return c.json({ supported: false as const, reason, by })
+  }
+  return c.json({ supported: true as const, preview })
+})
+
+/**
+ * 主路径走模型，失败不带错误码地落回本地兜底。
+ * 抽成函数是为了让「模型说做不到」和「模型挂了」分开：
+ * 前者要如实转述，后者换成兜底并说明来源，不能都变成一句「修改失败」。
+ */
+async function resolveRevision(
+  trip: TripContext,
+  instruction: string,
+  currentDay?: number
+): Promise<{ preview: RevisePreview | null; reason: string; by: RevisePreview['by'] }> {
+  if (aiConfigured()) {
+    const proposed = await proposeReviseOp(trip.plan, trip.demand, instruction, currentDay)
+    if ('op' in proposed) {
+      const applied = applyReviseOp(trip.plan, trip.demand, proposed.op, 'model')
+      if (applied.ok) return { preview: applied.preview, reason: '', by: 'model' }
+      return { preview: null, reason: applied.reason, by: 'model' }
+    }
+    if ('reason' in proposed) return { preview: null, reason: proposed.reason, by: 'model' }
+  }
+
+  // 模型没配置 / 挂了 / 输出不可解析：落回同一套关键词表，界面会标明这次是本地兜底
+  const guess = keywordReviseOp(trip.plan, trip.demand, instruction, currentDay)
+  if (!guess) return { preview: null, reason: NO_KEYWORD_HINT, by: 'engine' }
+  if ('unsupported' in guess) return { preview: null, reason: guess.unsupported, by: 'engine' }
+  const applied = applyReviseOp(trip.plan, trip.demand, guess, 'engine')
+  if (applied.ok) return { preview: applied.preview, reason: '', by: 'engine' }
+  return { preview: null, reason: applied.reason, by: 'engine' }
+}

@@ -8,6 +8,7 @@
 
 /** 见 FPSVGImageLoader.m：SDK 的 LynxServiceImageProtocol 把 SVG 留成 @optional 没实现 */
 extern void FPInstallSVGImageService(void);
+extern LynxConfig *FPMakeLynxConfig(void);
 
 
 #define kScheme @"app"
@@ -353,9 +354,15 @@ extern void FPInstallSVGImageService(void);
   env.logBoxEnabled = YES;
   env.devtoolEnabled = NO;
 
+  // SDK 的 ui/ 里没有 input 组件：不补注册，JS 侧写 <input> 会抛
+  // LynxCreateUIException（code 9901），输入交互整体失效。
+  // 通过 builder.config 显式传入，而不是往 LynxEnv 的全局 config 上挂：
+  // 全局那份是懒初始化的，这个时机读到 nil（实测），注册会被静默丢掉。
+  LynxConfig *config = FPMakeLynxConfig();
   _lynx = [[LynxView alloc] initWithBuilderBlock:^(LynxViewBuilder *builder) {
     builder.frame = self.view.bounds;
     builder.enableJSRuntime = YES;
+    builder.config = config;
   }];
   _lynx.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
   [self.view addSubview:_lynx];

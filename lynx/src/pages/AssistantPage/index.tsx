@@ -1,19 +1,29 @@
-import { useCallback, useEffect, useRef, useState } from '@lynx-js/react';
+import { useCallback, useEffect, useMemo, useRef, useState } from '@lynx-js/react';
 
 import mascotAi from '../../assets/ip/mascot-ai.png';
 import { MOCK } from '../../mock.js';
 import { chat, aiStatus } from '../../aiChat.js';
-import type { ChatMessage, ChatPlan, ChatSlots } from '../../aiChat.js';
+import type { ChatMessage, ChatSlots } from '../../aiChat.js';
 import { svgDataUri } from '../../icon-svg.js';
 import { svgIcon } from '../../icons.js';
+import type { ChangeImpact, Demand, Plan } from '../../data.js';
+import type { RevisePreview, TripContext } from '../../../../shared/types/index.js';
 import styles from './index.module.scss';
 import { makeCls } from '../../styles/cls.js';
 
 const cls = makeCls(styles);
 
 type Props = {
+  /** 当前旅行：对话必须看着这一份说话，否则会出现「咕噜讲的和工作台排的不是一回事」 */
+  tripId: string;
+  demand: Demand;
+  /** 工作台上正在看的那套方案；没有行程时为 null */
+  plan: Plan | null;
   onBack: () => void;
-  onApply: () => void;
+  /** 把这次对话生成的方案落成一条行程并切到行程页 */
+  onApplyPlans: (demand: Demand, plans: Plan[], planIndex: number) => void;
+  /** 确认咕噜提的修改，写到当前行程上 */
+  onApplyRevise: (plan: Plan, impact: ChangeImpact) => void;
 };
 
 /** 麦克风图表不在 docs/materials/icons 里，只有这一个页面用，就地内联 */
@@ -26,9 +36,22 @@ const TOOL_HINT: Record<string, string> = {
   updateDemand: '咕噜正在理解你的需求…',
   queryPlaces: '咕噜正在查景点…',
   generatePlans: '咕噜正在排行程…',
+  proposeRevise: '咕噜正在算怎么改…',
 };
 
-type Turn = { role: 'user' | 'assistant'; text: string; plans?: ChatPlan[] };
+type Turn = {
+  role: 'user' | 'assistant';
+  text: string;
+  /** 这一轮生成的方案；用户可挑一套再进工作台 */
+  plans?: Plan[];
+  planDemand?: Demand;
+  /** 用户挑了哪一套 */
+  picked?: number;
+  /** 咕噜提的一次修改，等用户确认 */
+  preview?: RevisePreview;
+  /** 这条修改是否已经写进行程 */
+  applied?: boolean;
+};
 
 /**
  * AI 助手（设计稿第 7 屏）。
@@ -36,8 +59,11 @@ type Turn = { role: 'user' | 'assistant'; text: string; plans?: ChatPlan[] };
  * 对话历史与槽位都由本组件持有、每轮随请求发给服务端：
  * 目前没有账号体系，服务端存了也分不清是谁的，存了反而制造一份无主的隐私数据。
  * 接上登录后再迁到服务端，接口形状不用变。
+ *
+ * 与工作台的关系：进来时读同一份当前行程（demand + plan），走的时候把选中的方案写回同一份 store。
+ * 用户在这里看到的内容，就是行程页上排的内容 —— 中间不存在另一份「展示用」数据。
  */
-export function AssistantPage({ onBack, onApply }: Props) {
+export function AssistantPage({ tripId, demand, plan, onBack, onApplyPlans, onApplyRevise }: Props) {
   // 只切视觉态：录音没有接，别让按钮看起来像真的在收音
   const [listening, setListening] = useState(false);
   const toggleListening = useCallback(() => setListening((v) => !v), []);
@@ -51,6 +77,32 @@ export function AssistantPage({ onBack, onApply }: Props) {
   // 槽位与历史用 ref：流式回调里要读到最新值，state 的快照会读到旧的
   const slotsRef = useRef<ChatSlots>({});
   const turnsRef = useRef<Turn[]>([]);
+
+  /**
+   * 开口前就把当前需求填进槽位。
+   * 不填的话用户说「第二天轻松点」时咕噜还在问「去哪儿、玩几天」，
+   * 而这两件事工作台上早就有了。
+   */
+  useEffect(() => {
+    if (slotsRef.current.destination) return;
+    slotsRef.current = {
+      destination: demand.destination,
+      dayCount: demand.dayCount,
+      party: demand.party,
+      budgetLevel: demand.budgetLevel,
+      preferences: demand.preferences,
+      transport: demand.transport,
+      notes: demand.notes,
+    };
+  }, [demand]);
+
+  // 每次发问前取最新的行程，避免 useCallback 里抓到旧 plan
+  const trip = useMemo<TripContext | undefined>(
+    () => (plan ? { tripId, demand, plan } : undefined),
+    [tripId, demand, plan]
+  );
+  const tripRef = useRef<TripContext | undefined>(trip);
+  tripRef.current = trip;
 
   // input 没有受控 value，靠换 key 重挂载来清空，发完一轮 +1
   const [inputKey, setInputKey] = useState(0);
@@ -94,23 +146,39 @@ export function AssistantPage({ onBack, onApply }: Props) {
     setHint('');
 
     try {
-      const res = await chat(history, slotsRef.current, {
-        onDelta: appendDelta,
-        onTool: (name) => setHint(TOOL_HINT[name] ?? ''),
-        onPlans: (plans) => {
-          setTurns((prev) => {
-            const last = prev[prev.length - 1];
-            const next =
-              last && last.role === 'assistant'
-                ? [...prev.slice(0, -1), { ...last, plans }]
-                : [...prev, { role: 'assistant' as const, text: '', plans }];
-            // ref 必须在函数式更新里同步：下一轮 history 从这里取，
-            // 而 setTurns 是异步的，在外部赋值会拿到旧数组
-            turnsRef.current = next;
-            return next;
-          });
+      const res = await chat(
+        history,
+        slotsRef.current,
+        {
+          onDelta: appendDelta,
+          onTool: (name) => setHint(TOOL_HINT[name] ?? ''),
+          onPlans: (plans, planDemand) => {
+            setTurns((prev) => {
+              const last = prev[prev.length - 1];
+              const next =
+                last && last.role === 'assistant'
+                  ? [...prev.slice(0, -1), { ...last, plans, planDemand, picked: 0 }]
+                  : [...prev, { role: 'assistant' as const, text: '', plans, planDemand, picked: 0 }];
+              // ref 必须在函数式更新里同步：下一轮 history 从这里取，
+              // 而 setTurns 是异步的，在外部赋值会拿到旧数组
+              turnsRef.current = next;
+              return next;
+            });
+          },
+          onRevise: (preview) => {
+            setTurns((prev) => {
+              const last = prev[prev.length - 1];
+              const next =
+                last && last.role === 'assistant'
+                  ? [...prev.slice(0, -1), { ...last, preview }]
+                  : [...prev, { role: 'assistant' as const, text: '', preview }];
+              turnsRef.current = next;
+              return next;
+            });
+          },
         },
-      });
+        tripRef.current
+      );
       slotsRef.current = res.slots;
     } catch (err) {
       const msg = err instanceof Error ? err.message : '网络异常，请重试';
@@ -128,6 +196,47 @@ export function AssistantPage({ onBack, onApply }: Props) {
   }, [draft, sending, appendDelta]);
 
   const onInput = useCallback((e: { detail: { value: string } }) => setDraft(e.detail.value), []);
+
+  /** 只改这一条气泡上的选中项，不动其它轮 */
+  const pickPlan = useCallback((turnIndex: number, index: number) => {
+    setTurns((prev) => {
+      const next = prev.map((t, i) => (i === turnIndex ? { ...t, picked: index } : t));
+      turnsRef.current = next;
+      return next;
+    });
+  }, []);
+
+  const applyPlans = useCallback(
+    (turnIndex: number) => {
+      const turn = turnsRef.current[turnIndex];
+      if (!turn?.plans?.length || !turn.planDemand) return;
+      onApplyPlans(turn.planDemand, turn.plans, turn.picked ?? 0);
+    },
+    [onApplyPlans]
+  );
+
+  const applyRevise = useCallback(
+    (turnIndex: number) => {
+      const turn = turnsRef.current[turnIndex];
+      if (!turn?.preview) return;
+      onApplyRevise(turn.preview.plan, turn.preview.impact);
+      setTurns((prev) => {
+        const next = prev.map((t, i) => (i === turnIndex ? { ...t, applied: true } : t));
+        turnsRef.current = next;
+        return next;
+      });
+    },
+    [onApplyRevise]
+  );
+
+  /** 取消 = 把预览丢掉再重发一次上一句，让咕噜换个说法；原行程从未被改过 */
+  const dropPreview = useCallback((turnIndex: number) => {
+    setTurns((prev) => {
+      const next = prev.map((t, i) => (i === turnIndex ? { ...t, preview: undefined } : t));
+      turnsRef.current = next;
+      return next;
+    });
+  }, []);
 
   return (
     <view className={cls('screen-inner')}>
@@ -147,6 +256,11 @@ export function AssistantPage({ onBack, onApply }: Props) {
           {turns.length === 0 ? (
             <view className={cls('card')}>
               <text className={cls('card-note')}>{MOCK.assistant.greeting}</text>
+              {plan ? (
+                <text className={cls('card-note')}>
+                  现在看的是{demand.destination} · {demand.dayCount} 天这份行程，直接说想怎么改就行
+                </text>
+              ) : null}
               {MOCK.assistant.abilities.map((a) => (
                 <view key={a} className={cls('ability-row')}>
                   <view className={cls('ability-dot')} />
@@ -174,21 +288,68 @@ export function AssistantPage({ onBack, onApply }: Props) {
                   {/* 只有方案才给标题，普通回复直接出正文，避免每条都挂一个重复的「咕噜」 */}
                   {t.plans?.length ? <text className={cls('bubble-title')}>为你排好了 {t.plans.length} 套方案</text> : null}
                   {t.text ? <text className={cls('bubble-text')}>{t.text}</text> : null}
-                  {t.plans?.map((p) => (
-                    <view key={p.id} className={cls('plan-box')}>
+
+                  {t.plans?.map((p, pi) => (
+                    <view
+                      key={p.id}
+                      className={(t.picked ?? 0) === pi ? cls('plan-box plan-box-on') : cls('plan-box')}
+                      bindtap={() => pickPlan(i, pi)}
+                    >
                       <text className={cls('plan-name')}>
-                        {p.paceLabel} · {p.transport}
+                        {(t.picked ?? 0) === pi ? '✓ ' : ''}
+                        {p.paceLabel} · {p.days.length} 天
                       </text>
                       {p.days.map((d) => (
                         <text key={d.index} className={cls('plan-day')}>
-                          第 {d.index} 天：{d.items.join(' · ')}
+                          第 {d.index} 天：
+                          {d.items
+                            .filter((item) => item.kind === 'place')
+                            .map((item) => item.title)
+                            .join(' · ')}
                         </text>
                       ))}
+                      {/* 预算来自引擎，模型不参与计算；未核实的票价在这里也照实标 */}
+                      <text className={cls('plan-day')}>
+                        人均约 ¥{p.budget.perPerson}
+                        {p.budget.uncertain.length ? ` · ${p.budget.uncertain[0]}` : ''}
+                      </text>
                     </view>
                   ))}
                   {t.plans?.length ? (
-                    <view className={cls('bubble-action')} bindtap={onApply}>
-                      <text className={cls('bubble-action-text')}>查看完整行程与预算</text>
+                    <view className={cls('bubble-action')} bindtap={() => applyPlans(i)}>
+                      <text className={cls('bubble-action-text')}>用这套方案，去行程页</text>
+                    </view>
+                  ) : null}
+
+                  {t.preview ? (
+                    <view>
+                      <text className={cls('bubble-title')}>{t.preview.reason}</text>
+                      {t.preview.affected.map((a) => (
+                        <text key={`${a.kind}-${a.title}`} className={cls('plan-day')}>
+                          {a.title}：{a.detail}
+                        </text>
+                      ))}
+                      <text className={cls('plan-day')}>
+                        时间{fmtDelta(t.preview.impact.minutes, ' 分钟')} · 人均{fmtMoney(t.preview.impact.cost)}
+                      </text>
+                      {t.preview.impact.recheck.length ? (
+                        <text className={cls('plan-day')}>要重新确认：{t.preview.impact.recheck.join('；')}</text>
+                      ) : null}
+                      {t.preview.by === 'engine' ? (
+                        <text className={cls('plan-day')}>这次没连上模型，是按关键词识别的改动</text>
+                      ) : null}
+                      {t.applied ? (
+                        <text className={cls('plan-day')}>已写进行程</text>
+                      ) : (
+                        <view className={cls('bubble-action')} bindtap={() => applyRevise(i)}>
+                          <text className={cls('bubble-action-text')}>确认应用</text>
+                        </view>
+                      )}
+                      {t.applied ? null : (
+                        <view className={cls('bubble-action')} bindtap={() => dropPreview(i)}>
+                          <text className={cls('bubble-action-text')}>先不改</text>
+                        </view>
+                      )}
                     </view>
                   ) : null}
                 </view>
@@ -216,10 +377,7 @@ export function AssistantPage({ onBack, onApply }: Props) {
             bindinput={onInput}
           />
         </view>
-        <view
-          className={listening ? cls('chat-mic chat-mic-on') : cls('chat-mic')}
-          bindtap={toggleListening}
-        >
+        <view className={listening ? cls('chat-mic chat-mic-on') : cls('chat-mic')} bindtap={toggleListening}>
           <image src={micSvg(listening ? '#FFFFFF' : '#2478F2')} style={{ width: '17px', height: '17px' }} />
         </view>
         <view className={sending ? cls('chat-send chat-send-busy') : cls('chat-send')} bindtap={send}>
@@ -228,4 +386,15 @@ export function AssistantPage({ onBack, onApply }: Props) {
       </view>
     </view>
   );
+}
+
+/** 变更影响不带正负号，加号和单位在这里拼，引擎只出数字 */
+function fmtDelta(n: number, unit: string): string {
+  if (n === 0) return '没变';
+  return `${n > 0 ? '+' : ''}${n}${unit}`;
+}
+
+function fmtMoney(n: number): string {
+  if (n === 0) return '没变';
+  return `${n > 0 ? '+' : ''}¥${n}`;
 }

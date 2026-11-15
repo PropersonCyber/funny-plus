@@ -54,6 +54,43 @@ export interface Place {
   trust: TrustLevel
 }
 
+/**
+ * lineId 为空 = 普通两点移动，时间来自 placeIndex 的路线或直线折算。
+ */
+export interface TransitLine {
+  id: string
+  city: string
+  name: string
+  mode: LineMode
+  /** 有序站点，>=2 才算一条线（单站线路视为数据错误，种子时会跳过） */
+  stops: LineStop[]
+  /** 当日分钟数；null = 未核验，界面走「暂无数据」空态并要求补录，不许拿营业时间顶上 */
+  firstBus: number | null
+  lastBus: number | null
+  intervalMin: number | null
+  /** 票种与票价；price=null 表示票种存在但票价未核实 */
+  tickets: LineTicket[]
+  /** 是否必须提前购票/预约；null = 未核验 */
+  needAdvance: boolean | null
+  /** 单班核载（人）；null = 未核验，人数结论只能降级为区间 */
+  capacity: number | null
+  /** 单程乘车耗时（分钟），不含候车；null = 未核验 */
+  rideMin: number | null
+  /** 季节/停运说明，如「冬季停航」，没有就留空 */
+  seasonNote?: string
+  /** 行程里排了这个地点，就等于「在这儿乘车」，用来把线路和已有地点池接上 */
+  rideAtPlaceId?: string
+  source: string
+  sourceUrl?: string
+  verifiedAt?: string
+  trust: TrustLevel
+  /**
+   * 演示数据：班次与票价为构造值，专供验证「冲突能拦截」，不是真实运营时间。
+   * 界面必须显式标注，不能和真实线路混在一起展示。
+   */
+  isDemo?: boolean
+}
+
 export interface ItineraryItem {
   id: string
   kind: ItemKind
@@ -69,6 +106,13 @@ export interface ItineraryItem {
    * 必须随数据走——界面要标「估算」，用户才知道哪个到达时刻能信。
    */
   transportSource?: 'route' | 'straight'
+  /**
+   * 这一段是不是坐线路型交通走的（FR-01）。有它就是「按班次发车」，
+   * 到达时刻取决于最近的发车时间，不再是「从上一站开过去多少分钟」。
+   */
+  lineId?: string
+  /** 乘车候车时间（分钟）；普通路段为 null。等太久要提示，但不算冲突 */
+  waitMin?: number | null
   /**
    * 该项人均花费（元）；null = 票价未核实（继承 Place.ticket 的 null）。
    * 预算求和按 0 计入并单独提示「未核实」，不能既当免费又不说明。
@@ -104,11 +148,29 @@ export interface BudgetBreakdown {
   uncertain: string[]
 }
 
+/**
+ * 一条校验结果。
+ * id 让「这条不对」能把误报精确指回某一条，没有 id 就没法统计误报率（PRD 八）。
+ */
 export interface PlanIssue {
+  id: string
   code: string
   level: 'error' | 'warn' | 'info'
   dayIndex?: number
   message: string
+  /** 涉及的线路（交通类问题才有），用于跳线路卡 */
+  lineId?: string
+  /**
+   * 出现 error 时必须同时给至少一条出路（FR-02）。
+   * 连一条都给不出时，界面要明说「暂无可替代方案，请手动调整」，不能留白。
+   */
+  alternatives?: IssueAlternative[]
+}
+
+/** 硬约束的替代方案：改哪类动作、落到什么值、能省/避免什么 */
+export interface IssueAlternative {
+  kind: 'advance' | 'switch-mode' | 'change-spot'
+  label: string
 }
 
 export interface Plan {
@@ -125,6 +187,34 @@ export interface Plan {
   issues: PlanIssue[]
 }
 
+/**
+ * 人数 → 交通结论（FR-03）。
+ * 钱与时间永远并列，不做「时间折算成钱」的综合分：那需要引入主观时间单价，
+ * 等于把不确定包装成精确。数据不全时降级成区间并标清假设。
+ */
+export interface TransportAdvice {
+  party: number
+  /** 参与比较的两种方式；switchTo 是建议切换的目标 */
+  options: TransportOption[]
+  /** 一句话结论；两端都不占优时明确写「两者接近」 */
+  verdict: string
+  /** 数据不全时的降级说明，例如「按 4 人/车、¥60/车估」 */
+  assumptions: string[]
+  /** true = 只比了票价或只比了时间，缺另一维数据 */
+  partial: boolean
+}
+
+export interface TransportOption {
+  mode: 'taxi' | 'line' | 'public'
+  label: string
+  /** 这段行程的合计花费（元）；null = 票价未核实 */
+  cost: number | null
+  /** 合计时间（含候车/等车，分钟）；null = 时长未核实 */
+  minutes: number | null
+  /** 计算依据，必须逐项写清，例如「2 辆 × ¥60」「5 张 × ¥25」 */
+  basis: string
+}
+
 export interface TravelFact {
   id: string
   city: string
@@ -136,6 +226,13 @@ export interface TravelFact {
   verifiedAt: string
   validUntil?: string
   trust: TrustLevel
+  /**
+   * 这条信息挂到哪个 POI（FR-04）。区域级条目（如「渝中半岛」）不填 placeId，
+   * 靠 scope 文字说明适用范围——不填就是「不针对某个点」，不能默认人人都适用。
+   */
+  placeId?: string
+  /** POI 详情页的分组；缺省时按 category 推导，避免历史数据全要补一遍 */
+  poiGroup?: 'pitfall' | 'access' | 'eat' | 'stay'
 }
 
 /** 局部修改的变更影响，PRD 5.3 要求改完展示影响 */
@@ -146,8 +243,81 @@ export interface ChangeImpact {
   note: string
 }
 
+/**
+ * 模型提议的一次行程修改。
+ *
+ * 只允许引用既有的 item.id / place.id，**不携带任何时刻、金额**：
+ * 改哪个点由模型选，改成几点、花多少钱由引擎按收录数据算。
+ * 一旦允许模型自己写数字，它就会给出一个自洽但错误的价格，而用户没有能力分辨。
+ */
+export type ReviseOp =
+  | { op: 'drop'; day: number; targetId: string; reason: string }
+  | { op: 'replace'; day: number; targetId: string; withPlaceId: string; reason: string }
+  | { op: 'reorder'; day: number; order: string[]; reason: string }
+
+/** 一条受影响的安排：确认前要逐条告诉用户「哪条变了、变成什么」，只给一个总差额不够 */
+export interface AffectedChange {
+  kind: 'removed' | 'replaced' | 'retimed'
+  title: string
+  /** 例如「已移出这一天」「换成「某某」」「14:00 → 15:30」 */
+  detail: string
+}
+
+/**
+ * 修改预览：确认前只存在内存里，取消即丢，原方案一个字段都不动。
+ * by 用来区分「模型理解的」还是「模型不可用时的本地兜底」，界面上要照实说。
+ */
+export interface RevisePreview {
+  plan: Plan
+  impact: ChangeImpact
+  affected: AffectedChange[]
+  reason: string
+  by: 'model' | 'engine'
+}
+
+/**
+ * 一次旅行在接口里的身份。
+ *
+ * ownerId 是账号归属，未接登录时为空；设备 id 只做「同一台设备只记一次」的去重，
+ * 不是所有者——把 clientId 当账号，换设备就找不回行程，接登录时数据也没法迁移。
+ */
+export interface TripContext {
+  tripId: string
+  ownerId?: string
+  demand: Demand
+  plan: Plan
+}
+
 /** 避坑反馈：只存用户怎么反馈，不是可信度结论 */
 export type FeedbackVerdict = 'met' | 'not-applicable'
+
+/** 用户能补的字段：每个都对应一个界面上「暂无数据」的位置（FR-05） */
+export type SubmitField = 'firstBus' | 'lastBus' | 'intervalMin' | 'ticket' | 'openText' | 'fact'
+
+/**
+ * 一条用户补录。
+ * status 恒为 pending 起步：用户填报只能让行程 warn，不能判 error（FR-05/06）。
+ */
+export interface DataSubmission {
+  id: string
+  scope: 'line' | 'place' | 'fact'
+  targetId: string
+  field: SubmitField
+  value: string
+  note?: string
+  clientId: string
+  status: 'pending' | 'verified' | 'rejected'
+  createdAt: string
+}
+
+/** 「这条不对」上报；误报率 = 上报数 / 硬提示数 */
+export interface ConstraintReport {
+  issueId: string
+  ruleCode: string
+  trustLevel: string
+  planId?: string
+  note?: string
+}
 
 export interface FactFeedbackSummary {
   factId: string
@@ -203,6 +373,24 @@ export interface Guide {
   body: string
 }
 
+/** 线路型交通的种类；决定界面文案与图标，不参与计算 */
+export type LineMode = 'sightseeing' | 'shuttle' | 'cableway' | 'escalator' | 'ferry'
+
+/** 线路站点：坐标来自 POI 核验（scripts/verify-lines.ts），不是手敲的 */
+export interface LineStop {
+  name: string
+  lng: number
+  lat: number
+  /** 该站同时是我们收录的地点时挂上，点站点能进 POI 详情 */
+  placeId?: string
+}
+
+export interface LineTicket {
+  kind: string
+  /** null = 这个票种存在但票价未核实，界面显示「暂无票价」 */
+  price: number | null
+  note?: string
+}
 /** 玩法：首页「爆款玩法」卡片，详情页按 placeIds 展开 */
 export interface Play {
   id: string

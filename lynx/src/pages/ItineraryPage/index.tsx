@@ -21,6 +21,8 @@ type Props = {
   demand: Demand;
   plans: Plan[];
   /** 当前选中方案由上层持有：详情页/地图/我的看到的是同一套 */
+  /** 所在行程 id：修改请求要按行程算，不是按设备算 */
+  tripId: string;
   planIndex: number;
   onPickPlan: (index: number) => void;
   onPlan: () => void;
@@ -48,6 +50,7 @@ const ISSUE_CLASS: Record<string, string> = {
 export function ItineraryPage({
   demand,
   plans,
+  tripId,
   planIndex,
   onPickPlan,
   onPlan,
@@ -275,6 +278,7 @@ export function ItineraryPage({
           plan={plan}
           demand={demand}
           dayIndex={dayIndex}
+          tripId={tripId}
           onClose={() => setRevising(false)}
           onApplied={(nextPlan, nextImpact) => {
             setRevising(false);

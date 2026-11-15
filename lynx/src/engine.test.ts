@@ -3,7 +3,8 @@ import { describe, expect, it } from '@rstest/core';
 import { estimateBudget } from '../../shared/engine/budget.js';
 import { isExpired, splitByFreshness } from '../../shared/engine/facts.js';
 import { clearRouteMinutes, hasRoute, setPlaces, setRouteMinutes, travelMinutes } from '../../shared/engine/placeIndex.js';
-import { generatePlans, revisePlan } from '../../shared/engine/planner.js';
+import { generatePlans, keywordReviseOp, revisePlan } from '../../shared/engine/planner.js';
+import { applyReviseOp } from '../../shared/engine/planEdit.js';
 import { validatePlan } from '../../shared/engine/validate.js';
 import { legsOf } from './legs.js';
 import type { Demand, ItineraryItem, Place, Plan, TravelFact } from '../../shared/types/index.js';
@@ -153,6 +154,143 @@ describe('单日局部修改的范围', () => {
     expect(used.size).toBe(places.length);
     const result = revisePlan(plan, full, '换个景点', 1);
     expect('reason' in result && result.reason).toContain('已全部排进');
+  });
+});
+
+describe('修改提案：只认动作，数字由引擎算', () => {
+  const trace = (p: Plan, day = 1) =>
+    p.days
+      .find((d) => d.index === day)!
+      .items.map((i) => `${i.id}@${i.startMin}-${i.endMin}/${i.transportMin}`)
+      .join('|');
+
+  it('applyReviseOp 不修改传入的方案（确认前原计划不变）', () => {
+    const d = demand({ dayCount: 2 });
+    const plan = generatePlans(d)[0];
+    const snapshot = JSON.stringify(plan);
+    const target = plan.days[1].items.find((i) => i.kind === 'place')!;
+    const result = applyReviseOp(plan, d, { op: 'drop', day: 2, targetId: target.id, reason: '少排一个' });
+    expect(result.ok).toBe(true);
+    expect(JSON.stringify(plan)).toBe(snapshot);
+  });
+
+  it('删点后按新的前后站重算路上时间，才算得出真实省下的时间', () => {
+    const d = demand({ dayCount: 2 });
+    const plan = generatePlans(d)[0];
+    const places = plan.days[1].items.filter((i) => i.kind === 'place');
+    if (places.length < 2) return;
+    const result = applyReviseOp(plan, d, { op: 'drop', day: 2, targetId: places[0].id, reason: '少排一个' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const after = result.preview.plan.days[1].items.filter((i) => i.kind === 'place');
+    // 新的首个景点没有上一站，路上时间必须是 0，不能留着被删那站的旧值
+    expect(after[0].transportMin).toBe(0);
+    expect(result.preview.affected.some((a) => a.kind === 'removed')).toBe(true);
+    expect(trace(result.preview.plan, 2)).not.toBe(trace(plan, 2));
+  });
+
+  it('这一天只剩一个景点时拒绝，并给出能读懂的原因', () => {
+    const d = demand({ dayCount: 1 });
+    const one: Plan = {
+      ...generatePlans(d)[0],
+      days: [
+        {
+          index: 1,
+          items: [
+            {
+              id: 'only',
+              kind: 'place',
+              title: '一号点',
+              placeId: 'a-1',
+              startMin: 540,
+              endMin: 630,
+              stayMin: 90,
+              transportMin: 0,
+              transportMode: 'public',
+              cost: 0,
+            },
+          ],
+        },
+      ],
+    };
+    const result = applyReviseOp(one, d, { op: 'drop', day: 1, targetId: 'only', reason: '少排一个' });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toContain('只剩一个景点');
+  });
+
+  it('替换到不存在的地点、或已经在行程里的地点都会被拒绝', () => {
+    const d = demand({ dayCount: 1 });
+    const plan = generatePlans(d)[0];
+    const target = plan.days[0].items.find((i) => i.kind === 'place')!;
+    const missing = applyReviseOp(plan, d, {
+      op: 'replace',
+      day: 1,
+      targetId: target.id,
+      withPlaceId: '不存在的地点',
+      reason: '换个地方',
+    });
+    expect(missing.ok).toBe(false);
+
+    const same = plan.days[0].items.filter((i) => i.kind === 'place')[1];
+    if (!same?.placeId) return;
+    const dup = applyReviseOp(plan, d, {
+      op: 'replace',
+      day: 1,
+      targetId: target.id,
+      withPlaceId: same.placeId,
+      reason: '换成已经在行程里的点',
+    });
+    expect(dup.ok).toBe(false);
+  });
+
+  it('换序只认这一天已有的 id，没提到的保持原有相对次序', () => {
+    const d = demand({ dayCount: 1 });
+    const plan = generatePlans(d)[0];
+    const ids = plan.days[0].items.filter((i) => i.kind === 'place').map((i) => i.id);
+    if (ids.length < 3) return;
+    const result = applyReviseOp(plan, d, {
+      op: 'reorder',
+      day: 1,
+      // 只给两个 id，且夹一个不存在的：应当被忽略，剩下的按原次序跟在后面
+      order: [ids[1], 'not-an-id', ids[0]],
+      reason: '先远后近',
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const after = result.preview.plan.days[0].items.filter((i) => i.kind === 'place').map((i) => i.id);
+    expect(after.slice(0, 2)).toEqual([ids[1], ids[0]]);
+    expect(after.slice(2)).toEqual(ids.slice(2));
+  });
+
+  it('未知票价不参与省钱比较，也不会被当成免费', () => {
+    const d = demand({ dayCount: 1 });
+    const plan = generatePlans(d)[0];
+    const tuned: Plan = {
+      ...plan,
+      days: plan.days.map((day) => ({
+        index: day.index,
+        items: day.items.map((i) => (i.kind === 'place' ? { ...i, cost: null } : i)),
+      })),
+    };
+    const guess = keywordReviseOp(tuned, d, '省点钱', 1);
+    // 全部票价未核实 = 没有任何「最贵」可挑，不能凭 null 选出替换目标
+    expect(guess === null || 'unsupported' in guess).toBe(true);
+  });
+
+  it('本地兜底与主路径给出同一种改动（换谁解析不影响结果）', () => {
+    const d = demand({ dayCount: 2 });
+    const plan = generatePlans(d)[0];
+    const guess = keywordReviseOp(plan, d, '第二天轻松一点', 1);
+    expect(guess && 'op' in guess && guess.op).toBe('drop');
+    if (!guess || !('op' in guess)) return;
+    const viaEngine = applyReviseOp(plan, d, guess, 'engine');
+    const viaModel = applyReviseOp(plan, d, guess, 'model');
+    expect(viaEngine.ok && viaModel.ok).toBe(true);
+    if (!viaEngine.ok || !viaModel.ok) return;
+    expect(trace(viaEngine.preview.plan, 2)).toBe(trace(viaModel.preview.plan, 2));
+    expect(viaEngine.preview.impact).toEqual(viaModel.preview.impact);
+    expect(viaEngine.preview.by).toBe('engine');
   });
 });
 

@@ -29,7 +29,11 @@
   <key>UISupportedInterfaceOrientations</key>
   <array><string>UIInterfaceOrientationPortrait</string></array>
   <key>UIRequiredDeviceCapabilities</key><array><string>arm64</string></array>
-  <key>APIBase</key><string>http://10.8.206.250:8787</string>
+  <!-- 后端地址。模拟器和 Mac 共用网络栈，用 127.0.0.1 最稳；
+       填局域网 IP 时一旦网卡地址变化（或防火墙拦入站），地图、对话全部静默失败，
+       而界面上只表现为「图片加载失败 / 请求失败」，很难查到是这个 key 造成的。
+       真机调试才需要改成 Mac 的局域网 IP。 -->
+  <key>APIBase</key><string>http://127.0.0.1:8787</string>
   <key>NSAppTransportSecurity</key><dict><key>NSAllowsArbitraryLoads</key><true/></dict>
   <!-- 定位权限说明：WKWebView 里业务 JS 在 Worker 沙箱，拿不到 navigator.geolocation，
        坐标只能由 WebHostController 的 CLLocationManager 取到后注入 globalThis.__fpLocation。

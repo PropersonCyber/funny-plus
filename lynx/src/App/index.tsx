@@ -191,20 +191,28 @@ export function App() {
     [mine.footprints],
   );
 
-  const onPlanned = useCallback((nextDemand: Demand, nextPlans: Plan[]) => {
+  /**
+   * 对话/表单生成的新方案落成一条行程。
+   *
+   * pickedIndex 是用户在对话里挑中的那套：不传就取第一套。
+   * 存 planIndex 而不是把选中的那套挪到首位——方案对比里还要看其它两套，
+   * 顺序被改过之后用户会以为方案变了。
+   */
+  const onPlanned = useCallback((nextDemand: Demand, nextPlans: Plan[], pickedIndex = 0) => {
+    if (!nextPlans.length) return;
     // 新一次规划 = 新一条行程；不覆盖上一份，用户才敢多试几种需求
     const trip: SavedTrip = {
       id: newTripId(),
       demand: nextDemand,
       plans: nextPlans,
-      planIndex: 0,
+      planIndex: Math.min(Math.max(0, pickedIndex), nextPlans.length - 1),
       savedAt: new Date().toISOString(),
       versions: [{ at: new Date().toISOString(), note: '首次生成' }],
     };
     setStore((prev) => ({ trips: [...prev.trips, trip], activeId: trip.id }));
     setImpact(null);
     setSheetOpen(false);
-    // 从智能建议/行程详情里打开表单时，route 还指着子页；不关掉会生成完停在原子页
+    // 从智能建议/行程详情/对话里打开时，route 还指着子页；不关掉会生成完停在原子页
     setRoute(null);
     setTab('itinerary');
   }, []);
@@ -302,8 +310,18 @@ export function App() {
           />
         ) : route === 'assistant' ? (
           <AssistantPage
+            tripId={active?.id ?? ''}
+            demand={demand}
+            plan={active?.plans[planIndex] ?? null}
             onBack={() => setRoute(null)}
-            onApply={() => {
+            // 对话里选的方案直接落成当前行程：落到同一个 store，
+            // 行程页渲染的就是用户刚才在对话里挑的那一份，不存在第二份展示数据
+            onApplyPlans={(nextDemand, nextPlans, nextIndex) => {
+              onPlanned(nextDemand, nextPlans, nextIndex);
+            }}
+            onApplyRevise={(nextPlan, nextImpact) => {
+              onRevise(planIndex, nextPlan, nextImpact);
+              // 停在对话里看不出行程整体，切过去让用户核对；不切会让人以为没生效
               setRoute(null);
               setTab('itinerary');
             }}
@@ -412,6 +430,7 @@ export function App() {
           <ItineraryPage
             demand={demand}
             plans={plans}
+            tripId={active?.id ?? ''}
             planIndex={planIndex}
             onPickPlan={onPickPlan}
             onPlan={openSheet}
