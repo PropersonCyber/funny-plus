@@ -43,5 +43,9 @@ ios/FunnyPlus/vendor/
 ios/FunnyPlus/Pods/
 ios/FunnyPlus/Podfile.lock
 
+# Xcode 用户态：上次打开的文件、滚动位置、scheme 排序。全是本机状态，
+# 每次开 Xcode 都变，入库只会产生无意义的二进制 diff，重开 Xcode 自动重建
+xcuserdata/
+
 # 早期手工备份目录（*本改变备份策略后再有新的，靠 git 回滚）
 backup-*/
