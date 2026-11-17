@@ -693,7 +693,7 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
         // 圆图和文字会整个消失（web 端 shrink-to-fit 不会，所以只在真机上暴露）
         <view
           key={s.order}
-          main-thread:ref={(el: MainThread.Element) => { mtMarkersRef.current[s.order - 1] = el; }}
+          main-thread:ref={(el: MainThread.Element) => { 'main thread'; mtMarkersRef.current[s.order - 1] = el; }}
           className={cls(mkClass(picked, s))}
           style={(() => {
             // marker 跟着视口一起变换；气泡本身尺寸不变（缩放的是地图像素，
