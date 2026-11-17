@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.maka.funnyplus"
-    android:versionCode="1"
-    android:versionName="0.1.0">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="34" />
 
@@ -12,7 +9,9 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
+    <!-- FPApplication 里初始化 LynxEnv：LynxView 创建前必须完成，否则 so 加载与元素注册都是半截状态 -->
     <application
+        android:name=".FPApplication"
         android:label="趣哪玩儿"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"

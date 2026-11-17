@@ -1,0 +1,98 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+// 后端地址：对应 iOS 的 Info.plist APIBase。打包时用 -PapiBase=... 覆盖，
+// 不传指向本机（模拟器可用，真机连不通）。
+def apiBase = project.findProperty('apiBase') ?: 'http://127.0.0.1:8787'
+
+android {
+    namespace 'com.maka.funnyplus'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.maka.funnyplus'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '0.1.0'
+
+        buildConfigField 'String', 'API_BASE', "\"${apiBase}\""
+        // 指向本机后端视为开发构建
+        buildConfigField 'boolean', 'DEBUG_API', apiBase.contains('127.0.0.1') ? 'true' : 'false'
+
+        ndk {
+            // 与 lynx.aar 里的 jni 目录对齐：模拟器要 x86_64，真机要 arm64-v8a
+            abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64'
+        }
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    // 13MB 的 bundle 必须压缩进 APK，但不许 AGP 再解压 —— Lynx 直接读 assets 字节
+    androidResources {
+        noCompress 'bundle'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    packagingOptions {
+        // 多个 AAR 各自带了一份 LICENSE/NOTICE，合并时会撞名
+        resources {
+            excludes += ['META-INF/LICENSE*', 'META-INF/NOTICE*', 'META-INF/*.kotlin_module']
+        }
+    }
+}
+
+dependencies {
+    // 4.2.0 与 iOS 的 Podfile.lock 严格一致：两端跑同一个引擎版本，
+    // 样式/手势的细微差异才不会变成「只有安卓不对」
+    implementation 'org.lynxsdk.lynx:lynx:4.2.0'
+
+    // 扩展元素集：svg / input / textarea / video / viewpager 等。
+    // 基础集（view/text/scroll-view/list）不含这些，image 更不在其中（见 MainActivity 的注释）
+    implementation 'org.lynxsdk.lynx:xelement:4.2.0'
+    implementation 'org.lynxsdk.lynx:xelement-svg:4.2.0'
+
+    // 官方 SVG 渲染引擎：FPSvgDecoder 用它把 data:image/svg+xml 光栅化成 Bitmap。
+    // Fresco 只认 PNG/JPG/WebP，不补这个所有图标都是空白
+    implementation 'org.lynxsdk.lynx:servalsvg:0.0.2'
+
+    // 图片服务：Lynx 自己不做 http 下载，缺了它 <image src="https://..."> 全是空白
+    implementation 'org.lynxsdk.lynx:lynx-service-image:4.2.0'
+
+    // LynxImageService 的底层实现是 Fresco，缺这些依赖图片加载会静默失败
+    implementation 'com.facebook.fresco:fresco:2.3.0'
+    implementation 'com.facebook.fresco:animated-gif:2.3.0'
+    implementation 'com.facebook.fresco:animated-webp:2.3.0'
+    implementation 'com.facebook.fresco:webpsupport:2.3.0'
+    implementation 'com.facebook.fresco:animated-base:2.3.0'
+    implementation 'com.squareup.okhttp3:okhttp:4.9.0'
+
+    implementation 'androidx.core:core:1.13.1'
+
+    // xelement 把 kotlin-stdlib 拉到 1.8.22，传递依赖里还有 kotlin-stdlib-jdk7 1.3.72。
+    // 1.8 起 jdk7/jdk8 已是空壳，但空壳仍会带一份 kotlin.internal.jdk7.*，版本不一致就 duplicate class。
+    // 全部钉在编译器用的 1.9.24 上。
+    constraints {
+        implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.9.24'
+        implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.24'
+        implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.24'
+    }
+}

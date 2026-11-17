@@ -1,0 +1,9 @@
+// 根工程只声明插件版本，具体配置在 app/build.gradle。
+//
+// AGP 8.x 要求 JDK 17；本机 JDK 在 ~/android-dev/jdk-17.0.21+9，
+// 通过 local.properties 的 org.gradle.java.home 指过去（见 README）。
+plugins {
+    id 'com.android.application' version '8.5.2' apply false
+    // 宿主是 Kotlin。1.9.24 和 AGP 8.5 匹配；xelement 传递进来的 stdlib 1.8 由 app 模块的约束抬上去
+    id 'org.jetbrains.kotlin.android' version '1.9.24' apply false
+}

@@ -1,102 +1,89 @@
 # 安卓壳
 
-和 `ios/FunnyPlus` 是同一个思路：不重写界面，用 WebView 加载 `lynx` 打出来的 `main.web.bundle`。
-两端共用同一份 web 运行时，界面只有一处实现。
+和 `ios/FunnyPlus` 共用同一份业务代码，但**渲染器是原生 LynxView**（不是 WebView）。
 
 ```
-android/
-├── build.sh                     # 一条命令出 APK
-├── app/
-│   ├── AndroidManifest.xml
-│   ├── res/mipmap-*/            # 应用图标（由 iOS 的 AppIcon-1024 缩放而来）
-│   └── src/com/maka/funnyplus/
-│       ├── MainActivity.java    # WebView 宿主
-│       └── BuildConfig.java.tpl # 后端地址占位，构建时替换
-└── build/funny-plus.apk         # 产物（.gitignore，不进仓）
+lynx/src/** (+ shared/)  ──rspeedy──▶  main.lynx.bundle  ──▶ iOS LynxView 4.2.0
+                                                          └─▶ Android LynxView 4.2.0
 ```
+
+两端跑同一个引擎版本（iOS 见 `Podfile.lock` 的 `Lynx (4.2.0)`），样式与手势差异才不会变成
+「只有安卓不对」。
+
+## 从 WebView 换成 LynxView 的原因
+
+旧实现是 `WebView` 加载 `main.web.bundle` + `@lynx-js/web-core`。能跑，但：
+
+| 能力 | 原生 Lynx | Web 渲染 |
+|---|---|---|
+| Native Modules | ✅ | ❌ 不存在 |
+| Custom Element | ✅ | 受限降级 |
+| 写请求（收藏/打卡） | ✅ | ❌ WebView 不把 POST body 交给 `shouldInterceptRequest` |
+
+定位当时只能靠往 DOM 塞 `globalProps` 字符串，没有回调也没有错误码。要在 MVP 里接
+系统能力（定位/照片/分享/推送），必须落在 Native Modules 上，所以先把引擎对齐。
 
 ## 构建
 
 ```bash
-npm run build          # 先出 lynx/dist/main.web.bundle
-./android/build.sh     # 出 android/build/funny-plus.apk
+npm run build          # 出 lynx/dist/main.lynx.bundle
+./android/build.sh     # 出 android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-要指向局域网的后端（真机调试用）：
+指向局域网后端（真机调试）：
 
 ```bash
 ./android/build.sh --api http://192.168.1.5:8787
 ```
 
-不传就是 `http://127.0.0.1:8787`（本机后端，真机上连不通）。
+不传就是 `http://10.0.2.2:8787` —— 模拟器里 `127.0.0.1` 是它自己，`10.0.2.2` 才是宿主机。
 
 ### 环境依赖
 
-脚本不依赖 Gradle，直接调 SDK 里的 `aapt2` / `d8` / `apksigner`。需要：
-
 | 依赖 | 默认位置 | 说明 |
 |---|---|---|
-| JDK 17 | `~/android-dev/jdk-17.0.21+9/Contents/Home` | 可用 `JAVA_HOME` 覆盖 |
-| Android SDK | `~/android-dev/sdk` | 可用 `ANDROID_HOME` 覆盖 |
-| build-tools 34.0.0 | `$ANDROID_HOME/build-tools/34.0.0` | |
-| platform android-34 | `$ANDROID_HOME/platforms/android-34` | 提供 `android.jar` |
+| JDK 17 | `~/android-dev/jdk-17.0.21+9/Contents/Home` | AGP 8.x 要求；`local.properties` 的 `org.gradle.java.home` 也指向它 |
+| Android SDK | `~/android-dev/sdk` | 需 `platforms/android-34`、`build-tools/34.0.0` |
+| Gradle 8.7 | 由 `gradlew` 自动下载 | 首次构建会拉 ~130MB distribution |
 
-从零装（无 Homebrew 时的做法）：
+`android/local.properties`（不进仓）需要写本机路径：
 
-```bash
-mkdir -p ~/android-dev && cd ~/android-dev
-
-# JDK（清华镜像比 GitHub release 快一个数量级）
-curl -L -o jdk.tar.gz "https://mirrors.tuna.tsinghua.edu.cn/Adoptium/17/jdk/aarch64/mac/OpenJDK17U-jdk_aarch64_mac_hotspot_17.0.21_9.tar.gz"
-tar xzf jdk.tar.gz
-
-# cmdline-tools
-curl -L -o cmdline-tools.zip "https://dl.google.com/android/repository/commandlinetools-mac-11076708_latest.zip"
-mkdir -p sdk/cmdline-tools && unzip -q cmdline-tools.zip -d sdk/cmdline-tools
-mv sdk/cmdline-tools/cmdline-tools sdk/cmdline-tools/latest
-
-export JAVA_HOME="$HOME/android-dev/jdk-17.0.21+9/Contents/Home"
-export ANDROID_HOME="$HOME/android-dev/sdk"
-yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses
-"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
-  "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+```properties
+sdk.dir=/Users/<you>/android-dev/sdk
+org.gradle.java.home=/Users/<you>/android-dev/jdk-17.0.21+9/Contents/Home
 ```
 
-## 为什么这么实现
+## 结构
 
-**不用 `file://` 加载页面。** 在 `file://` 下业务 JS 里的 `fetch` 会被当成不透明源，wasm 也加载不了。
-安卓没有 iOS 的 `WKURLSchemeHandler`，所以把 assets 挂到 `https://appassets.androidplatform.net/assets/`——
-和官方 `WebViewAssetLoader` 同一个域名和思路，但不引 androidx 依赖。页面因此拿到一个正常的安全源，
-`fetch` / `wasm` / `localStorage` 全部可用。
+```
+android/
+├── build.sh                     # 同步 bundle + 调 gradlew
+├── settings.gradle              # 仓库与插件来源
+├── build.gradle                 # AGP 版本
+├── gradlew / gradle/wrapper/    # Gradle wrapper（8.7）
+└── app/
+    ├── build.gradle             # 依赖：lynx / xelement / servalsvg / fresco
+    └── src/main/
+        ├── AndroidManifest.xml
+        ├── assets/web/main.lynx.bundle   # 构建期从 lynx/dist 复制
+        ├── res/                          # 图标与主题
+        └── kotlin/com/maka/funnyplus/
+            ├── FPApplication.kt          # LynxEnv + Fresco(含SVG解码) + ImageService
+            ├── FPSvgDecoder.kt           # 给 Fresco 补 SVG 解码（图标是 data:image/svg+xml）
+            └── MainActivity.kt           # LynxView 宿主 + 定位注入
+```
 
-**`/api/*` 由原生转发**（`proxyApi`），页面里始终是同源请求，省掉 CORS 和混合内容限制。
-但只转发 GET：`WebView` 不把 POST 的请求体交给 `shouldInterceptRequest`，硬转发会变成空 body。
-所以写操作（收藏 / 打卡）在壳里会拿到 405，前端照实弹「网络不通，收藏没存上」——
-不会出现「界面显示已收藏但其实没写进去」这种假成功。
+## 三个容易踩的点
 
-**返回键是「再按一次退出」**。业务 JS 跑在 Web Worker 里（Lynx web 运行时的工作线程），
-原生在主线程的 `window` 上问不到「现在是不是在详情页」，单页应用也没有 WebView 历史可退。
-与其让一次误按就把应用退到桌面、看起来像崩了，不如用安卓标准的两次确认。
+**1. 元素集合要挂三份。** `BuiltInBehavior` 只有 view/text/scroll-view/list 等 12 种，
+`image` 在 `BuiltInUIRegistry` 里，`svg`/`input`/`video` 在 `XElementBehaviors` 里。
+少任何一份都会 `603 Can't find ui tag`，最后 `9902` 崩在 image。
 
-## 分发给别人安装
+**2. SVG 要挂在 Fresco 的解码层。** `LynxView.setImageInterceptor` 在 `LynxTemplateRender`
+或 `LynxContext` 还没建好时会**静默丢弃**（内部 null 直接 return）。我们的图标全是
+`data:image/svg+xml`，Fresco 默认不认，所以走 `ImageDecoderConfig.addDecodingCapability`
+在 `Application.onCreate` 注册，绕开时序。
 
-产物是一个已签名的 debug APK，可以直接发给安卓手机装。注意事项：
-
-1. **必须允许「未知来源」**。微信/QQ 传过去后，点开会提示来源未知，
-   要在「设置 → 应用 → 特殊权限 → 安装未知应用」里给对应 App 放行。
-2. **签名固定**。`android/keystore/funny.jks`（口令 `funnyplus`）不进仓但必须留在本机。
-   换 key 会导致已装的包无法覆盖升级，只能先卸载。
-3. **没有后端也能用**。App 冷启动用随包种子数据（`data/*.json`），
-   城市 / 攻略 / 玩法 / 行程引擎都在本地，断网可浏览和生成行程。
-   只有收藏和打卡需要后端，连不上就提示网络不通。
-4. **系统 WebView 要够新**。跑的是 `lynx` 的 web 运行时（Chromium 内核 + wasm），
-   太旧的安卓机（WebView < 100）可能白屏。实测 Android 13 / WebView 101 正常。
-
-## 已验证
-
-在 Android 13（API 33）arm64 模拟器上实测通过：
-
-- 安装、启动正常，首页、热门推荐详情、我的 三个界面均正常渲染
-- IP 形象、景点图、底部 tab 全部显示正确
-- 返回键弹「再按一次退出」，不会一次误按就退出
-- `client.js` 从虚拟域加载成功，无白屏
+**3. bundle 不能是 dev 构建。** dev 包内嵌 HMR 的 `webpack-dev-transport`，会去连
+`10.8.206.250:3000` 并在日志里刷 `code=201 WebSocket is not found`。发布前确认
+`strings lynx/dist/main.lynx.bundle | grep -c webpack-dev-transport` 为 0。

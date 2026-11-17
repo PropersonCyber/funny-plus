@@ -1,0 +1,24 @@
+// 安卓壳：原生 LynxView 宿主。
+//
+// 为什么从 build.sh 换成 Gradle：Lynx 只发 Maven 上的 AAR（lynx + lynx-base + primjs
+// 等 8 个包，含 liblynx.so），手搓 aapt2/d8 得自己解析依赖树、解压 jniLibs、合并
+// manifest —— 等于重写一遍 AGP。定位要用 Native Module 也要求 LynxEnv 在
+// Application 启动时完成初始化，继续手搓只会越攒越脆。
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = 'FunnyPlus'
+include ':app'
