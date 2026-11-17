@@ -71,6 +71,13 @@
       "when": 1794543210364,
       "tag": "0009_flimsy_stryfe",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794903474042,
+      "tag": "0010_silent_bloodstrike",
+      "breakpoints": true
     }
   ]
 }

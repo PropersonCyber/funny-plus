@@ -5,6 +5,7 @@ import { db } from './db/client.ts'
 import { aiRoute } from './routes/ai.ts'
 import { authRoute } from './routes/auth.ts'
 import { contentRoute } from './routes/content.ts'
+import { eventsRoute } from './routes/events.ts'
 import { factsRoute } from './routes/facts.ts'
 import { geoRoute } from './routes/geo.ts'
 import { linesRoute } from './routes/lines.ts'
@@ -36,6 +37,8 @@ app.route('/api/constraints', reportRoute)
 app.route('/api/trips', tripsRoute)
 app.route('/api/geo', geoRoute)
 app.route('/api/ai', aiRoute)
+// 埋点批量上报（F10）：独立路径，与业务接口分开，便于单独限流或关停
+app.route('/api/events', eventsRoute)
 
 app.onError((err, c) => {
   console.error('[api]', err)

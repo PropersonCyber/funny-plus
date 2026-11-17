@@ -320,3 +320,42 @@ export const constraintReports = pgTable(
     index('constraint_reports_rule_idx').on(t.ruleCode)
   ]
 )
+
+/**
+ * 埋点事件（F10 评估）。
+ *
+ * 为什么落库而不是只打 console：MVP 要按两条验收旅程统计「完成到哪一步、在哪中断」，
+ * 数据不出设备就等于没测。表只承载「谁在什么时候做了什么」，不放全量行程内容。
+ *
+ * 三个刻意的选择：
+ * 1. `session_id` 由客户端生成并随事件带上。没有账号体系时，它是把一次旅程串起来的
+ *    唯一依据；同一设备的两次测试靠它区分，靠时间戳猜会把并发测试搅在一起。
+ * 2. `at` 与 `received_at` 双记：`at` 是客户端时间（可能被改或时区错），`received_at`
+ *    是服务端落库时间。排查「事件顺序反了」时必须能对照这两个。
+ * 3. `props` 用 jsonb 而不是拆列：事件属性随功能演进，拆列等于每加一个字段都要迁移。
+ *    代价是没法对 props 内部建索引，本期也不需要。
+ *
+ * 不存 IP、不存设备型号：本期只回答「流程走到哪一步断了」，不做用户画像。
+ */
+export const trackEvents = pgTable(
+  'track_events',
+  {
+    id: text('id').primaryKey(),
+    /** 客户端一次会话一个；同设备多次测试靠它区分 */
+    sessionId: text('session_id').notNull(),
+    clientId: text('client_id').notNull(),
+    /** 端标识：排查「只有 iOS 中断」这类问题时第一刀就切它 */
+    platform: text('platform'),
+    event: text('event').notNull(),
+    props: jsonb('props').$type<Record<string, string | number | boolean>>().notNull().default({}),
+    /** 客户端记录时间 */
+    at: timestamp('at', { withTimezone: true }).notNull(),
+    /** 服务端接收时间 */
+    receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow()
+  },
+  (t) => [
+    index('track_events_session_idx').on(t.sessionId),
+    index('track_events_event_at_idx').on(t.event, t.at),
+    index('track_events_client_idx').on(t.clientId)
+  ]
+)
