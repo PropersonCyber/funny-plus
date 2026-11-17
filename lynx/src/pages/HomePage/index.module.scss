@@ -89,9 +89,13 @@
 }
 
 .ai-fab {
-  position: absolute;
+  /* 必须 fixed：absolute 是相对 .home 定位，而 .home 高度是内容高度，
+     内容一长 bottom:16px 就锚到页面底部，按钮被一起滚出视口（实测 y 到 1512）。
+     悬浮件语义是「永远停在视口右下角」，所以脱离文档流。 */
+  position: fixed;
   right: 16px;
-  bottom: 16px;
+  /* 给 tabbar 让位：tabbar 是 84px 高（含 24px 底部内边距），按钮停在它上方 */
+  bottom: calc(84px + 16px);
   width: 56px;
   height: 56px;
   border-radius: 28px;
@@ -102,6 +106,7 @@
   justify-content: center;
   box-shadow: 0 6px 18px rgba(36, 120, 242, 0.22);
   overflow: hidden;
+  z-index: 10;
 }
 
 /* 定位条是页面的固定头：滚动内容从它下面穿过 */
