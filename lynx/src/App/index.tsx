@@ -10,6 +10,7 @@ import { SUB_PAGES } from './subPages.js';
 import { TabBar } from './TabBar.js';
 import { useBootstrap } from './useBootstrap.js';
 import { useContent } from './useContent.js';
+import { useGuides } from './useGuides.js';
 import { useLocationChannel } from './useLocationChannel.js';
 import { useRoute } from './useRoute.js';
 import { useTrips } from './useTrips.js';
@@ -36,7 +37,7 @@ export function App() {
   const route = useRoute();
   const trips = useTrips(booted);
   const content = useContent(booted);
-
+  const guides = useGuides(booted);
   const [tab, setTab] = useState<TabId>('home');
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -113,6 +114,19 @@ export function App() {
             onSaveOverview={(text) => trips.saveOverview(trips.active?.id ?? '', text)}
             onOverviewPhotos={(photos) => trips.setOverviewPhotos(trips.active?.id ?? '', photos)}
             onSavePlace={(patch) => trips.savePlaceNote(trips.active?.id ?? '', patch)}
+            draft={guides.draftOf(trips.active?.id ?? '')}
+            onGenerateDraft={() =>
+              guides.generate(
+                trips.active?.id ?? '',
+                trips.demand,
+                trips.plans,
+                trips.planIndex,
+                trips.memoryOf(trips.active?.id ?? '')
+              )
+            }
+            onPatchDraft={(next) => guides.patch(trips.active?.id ?? '', next)}
+            onToggleDraftPlace={(planRef) => guides.togglePlace(trips.active?.id ?? '', planRef)}
+            perPerson={trips.plans[trips.planIndex]?.budget.perPerson ?? 0}
           />
         ) : (
           <MainTabs

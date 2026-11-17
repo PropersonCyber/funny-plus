@@ -7,10 +7,11 @@ import { CityPage } from '../pages/CityPage/index.js';
 import { GuideDetailPage } from '../pages/GuideDetailPage/index.js';
 import { GuideListPage } from '../pages/GuideListPage/index.js';
 import { HotDetailPage } from '../pages/HotDetailPage/index.js';
+import { GuideDraftPage } from '../pages/GuideDraftPage/index.js';
 import { MemoryPage } from '../pages/MemoryPage/index.js';
 import { PlayDetailPage } from '../pages/PlayDetailPage/index.js';
-import type { ChangeImpact, Demand, PhotoRef, PlaceNote, Plan, TripMemory } from '../data.js';
 import { TripDetailPage } from '../pages/TripDetailPage/index.js';
+import type { ChangeImpact, Demand, GuideDraft, PhotoRef, PlaceNote, Plan, TripMemory } from '../data.js';
 import type { Content, Mine } from '../remote.js';
 import { track } from '../track.js';
 import type { RouteName, RouteParams } from './useRoute.js';
@@ -43,6 +44,15 @@ export type SubPageProps = {
   onSavePlace: (
     patch: { planRef: string; dayIndex: number; placeId: string; placeTitle: string } & Partial<PlaceNote>
   ) => void;
+  /** 攻略草稿；null 表示还没生成过 */
+  draft: GuideDraft | null;
+  /** 生成或重新生成草稿 */
+  onGenerateDraft: () => GuideDraft;
+  onPatchDraft: (next: Partial<GuideDraft>) => void;
+  /** 翻转某地点是否写进攻略 */
+  onToggleDraftPlace: (planRef: string) => void;
+  /** 整趟人均费用，供预览里「公开费用」用 */
+  perPerson: number;
 };
 
 /**
@@ -110,6 +120,27 @@ export const SUB_PAGES: Record<RouteName, (p: SubPageProps) => ReactElement> = {
       onPhotos={p.onOverviewPhotos}
       onSavePlace={p.onSavePlace}
       onEnd={() => p.onEnd(!p.endedAt)}
+      onGuide={() => {
+        // 先生成再进页面：把副作用留在点击里，避免在渲染期间 setState
+        if (!p.draft) p.onGenerateDraft();
+        p.go('guideDraft');
+      }}
+    />
+  ),
+
+  // 攻略草稿：从回忆里挑内容整理成可给人看的版本（发布能力待账号与服务端）
+  guideDraft: (p) => (
+    <GuideDraftPage
+      demand={p.demand}
+      plans={p.plans}
+      planIndex={p.planIndex}
+      // 进页面前已由 onGuide 生成；万一为空也按当前回忆补一份，不让页面崩
+      draft={p.draft ?? p.onGenerateDraft()}
+      perPerson={p.perPerson}
+      onBack={p.back}
+      onPatch={p.onPatchDraft}
+      onToggle={p.onToggleDraftPlace}
+      onRegenerate={p.onGenerateDraft}
     />
   ),
   assistant: (p) => (

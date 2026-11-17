@@ -4,7 +4,18 @@ import { facts } from './facts.js';
 import { places } from './places.js';
 import { distanceKm, placeById, setPlaces } from '../../shared/engine/placeIndex.js';
 import { splitByFreshness, trustLabel } from '../../shared/engine/facts.js';
-import type { ChangeImpact, Demand, PhotoRef, Place, PlaceNote, Plan, TripMemory } from '../../shared/types/index.js';
+import type {
+  ChangeImpact,
+  Demand,
+  GuideDraft,
+  GuideSection,
+  GuideSectionItem,
+  PhotoRef,
+  Place,
+  PlaceNote,
+  Plan,
+  TripMemory,
+} from '../../shared/types/index.js';
 
 // 引擎的索引需要在同步计算前就绪；原生壳没有接口可拉，先用本地副本顶上
 try {
@@ -15,7 +26,17 @@ try {
 
 type BudgetLevel = Demand['budgetLevel'];
 
-export type { ChangeImpact, Demand, PhotoRef, PlaceNote, Plan, TripMemory };
+export type {
+  ChangeImpact,
+  Demand,
+  GuideDraft,
+  GuideSection,
+  GuideSectionItem,
+  PhotoRef,
+  PlaceNote,
+  Plan,
+  TripMemory,
+};
 
 /** 接口返回的地点池覆盖随包副本：副本只是断网兜底，线上仍以库为准 */
 export function applyPlaces(list: Place[]): void {

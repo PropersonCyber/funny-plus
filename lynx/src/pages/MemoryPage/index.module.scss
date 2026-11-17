@@ -191,3 +191,29 @@
 .mem-end-text.ghost {
   color: #2478f2;
 }
+
+.mem-guide {
+  margin-top: 10px;
+  height: 46px;
+  border-radius: 23px;
+  background-color: #172b4d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mem-guide-text {
+  font-size: 15px;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.mem-guide-hint {
+  padding: 8px 4px 0 4px;
+}
+
+.mem-guide-hint-text {
+  font-size: 11px;
+  line-height: 17px;
+  color: #8a99b3;
+}

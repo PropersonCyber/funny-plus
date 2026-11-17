@@ -1,4 +1,4 @@
-import type { ChangeImpact, Demand, PhotoRef, PlaceNote, Plan, TripMemory } from './data.js';
+import type { ChangeImpact, Demand, GuideDraft, GuideSection, GuideSectionItem, PhotoRef, PlaceNote, Plan, TripMemory } from './data.js';
 
 /**
  * 本机保存。踩过的坑：这个 app 现在跑在 iOS 的 WKWebView + @lynx-js/web-core 里，
@@ -23,7 +23,9 @@ const KEYS = [
   // 与 chatSession.CHAT_STORAGE_KEY 同一串：漏了的话重启后对话读不回来
   'funny-plus.chat.v1',
   // 旅行回忆：与行程分开存，改行程不能把已写的回忆冲掉
-  'funny-plus.memory.v1'
+  'funny-plus.memory.v1',
+  // 攻略草稿：同样独立一份，回忆改了草稿不该跟着变
+  'funny-plus.guides.v1'
 ];
 const DB_NAME = 'funny-plus';
 const DB_STORE = 'kv';
@@ -352,4 +354,78 @@ let photoSeq = 0;
 export function newPhotoId(): string {
   photoSeq += 1;
   return `ph-${Date.now().toString(36)}-${photoSeq}`;
+}
+
+/* ---------------- 攻略草稿：独立一份，不与回忆联动 ---------------- */
+
+const GUIDES_KEY = 'funny-plus.guides.v1';
+
+export type GuideBook = Record<string, GuideDraft>;
+
+/**
+ * 读攻略草稿。
+ *
+ * 与回忆同一套思路：逐条校验、坏的只丢那一条。showCost 缺失一律按 false 处理 ——
+ * 这是隐私开关，读档时宁可当成「不公开」，也不能因为字段缺失就默认公开。
+ */
+export function loadGuides(): GuideBook {
+  const raw = readLocal(GUIDES_KEY);
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object') return {};
+    const out: GuideBook = {};
+    for (const [id, value] of Object.entries(parsed as Record<string, unknown>)) {
+      const g = value as GuideDraft | null;
+      if (!g || typeof g !== 'object' || typeof g.tripId !== 'string') continue;
+      const sections: GuideSection[] = [];
+      for (const s of Array.isArray(g.sections) ? g.sections : []) {
+        if (!s || typeof s !== 'object') continue;
+        const items: GuideSectionItem[] = [];
+        for (const it of Array.isArray(s.items) ? s.items : []) {
+          if (!it || typeof it.planRef !== 'string') continue;
+          items.push({
+            planRef: it.planRef,
+            placeTitle: typeof it.placeTitle === 'string' ? it.placeTitle : '',
+            text: typeof it.text === 'string' ? it.text : '',
+            visited: it.visited === 'yes' || it.visited === 'no' ? it.visited : 'unknown',
+            photos: Array.isArray(it.photos) ? it.photos.filter(isPhoto) : [],
+          });
+        }
+        if (items.length) sections.push({ dayIndex: Number(s.dayIndex) || 1, items });
+      }
+      out[id] = {
+        id,
+        tripId: g.tripId,
+        title: typeof g.title === 'string' ? g.title : '',
+        summary: typeof g.summary === 'string' ? g.summary : '',
+        photos: Array.isArray(g.photos) ? g.photos.filter(isPhoto) : [],
+        // 隐私开关：只有显式 true 才算公开
+        showCost: g.showCost === true,
+        // 缺失时按「不勾」恢复：宁可让用户重新点，也不要默认把没确认的内容算成公开
+        picked: (() => {
+          const out: Record<string, boolean> = {};
+          const src = g.picked && typeof g.picked === 'object' ? (g.picked as Record<string, unknown>) : {};
+          for (const [k, v] of Object.entries(src)) if (v === true) out[k] = true;
+          return out;
+        })(),
+        sections,
+        createdAt: typeof g.createdAt === 'string' ? g.createdAt : new Date().toISOString(),
+        updatedAt: typeof g.updatedAt === 'string' ? g.updatedAt : new Date().toISOString(),
+      };
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+export function saveGuides(book: GuideBook): boolean {
+  return writeLocal(GUIDES_KEY, JSON.stringify(book));
+}
+
+let guideSeq = 0;
+export function newGuideId(): string {
+  guideSeq += 1;
+  return `gd-${Date.now().toString(36)}-${guideSeq}`;
 }

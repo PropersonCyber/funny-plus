@@ -26,6 +26,8 @@ type Props = {
     patch: { planRef: string; dayIndex: number; placeId: string; placeTitle: string } & Partial<PlaceNote>
   ) => void;
   onEnd: () => void;
+  /** 进攻略草稿：把回忆整理成能给人看的版本 */
+  onGuide: () => void;
 };
 
 /**
@@ -46,6 +48,7 @@ export function MemoryPage({
   onPhotos,
   onSavePlace,
   onEnd,
+  onGuide,
 }: Props) {
   const plan = plans[Math.min(planIndex, plans.length - 1)] ?? plans[0];
   const days = plan?.days ?? [];
@@ -240,6 +243,14 @@ export function MemoryPage({
               <text className={cls('card-note')}>这套方案还没有安排，先在行程页加地点再来记。</text>
             </view>
           ) : null}
+          <view className={cls('mem-guide')} bindtap={onGuide}>
+            <text className={cls('mem-guide-text')}>整理成攻略</text>
+          </view>
+          <view className={cls('mem-guide-hint')}>
+            <text className={cls('mem-guide-hint-text')}>
+              只挑你想公开的地点与感受。同行人数、费用、私人备注默认都不带过去。
+            </text>
+          </view>
 
           <view
             className={cls(endedAt ? 'mem-end mem-end-ghost' : 'mem-end')}

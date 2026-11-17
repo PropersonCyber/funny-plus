@@ -501,3 +501,61 @@ export interface TripMemory {
   createdAt: string
   updatedAt: string
 }
+
+/**
+ * 攻略草稿：从私人回忆里挑出一部分，整理成能给人看的版本。
+ *
+ * 为什么是「草稿」而不是直接生成分享页：攻略要公开发布，草稿阶段的每一步都必须是
+ * 用户选的，不能替他决定「哪些内容可以公开」。发布能力（链接、快照、撤回）等账号与
+ * 服务端能力就绪后再接，本结构已经能完整承载编辑结果。
+ *
+ * 三条隐私约束直接写进结构：
+ * 1. sections 只收录用户勾选的地点 —— 没选的不进结构，不是「渲染时藏起来」。
+ * 2. showCost 默认 false：费用不默认公开。
+ * 3. 不带精确位置历史、同行人、私人备注（那些字段压根不在这里）。
+ */
+export interface GuideDraft {
+  id: string
+  /** 来源行程；草稿与旅程一一对应，换行程重新生成 */
+  tripId: string
+  /** 用户可改的标题 */
+  title: string
+  /** 用户可改的开头概述 */
+  summary: string
+  /** 用户勾选进攻略的封面照片（从回忆里挑） */
+  photos: PhotoRef[]
+  /** 是否公开费用区间；默认不公开 */
+  showCost: boolean
+  /**
+   * 用户勾选进攻略的条目，key 为 PlanItem.id。
+   *
+   * 为什么单独一份而不是「sections 里有就是选中」：sections 承载全部候选内容，
+   * 用它兼作勾选状态会让「默认只勾去过的」这个规则无处存放 —— 早先的实现就是这么
+   * 错的，结果 Day 2 三个没记过的地点全被当成已选中。
+   */
+  picked: Record<string, boolean>
+  sections: GuideSection[]
+  createdAt: string
+  updatedAt: string
+}
+
+/**
+ * 攻略里的一天。
+ *
+ * visited 从 PlaceNote 拷过来原样保留：分享页要把「亲历」和「只是计划过」
+ * 分开呈现，不能让读者把没确认到访的地方当成人去过。这里不做过滤 ——
+ * 用户选进来就展示，但标签必须如实。
+ */
+export interface GuideSection {
+  dayIndex: number
+  items: GuideSectionItem[]
+}
+
+export interface GuideSectionItem {
+  planRef: string
+  placeTitle: string
+  /** 从回忆带过来的感受；用户在这里可以再改 */
+  text: string
+  visited: 'yes' | 'no' | 'unknown'
+  photos: PhotoRef[]
+}
