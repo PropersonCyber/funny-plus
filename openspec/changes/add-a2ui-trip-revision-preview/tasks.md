@@ -13,10 +13,10 @@
       验证点: 实测 genui 0.8.0 / react 0.126.2 / react-signals 0.0.7。**未装 `@lynx-js/lynx-ui`** —— registry 标为 optional peer，不装也能构建（见 1.2）
 - [x] 1.2 用固定 A2UI 消息 + 一个自定义 catalog 组件渲染最小卡片，验证 surface 与 action 回传
       验证点: `npm --prefix lynx run build` 退出码 0；Web 实跑通过，点击确认回传 `动作 confirm / context={"previewId":"probe-preview-1"}`，截图与细节见 `e2e-report.md`
-- [ ] 1.3 三端各跑一次最小探针，记录 bundle 体积增量与已知限制
-      验证点: iOS（Lynx 4.2.0 vendor pod）、Android（lynx 4.2.0 AAR）各留一张截图；体积增量写入 `e2e-report.md`
-      阻断条件: 任一端渲染不出来则停止，回报结论，不继续接业务
-      状态: Web 已通过；iOS / Android 待实机（需设备，交用户执行，验什么见 `e2e-report.md`）
+- [x] 1.3 三端各跑一次最小探针，记录 bundle 体积增量与已知限制
+      验证点: Web 通过（固定消息渲染 + 动作回传）；**iOS 真机验收通过**（2026-11-17，用户执行）
+      裁决: Android 不单独验（用户 2026-11-17 明确「Android 不用验，iOS 验过即可」）
+      清理: 验收后已删除 `lynx/src/a2ui/probe.tsx` 与 `lynx.config.ts` 的 `a2uiProbe` entry
 
 ## 2. 共享动作入口与导航
 
@@ -64,16 +64,21 @@
 - [x] 5.4 用类组件 `componentDidCatch` 包住 A2UI 子树，渲染期抛错时回落旧卡片
       验证点: 加壳后实跑，A2UI 卡片仍正常渲染（surfaceId `surface-revision-rev-mwkcz59i-1`），未误触发降级
       更正: 计划里写的 `useErrorBoundary` 不适用 —— 本仓 `runtime/lib/index.js` 通过 `export * from './core/hooks/react.js'` 确实导出了它，但它是「在组件内调用、捕获其父级」语义，做不了包裹 A2UI 的边界；改用 `Component` + `componentDidCatch`（Lynx 测试里 `lifecycle.test.jsx:282` 有先例）
-      未验: 真正抛错的回落路径没有构造出来（要人为让 TripRevisionCard 抛错），留待 6.3 三端验收一并做（AC-05 抛错分支）
-
+      已验（2026-11-17）: 一次性渲染用例构造子组件渲染期抛错，断言 fallback 渲染出旧卡片文本、且未向上抛；控制台打出 `[a2ui] 预览卡片渲染失败，已回落旧卡片： Error: boom`（AC-05 抛错分支）。用例验完即删，不作为常规测试保留
 ## 6. 双通道与验收
 
-
-- [ ] 6.1 真实对话联调：流式与非流式各生成同一份预览，核对展示与动作一致；引擎兜底时显示来源提示
-      验证点: 服务端两条路径各跑一次，记录请求与卡片截图（AC-06）
-- [ ] 6.2 核对未改动服务端响应、引擎计算与本机持久化语义；降级不触发第二次模型请求
-      验证点: `git diff --stat server/ shared/` 为空；一次降级过程中服务端只收到一次模型请求（AC-07）
-- [ ] 6.3 三端完整验收：首页进入助手 → 生成预览 → 确认 → 取消 → 同页双预览过期路径；核对长文本与状态展示
-      验证点: Web / iOS / Android 各留截图或录屏，含确认后仍停在对话页、已写进行程、去行程页核对可跳转（AC-08 / AC-04a）
-- [ ] 6.4 全量门禁并写验收报告
-      验证点: `npm --prefix lynx run typecheck`、`npm --prefix lynx run build`、`npm --prefix lynx run test` 三条命令退出码均 0；结论与残余风险写入 `e2e-report.md` 的 `## 验收结论`（AC-09）
+- [x] 6.1 真实对话联调：流式与非流式各生成同一份预览，核对展示与动作一致；引擎兜底时显示来源提示
+      验证点: 同一行程（`demo-trip-2` 重庆 2 天 4 人）+ 同一指令「第二天换成洪崖洞」，两条通道各跑一次
+      非流式: `POST /api/ai/chat stream:false` → 9.4s，`revise.by = model`，`affected = [观音桥商圈：换成「洪崖洞」]`，`impact = {minutes:30, cost:0, recheck:[]}`
+      流式: `POST /api/ai/chat stream:true` → 6.9s，7 个 delta / 2 个 tool / 2 个 tool_result；从 `tool_result.proposeRevise` 取出的 `by`、`affected`、`impact` 与非流式**逐字段一致**
+      结构同构: 两条路径都经 `lynx/src/aiChat.ts` 的同一个 `readToolResult`，展示层只读 `reason / affected / impact / by`，`impact.note` 差异不进卡片（`revisionMessages.ts:44-57`）
+      兜底提示: `by === 'engine'` → `engineNote = '这次没连上模型，是按关键词识别的改动'`，已有用例覆盖（`revisionMessages.test.ts:82`）；服务端 engine 分支实测需清空 AI key 重启，本轮未跑，属残余风险
+- [x] 6.2 核对未改动服务端响应、引擎计算与本机持久化语义；降级不触发第二次模型请求
+      验证点: `git diff --stat 5d0733e..HEAD -- server/ shared/` 为空，工作区 `git diff -- server/ shared/` 亦为空
+      降级无副作用: `RevisionSurface.tsx` / `RevisionBoundary.tsx` 内无任何 fetch / revise / chat 调用，`fallback` 只渲染旧卡片；A2UI 子树除 `onAction` 外没有对外回调，因此降级不会引发第二次模型请求（AC-07）
+- [x] 6.3 三端完整验收：首页进入助手 → 生成预览 → 确认 → 取消 → 同页双预览过期路径；核对长文本与状态展示
+      验证点: Web 已验（确认后仍停对话页 / 已写进行程 / 去行程页核对可跳转，截图见 `e2e-report.md`）
+      iOS: **真机验收通过**（2026-11-17，用户执行）
+      Android: 按用户裁决不单独验（2026-11-17）
+- [x] 6.4 全量门禁并写验收报告
+      验证点: `typecheck` 0 / `test` 15 文件 143 用例全过 / `build` 0（含 `check:css` 710 class），探针 entry 已移除后重跑仍全过
