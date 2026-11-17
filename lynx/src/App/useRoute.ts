@@ -12,8 +12,7 @@ import { useCallback, useState } from '@lynx-js/react';
  * 参数（guideId / playId / cityId）跟路由一起管：它们只在各自子页存活期间有意义，
  * 分开存的话「先进攻略详情、再进玩法详情」会看到上一次残留的值。
  */
-export type RouteName = 'advice' | 'detail' | 'assistant' | 'city' | 'cityList' | 'guide' | 'guides' | 'hot' | 'play';
-
+export type RouteName = 'advice' | 'detail' | 'assistant' | 'city' | 'cityList' | 'guide' | 'guides' | 'hot' | 'memory' | 'play';
 export type RouteParams = {
   /** 攻略详情要展示哪一条 */
   guideId: string;

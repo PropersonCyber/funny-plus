@@ -17,13 +17,27 @@ type Props = {
   planIndex: number;
   /** 变更记录；空数组表示这趟还没改过 */
   versions: readonly { at: string; note: string }[];
+  /** 行程结束时刻；有值就在头部标出来，避免用户以为还在进行中 */
+  endedAt?: string;
   onBack: () => void;
   onNavigate: () => void;
   onEdit: () => void;
+  /** 进旅行回忆：写回顾与按地点的图文 */
+  onMemory: () => void;
 };
 
 /** 行程详情：概览 + 每天的摘要，设计稿第 6 屏 */
-export function TripDetailPage({ demand, plans, planIndex, versions, onBack, onNavigate, onEdit }: Props) {
+export function TripDetailPage({
+  demand,
+  plans,
+  planIndex,
+  versions,
+  endedAt,
+  onBack,
+  onNavigate,
+  onEdit,
+  onMemory,
+}: Props) {
   const [dayIdx, setDayIdx] = useState(0);
   const plan = plans[Math.min(planIndex, plans.length - 1)] ?? plans[0];
   // 日期只有 mock 一份，天数以真实行程为准：写死 3 天时 1 天行程也能点出第 3 天
@@ -55,6 +69,8 @@ export function TripDetailPage({ demand, plans, planIndex, versions, onBack, onN
                   <text key={t} className={cls('tag tag-inverse')}>{t}</text>
                 ))}
                 <text className={cls('tag tag-inverse')} bindtap={onEdit}>编辑</text>
+                <text className={cls('tag tag-inverse')} bindtap={onMemory}>写回忆</text>
+                {endedAt ? <text className={cls('tag tag-inverse')}>已结束</text> : null}
               </view>
             </view>
           </view>

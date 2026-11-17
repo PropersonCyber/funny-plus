@@ -427,3 +427,77 @@ export interface Footprint {
   placeId: string
   visitedOn: string
 }
+
+/**
+ * 照片引用。
+ *
+ * 为什么存 ref 而不是裸路径：照片来源会变（现在只能从 Web 选成 dataUri，
+ * 将来是壳层给本地文件、或上传后拿到的远端 URL）。收敛成一个带 kind 的结构后，
+ * 换通道只改 photo.ts 的解析，回忆页和存储层不用跟着改第二遍。
+ *
+ * kind: 'local' 是「壳层已给本地文件、但还没上传」的中间态，只在同一台设备可见；
+ * 上传成功后改写成 'remote'。
+ */
+export type PhotoRef =
+  | {
+      id: string
+      kind: 'remote'
+      /** 可直接塞进 <image src> 的地址 */
+      value: string
+      addedAt: string
+    }
+  | {
+      id: string
+      kind: 'local'
+      /** 壳层给的本地文件路径；换设备就失效 */
+      value: string
+      addedAt: string
+    }
+  | {
+      id: string
+      kind: 'dataUri'
+      /** 内联图片：只用于 Web 预览与小图，本机存储，换设备失效 */
+      value: string
+      addedAt: string
+    }
+
+/**
+ * 一条地点记录：用户对某个已排安排的实际经历。
+ *
+ * planRef 指向 PlanItem.id，不是地点 id —— 同一地点可能在不同天各排一次，
+ * 按地点 id 记会把两天的体验混成一条。
+ *
+ * visited 三态而非布尔：unknown 表示用户没说，绝不能默认当成「去了」。
+ * 分享页区分亲历/非亲历就靠它。
+ */
+export interface PlaceNote {
+  /** 对应 PlanItem.id */
+  planRef: string
+  dayIndex: number
+  placeId: string
+  /** 地点名快照：方案重算后 planRef 可能失效，名字仍要能显示 */
+  placeTitle: string
+  visited: 'yes' | 'no' | 'unknown'
+  /** 用户写的感受 */
+  text: string
+  photos: PhotoRef[]
+  updatedAt: string
+}
+
+/**
+ * 一趟旅行的私人回忆。
+ *
+ * 与 SavedTrip 分开存：行程是「计划」，回忆是「实际发生」。混在一份里会导致
+ * 改行程时把已写的回忆一起冲掉，而回忆恰恰是用户最不愿意丢的部分。
+ */
+export interface TripMemory {
+  tripId: string
+  /** 整趟旅行的回顾文字 */
+  overview: string
+  /** 整趟旅行的照片 */
+  photos: PhotoRef[]
+  /** 按地点的记录，key 为 PlanItem.id */
+  places: Record<string, PlaceNote>
+  createdAt: string
+  updatedAt: string
+}

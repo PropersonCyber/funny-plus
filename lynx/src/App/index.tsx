@@ -107,6 +107,12 @@ export function App() {
             onRevise={trips.revisePlan}
             onToggleCollect={content.toggleCollect}
             onCheckIn={content.checkIn}
+            endedAt={trips.active?.endedAt}
+            memory={trips.memoryOf(trips.active?.id ?? '')}
+            onEnd={(ended) => trips.endTrip(trips.active?.id ?? '', ended)}
+            onSaveOverview={(text) => trips.saveOverview(trips.active?.id ?? '', text)}
+            onOverviewPhotos={(photos) => trips.setOverviewPhotos(trips.active?.id ?? '', photos)}
+            onSavePlace={(patch) => trips.savePlaceNote(trips.active?.id ?? '', patch)}
           />
         ) : (
           <MainTabs

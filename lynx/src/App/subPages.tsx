@@ -7,9 +7,10 @@ import { CityPage } from '../pages/CityPage/index.js';
 import { GuideDetailPage } from '../pages/GuideDetailPage/index.js';
 import { GuideListPage } from '../pages/GuideListPage/index.js';
 import { HotDetailPage } from '../pages/HotDetailPage/index.js';
+import { MemoryPage } from '../pages/MemoryPage/index.js';
 import { PlayDetailPage } from '../pages/PlayDetailPage/index.js';
+import type { ChangeImpact, Demand, PhotoRef, PlaceNote, Plan, TripMemory } from '../data.js';
 import { TripDetailPage } from '../pages/TripDetailPage/index.js';
-import type { ChangeImpact, Demand, Plan } from '../data.js';
 import type { Content, Mine } from '../remote.js';
 import { track } from '../track.js';
 import type { RouteName, RouteParams } from './useRoute.js';
@@ -33,6 +34,15 @@ export type SubPageProps = {
   onRevise: (index: number, plan: Plan, impact: ChangeImpact) => void;
   onToggleCollect: (target: 'place' | 'fact' | 'guide' | 'play', id: string) => void;
   onCheckIn: (placeId: string) => void;
+  /** 行程是否已结束；回忆页据此显示「结束」还是「重新标记为进行中」 */
+  endedAt?: string;
+  memory: TripMemory;
+  onEnd: (ended: boolean) => void;
+  onSaveOverview: (text: string) => void;
+  onOverviewPhotos: (photos: PhotoRef[]) => void;
+  onSavePlace: (
+    patch: { planRef: string; dayIndex: number; placeId: string; placeTitle: string } & Partial<PlaceNote>
+  ) => void;
 };
 
 /**
@@ -82,9 +92,26 @@ export const SUB_PAGES: Record<RouteName, (p: SubPageProps) => ReactElement> = {
         p.setTab('map');
       }}
       onEdit={p.onPlan}
+      endedAt={p.endedAt}
+      onMemory={() => p.go('memory')}
     />
   ),
 
+  // 旅行回忆：私人的「实际发生了什么」，与行程（计划）分开
+  memory: (p) => (
+    <MemoryPage
+      demand={p.demand}
+      plans={p.plans}
+      planIndex={p.planIndex}
+      endedAt={p.endedAt}
+      memory={p.memory}
+      onBack={p.back}
+      onSaveOverview={p.onSaveOverview}
+      onPhotos={p.onOverviewPhotos}
+      onSavePlace={p.onSavePlace}
+      onEnd={() => p.onEnd(!p.endedAt)}
+    />
+  ),
   assistant: (p) => (
     <AssistantPage
       tripId={p.tripId}

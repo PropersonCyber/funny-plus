@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from '@lynx-js/react';
 
 import { DEFAULT_DEMAND, planFor } from '../data.js';
-import type { ChangeImpact, Demand, Plan } from '../data.js';
-import { loadStore, newTripId, saveStore } from '../storage.js';
-import type { SavedTrip } from '../storage.js';
+import type { ChangeImpact, Demand, PhotoRef, PlaceNote, Plan, TripMemory } from '../data.js';
+import { loadMemory, loadStore, newTripId, saveMemory, saveStore } from '../storage.js';
+import type { MemoryBook, SavedTrip } from '../storage.js';
 import { track } from '../track.js';
 import { toast } from '../toast.js';
 
@@ -166,6 +166,132 @@ export function useTrips(booted: boolean) {
     setImpact(null);
   }, []);
 
+  /* ---------------- 旅行回忆 ---------------- */
+
+  /**
+   * 回忆单独一份 state，不放 Store 里。
+   *
+   * 理由是生命周期不同：Store 每次改行程都会整体重写，回忆只在用户动它时才变。
+   * 混在一起会让「改一次行程」触发回忆也重新序列化，而且一旦行程校验失败，
+   * 用户的文字会跟着一起被丢弃 —— 那是不可接受的数据损失。
+   */
+  const [memories, setMemories] = useState<MemoryBook>({});
+  const [memLoaded, setMemLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!booted) return;
+    setMemories(loadMemory());
+    setMemLoaded(true);
+  }, [booted]);
+
+  useEffect(() => {
+    if (!memLoaded) return;
+    if (saveMemory(memories)) return;
+    if (!warned.current) {
+      warned.current = true;
+      toast('本机存储不可用，这次改动刷新后会丢');
+    }
+  }, [memLoaded, memories]);
+
+  /** 取某趟旅行的回忆；没有就返回一份空壳，不写回存储（避免只读浏览也产生写入） */
+  const memoryOf = useCallback(
+    (tripId: string): TripMemory => {
+      const found = memories[tripId];
+      if (found) return found;
+      const now = new Date().toISOString();
+      return { tripId, overview: '', photos: [], places: {}, createdAt: now, updatedAt: now };
+    },
+    [memories]
+  );
+
+  /**
+   * 结束旅行。
+   *
+   * 只记时刻，不清任何数据：结束后行程仍然是用户的，只是归类到「已结束」。
+   * 之后要重开（endedAt 置空）也走这里，所以不做成单向动作。
+   */
+  const endTrip = useCallback((id: string, ended: boolean) => {
+    const at = new Date().toISOString();
+    setStore((prev) => ({
+      ...prev,
+      trips: prev.trips.map((t) =>
+        t.id === id ? { ...t, endedAt: ended ? at : undefined } : t
+      ),
+    }));
+    track(ended ? 'trip_end' : 'trip_reopen', { tripId: id });
+  }, []);
+
+  /** 改整趟回顾。空串也存：用户清空内容是他自己的决定，不该被当成「没保存」 */
+  const saveOverview = useCallback((tripId: string, overview: string) => {
+    setMemories((prev) => {
+      const now = new Date().toISOString();
+      const cur = prev[tripId] ?? {
+        tripId,
+        overview: '',
+        photos: [],
+        places: {},
+        createdAt: now,
+        updatedAt: now,
+      };
+      return { ...prev, [tripId]: { ...cur, overview, updatedAt: now } };
+    });
+    track('memory_overview_save', { tripId, chars: overview.length });
+  }, []);
+
+  /** 加/删整趟照片 */
+  const setOverviewPhotos = useCallback((tripId: string, photos: PhotoRef[]) => {
+    setMemories((prev) => {
+      const now = new Date().toISOString();
+      const cur = prev[tripId] ?? {
+        tripId,
+        overview: '',
+        photos: [],
+        places: {},
+        createdAt: now,
+        updatedAt: now,
+      };
+      return { ...prev, [tripId]: { ...cur, photos, updatedAt: now } };
+    });
+  }, []);
+
+  /**
+   * 写一条地点记录。
+   *
+   * patch 只带要改的字段：调「去了」不该把用户已经写好的感受覆盖成空串。
+   */
+  const savePlaceNote = useCallback(
+    (tripId: string, patch: { planRef: string; dayIndex: number; placeId: string; placeTitle: string } & Partial<PlaceNote>) => {
+      setMemories((prev) => {
+        const now = new Date().toISOString();
+        const cur = prev[tripId] ?? {
+          tripId,
+          overview: '',
+          photos: [],
+          places: {},
+          createdAt: now,
+          updatedAt: now,
+        };
+        const existing = cur.places[patch.planRef];
+        const next: PlaceNote = {
+          planRef: patch.planRef,
+          dayIndex: patch.dayIndex,
+          placeId: patch.placeId,
+          placeTitle: patch.placeTitle,
+          // 新记录默认 unknown：用户没表态时绝不能替他认定「去过」
+          visited: patch.visited ?? existing?.visited ?? 'unknown',
+          text: patch.text ?? existing?.text ?? '',
+          photos: patch.photos ?? existing?.photos ?? [],
+          updatedAt: now,
+        };
+        return {
+          ...prev,
+          [tripId]: { ...cur, places: { ...cur.places, [patch.planRef]: next }, updatedAt: now },
+        };
+      });
+    },
+    []
+  );
+
   return {
     store,
     active,
@@ -181,5 +307,11 @@ export function useTrips(booted: boolean) {
     changeCity,
     switchTrip,
     deleteTrip,
+    endTrip,
+    memories,
+    memoryOf,
+    saveOverview,
+    setOverviewPhotos,
+    savePlaceNote,
   };
 }

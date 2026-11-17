@@ -1,4 +1,4 @@
-import type { ChangeImpact, Demand, Plan } from './data.js';
+import type { ChangeImpact, Demand, PhotoRef, PlaceNote, Plan, TripMemory } from './data.js';
 
 /**
  * 本机保存。踩过的坑：这个 app 现在跑在 iOS 的 WKWebView + @lynx-js/web-core 里，
@@ -21,7 +21,9 @@ const KEYS = [
   'funny-plus.feedback.v1',
   'funny-plus.client-id.v1',
   // 与 chatSession.CHAT_STORAGE_KEY 同一串：漏了的话重启后对话读不回来
-  'funny-plus.chat.v1'
+  'funny-plus.chat.v1',
+  // 旅行回忆：与行程分开存，改行程不能把已写的回忆冲掉
+  'funny-plus.memory.v1'
 ];
 const DB_NAME = 'funny-plus';
 const DB_STORE = 'kv';
@@ -193,6 +195,13 @@ export type SavedTrip = {
   planIndex: number;
   savedAt: string;
   versions: TripVersion[];
+  /**
+   * 用户主动结束这次旅行的时刻。undefined = 还在进行中。
+   *
+   * 用可选字段而不是状态枚举：旧存档读进来没有这个字段，天然就是「进行中」，
+   * 不需要写迁移。也给「结束后又重开」留了余地（清空即可）。
+   */
+  endedAt?: string;
 };
 
 export type Store = {
@@ -274,4 +283,73 @@ let seq = 0;
 export function newTripId(): string {
   seq += 1;
   return `trip-${Date.now().toString(36)}-${seq}`;
+}
+
+/* ---------------- 旅行回忆：与行程分开存 ---------------- */
+
+const MEMORY_KEY = 'funny-plus.memory.v1';
+
+export type MemoryBook = Record<string, TripMemory>;
+
+const isPhoto = (p: unknown): p is PhotoRef => {
+  const v = p as PhotoRef | null;
+  return !!v && typeof v.id === 'string' && typeof v.value === 'string' && typeof v.kind === 'string';
+};
+
+/**
+ * 读回忆。
+ *
+ * 逐层校验而不是整份丢弃：用户写的文字最值钱，某条记录格式坏了只该丢那一条，
+ * 不该把整本回忆清空 —— 那等于用户写过的全没了。
+ */
+export function loadMemory(): MemoryBook {
+  const raw = readLocal(MEMORY_KEY);
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object') return {};
+    const out: MemoryBook = {};
+    for (const [tripId, value] of Object.entries(parsed as Record<string, unknown>)) {
+      const m = value as TripMemory | null;
+      if (!m || typeof m !== 'object') continue;
+      const places: Record<string, PlaceNote> = {};
+      for (const [ref, note] of Object.entries(m.places ?? {})) {
+        const n = note as PlaceNote | null;
+        if (!n || typeof n.text !== 'string') continue;
+        places[ref] = {
+          planRef: typeof n.planRef === 'string' ? n.planRef : ref,
+          dayIndex: Number(n.dayIndex) || 0,
+          placeId: typeof n.placeId === 'string' ? n.placeId : '',
+          placeTitle: typeof n.placeTitle === 'string' ? n.placeTitle : '',
+          // 只认三态，其它一律 unknown：宁可不认定，也不能把没去过的记成去过
+          visited: n.visited === 'yes' || n.visited === 'no' ? n.visited : 'unknown',
+          text: n.text,
+          photos: Array.isArray(n.photos) ? n.photos.filter(isPhoto) : [],
+          updatedAt: typeof n.updatedAt === 'string' ? n.updatedAt : new Date().toISOString()
+        };
+      }
+      out[tripId] = {
+        tripId,
+        overview: typeof m.overview === 'string' ? m.overview : '',
+        photos: Array.isArray(m.photos) ? m.photos.filter(isPhoto) : [],
+        places,
+        createdAt: typeof m.createdAt === 'string' ? m.createdAt : new Date().toISOString(),
+        updatedAt: typeof m.updatedAt === 'string' ? m.updatedAt : new Date().toISOString()
+      };
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/** 写成功才返回 true，与 saveStore 同一口径 */
+export function saveMemory(book: MemoryBook): boolean {
+  return writeLocal(MEMORY_KEY, JSON.stringify(book));
+}
+
+let photoSeq = 0;
+export function newPhotoId(): string {
+  photoSeq += 1;
+  return `ph-${Date.now().toString(36)}-${photoSeq}`;
 }

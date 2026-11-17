@@ -87,6 +87,7 @@ export function ProfilePage({ trips, activeId, onSwitch, onDelete, collections, 
               <view className={cls('save-main')}>
                 <text className={cls('menu-title')}>
                   {trip ? `${trip.demand.destination} · ${trip.demand.dayCount} 天行程` : '我的行程'}
+                  {trip?.endedAt ? ' · 已结束' : ''}
                 </text>
               </view>
               <IconSvg content={svgIcon('chevronRight', '#C7D2E3')} style={{ width: '13px', height: '13px' }} />
@@ -95,7 +96,10 @@ export function ProfilePage({ trips, activeId, onSwitch, onDelete, collections, 
 
           {trips.length > 1 ? (
             <view className={cls('card card-tight')}>
-              <text className={cls('sect-title')}>我的行程</text>
+              <text className={cls('sect-title')}>
+                我的行程 · 进行中 {trips.filter((t) => !t.endedAt).length} · 已结束{' '}
+                {trips.filter((t) => t.endedAt).length}
+              </text>
               {trips
                 .slice()
                 .reverse()
@@ -108,6 +112,9 @@ export function ProfilePage({ trips, activeId, onSwitch, onDelete, collections, 
                         onOpenTrip();
                       }}
                     >
+                      <text className={t.endedAt ? cls('mine-city') : cls('mine-tag')}>
+                        {t.endedAt ? '已结束' : '进行中'}
+                      </text>
                       <text className={cls('menu-title')}>
                         {t.demand.destination} · {t.demand.dayCount} 天 · 人均 ¥
                         {t.plans[t.planIndex]?.budget.perPerson ?? t.plans[0]?.budget.perPerson ?? '—'}

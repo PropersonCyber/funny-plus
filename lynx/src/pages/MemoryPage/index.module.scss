@@ -1,0 +1,193 @@
+// 旅行回忆页专属样式（CSS Modules，类名会被哈希）
+
+.mem-page {
+  display: flex;
+  flex-direction: column;
+  padding: 60px 16px 28px 16px;
+}
+
+.mem-banner {
+  display: flex;
+  flex-direction: column;
+  padding: 16px 18px;
+  border-radius: 20px;
+  background-image: linear-gradient(135deg, #2478f2, #35bceb);
+  margin-bottom: 14px;
+}
+
+.mem-banner-title {
+  font-size: 20px;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.mem-banner-sub {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.86);
+  margin-top: 4px;
+}
+
+.mem-input {
+  width: 100%;
+  min-height: 76px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background-color: #f7f9fd;
+  font-size: 13px;
+  line-height: 20px;
+  color: #172b4d;
+}
+
+.mem-count {
+  align-self: flex-end;
+  font-size: 10px;
+  color: #a5b2c7;
+  margin-top: 4px;
+}
+
+.mem-note {
+  font-size: 11px;
+  line-height: 17px;
+  color: #8a99b3;
+  margin-top: 8px;
+}
+
+/* 照片区：一行横滑，避免长图把卡片撑高 */
+.mem-photo-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.mem-photo-wrap {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  margin: 0 8px 8px 0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.mem-photo {
+  width: 72px;
+  height: 72px;
+}
+
+.mem-photo-del {
+  position: absolute;
+  right: 2px;
+  top: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  background-color: rgba(23, 43, 77, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mem-photo-del-text {
+  font-size: 12px;
+  line-height: 12px;
+  color: #ffffff;
+}
+
+.mem-photo-add {
+  width: 72px;
+  height: 72px;
+  border-radius: 12px;
+  border-width: 1px;
+  border-style: dashed;
+  border-color: #c8d6ec;
+  background-color: #f7f9fd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mem-photo-add-text {
+  font-size: 11px;
+  color: #5b6b86;
+}
+
+.mem-row-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mem-row-title {
+  flex: 1;
+  font-size: 15px;
+  font-weight: bold;
+  color: #172b4d;
+}
+
+.mem-row-day {
+  font-size: 11px;
+  color: #8a99b3;
+}
+
+.mem-visited {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.mem-chip {
+  padding: 5px 12px;
+  border-radius: 12px;
+  background-color: #f2f6ff;
+  margin-right: 8px;
+}
+
+.mem-chip-on {
+  background-color: #2478f2;
+}
+
+.mem-chip-no {
+  background-color: #f2665e;
+}
+
+.mem-chip-text {
+  font-size: 12px;
+  color: #5b6b86;
+}
+
+.mem-chip-text.on {
+  color: #ffffff;
+  font-weight: bold;
+}
+
+.mem-row-hint {
+  font-size: 11px;
+  color: #a5b2c7;
+}
+
+.mem-end {
+  margin-top: 6px;
+  height: 46px;
+  border-radius: 23px;
+  background-color: #2478f2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mem-end-ghost {
+  background-color: #eef4ff;
+}
+
+.mem-end-text {
+  font-size: 15px;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.mem-end-text.ghost {
+  color: #2478f2;
+}
