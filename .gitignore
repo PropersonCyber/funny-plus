@@ -30,6 +30,12 @@ docs/*.png
 # 安卓壳的构建产物（APK / 中间 class 与 dex）
 android/build/
 
+# Gradle 工程产物：Android 已从手搓 build.sh 改为标准 Gradle 构建
+android/.gradle/
+android/app/build/
+android/local.properties
+gradle/wrapper/gradle-wrapper.jar
+
 # 安卓签名密钥：不进仓，但必须留在本机 —— 换 key 会导致已装的包无法覆盖升级
 android/keystore/
 
@@ -49,3 +55,12 @@ xcuserdata/
 
 # 早期手工备份目录（*本改变备份策略后再有新的，靠 git 回滚）
 backup-*/
+.onion-sdd/
+
+# onsf: 各平台工具目录（本地开发工具配置，不进团队仓库）
+.cursor/
+.codex/
+.agents/
+.claude/
+.pi/
+.opencode/
