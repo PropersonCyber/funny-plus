@@ -6,6 +6,7 @@ import { loadMemory, loadStore, newTripId, saveMemory, saveStore } from '../stor
 import type { MemoryBook, SavedTrip } from '../storage.js';
 import { track } from '../track.js';
 import { toast } from '../toast.js';
+import { pushMemory, pushTrip } from '../sync.js';
 
 export type Store = { trips: SavedTrip[]; activeId: string };
 
@@ -78,6 +79,9 @@ export function useTrips(booted: boolean) {
     if (!loaded) return;
     if (saveStore(store)) {
       warned.current = false;
+      // 本机已落盘，再尽力推云端：未登录时 pushTrip 直接返回 false，不产生任何请求
+      const active = store.trips.find((t) => t.id === store.activeId);
+      if (active) void pushTrip(active);
       return;
     }
     if (!warned.current) {
@@ -186,7 +190,13 @@ export function useTrips(booted: boolean) {
 
   useEffect(() => {
     if (!memLoaded) return;
-    if (saveMemory(memories)) return;
+    if (saveMemory(memories)) {
+      // 回忆是纯私人内容，未登录时云端没有对应行，pushMemory 会自己跳过
+      const tripId = store.activeId;
+      const mem = memories[tripId];
+      if (tripId && mem) void pushMemory(tripId, mem);
+      return;
+    }
     if (!warned.current) {
       warned.current = true;
       toast('本机存储不可用，这次改动刷新后会丢');

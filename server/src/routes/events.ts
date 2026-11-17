@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { db } from '../db/client.ts'
 import { trackEvents } from '../db/schema.ts'
+import { resolveActorQuietly } from '../auth/middleware.ts'
 
 /**
  * 埋点上报（F10 评估）。
@@ -90,6 +91,9 @@ eventsRoute.post('/', async (c) => {
   const list = (body as { events?: unknown }).events
   if (!Array.isArray(list)) return c.json({ error: 'events 必须是数组' }, 400)
 
+  // 静默解析：token 坏了也照常落库（按 client_id 归属），绝不因此让整批事件失败
+  const actor = await resolveActorQuietly(c.req.header('authorization'))
+
   const rows = list
     .slice(0, BATCH_MAX)
     .map(parseOne)
@@ -98,6 +102,7 @@ eventsRoute.post('/', async (c) => {
       id: crypto.randomUUID(),
       sessionId: e.sessionId,
       clientId: e.clientId,
+      userId: actor?.userId ?? null,
       platform: e.platform ?? null,
       event: e.event,
       props: e.props,

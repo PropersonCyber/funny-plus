@@ -1,0 +1,134 @@
+.lg-page {
+  display: flex;
+  flex-direction: column;
+  padding: 60px 16px 28px 16px;
+}
+
+.lg-title {
+  font-size: 22px;
+  font-weight: bold;
+  color: #172b4d;
+}
+
+.lg-sub {
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 20px;
+  color: #7183a2;
+}
+
+/* 手机号 + 验证码两行：同一列、同样的输入框高度，避免第二步跳动 */
+.lg-field {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.lg-label {
+  font-size: 12px;
+  color: #7183a2;
+}
+
+.lg-input {
+  height: 46px;
+  margin-top: 8px;
+  padding: 0 12px;
+  border-radius: 14px;
+  background-color: #f7f9fd;
+  font-size: 15px;
+  color: #172b4d;
+}
+
+/* 验证码输入与发送按钮同一行 */
+.lg-code-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.lg-code-input {
+  flex: 1;
+  height: 46px;
+  padding: 0 12px;
+  border-radius: 14px;
+  background-color: #f7f9fd;
+  font-size: 15px;
+  color: #172b4d;
+}
+
+.lg-send {
+  margin-left: 10px;
+  padding: 0 14px;
+  height: 46px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 14px;
+  background-color: #eef4ff;
+}
+
+/* 倒计时与冷却中都用这一档：让「还要等」比「可以点」更显眼 */
+.lg-send-text {
+  font-size: 13px;
+  font-weight: bold;
+  color: #2478f2;
+}
+
+.lg-send-text-off {
+  font-size: 13px;
+  color: #a5b2c7;
+}
+
+.lg-error {
+  margin-top: 10px;
+  font-size: 12px;
+  line-height: 18px;
+  color: #f26d6d;
+}
+
+.lg-submit {
+  margin-top: 24px;
+  height: 48px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 16px;
+  background-color: #2478f2;
+}
+
+.lg-submit-off {
+  margin-top: 24px;
+  height: 48px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 16px;
+  background-color: #c9d6ea;
+}
+
+.lg-submit-text {
+  font-size: 15px;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.lg-hint {
+  margin-top: 14px;
+  font-size: 12px;
+  line-height: 18px;
+  color: #a5b2c7;
+}
+
+.lg-skip {
+  margin-top: 18px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 10px;
+}
+
+.lg-skip-text {
+  font-size: 13px;
+  color: #7183a2;
+}

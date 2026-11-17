@@ -29,6 +29,9 @@ type Props = {
   onDismissImpact: () => void;
   onSwitchTrip: (id: string) => void;
   onDeleteTrip: (id: string) => void;
+  /** 已登录手机号；null = 未登录，「我的」页据此显示登录入口 */
+  accountPhone: string | null;
+  onLogin: () => void;
 };
 
 /**
@@ -107,6 +110,8 @@ export function MainTabs(props: Props) {
       footprints={mine.footprints}
       nameOf={props.nameOf}
       onOpenTrip={() => props.setTab('itinerary')}
+      accountPhone={props.accountPhone}
+      onLogin={props.onLogin}
     />
   );
 }

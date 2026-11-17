@@ -1,0 +1,7 @@
+{"file": ".trellis/tasks/11-17-f06-account-auth-sync/design.md", "reason": "数据模型、token 策略、鉴权中间件、接口契约与错误码的唯一技术依据"}
+{"file": ".trellis/tasks/11-17-f06-account-auth-sync/implement.md", "reason": "分阶段执行顺序、每步验证命令与危险文件回滚点"}
+{"file": ".trellis/tasks/11-17-f06-account-auth-sync/prd.md", "reason": "验收口径与三条已确认决策（静默并入 / 滑动续期 / 7 张表全量收口）"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "服务端返回类型与 shared/types 的对齐约束"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "useAuth / useTrips / useGuides 的登录态与云端同步状态放置规则"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "改动前必读的前端质量门禁与 check:css 约束"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "本次跨 schema → 路由 → 前端三层，需要按该指南核对层间契约"}

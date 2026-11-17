@@ -6,6 +6,7 @@ import { CityListPage } from '../pages/CityListPage/index.js';
 import { CityPage } from '../pages/CityPage/index.js';
 import { GuideDetailPage } from '../pages/GuideDetailPage/index.js';
 import { GuideListPage } from '../pages/GuideListPage/index.js';
+import { LoginPage } from '../pages/LoginPage/index.js';
 import { HotDetailPage } from '../pages/HotDetailPage/index.js';
 import { GuideDraftPage } from '../pages/GuideDraftPage/index.js';
 import { MemoryPage } from '../pages/MemoryPage/index.js';
@@ -53,6 +54,17 @@ export type SubPageProps = {
   onToggleDraftPlace: (planRef: string) => void;
   /** 整趟人均费用，供预览里「公开费用」用 */
   perPerson: number;
+  /** 登录态：手机号，null 表示未登录（脱敏展示在页面里做） */
+  accountPhone: string | null;
+  smsCooldown: number;
+  smsSending: boolean;
+  smsVerifying: boolean;
+  smsError: string;
+  onSendCode: (phone: string) => void;
+  onVerifyCode: (phone: string, code: string) => void;
+  onLogout: () => void;
+  /** 非生产环境的固定验证码提示；生产为空串 */
+  devCodeHint: string;
 };
 
 /**
@@ -236,6 +248,22 @@ export const SUB_PAGES: Record<RouteName, (p: SubPageProps) => ReactElement> = {
       />
     );
   },
+
+  // 登录页：唯一入口在「我的」，未登录也能一路用下去，这里只是把本机数据接到账号上
+  login: (p) => (
+    <LoginPage
+      phone={p.accountPhone}
+      cooldown={p.smsCooldown}
+      sending={p.smsSending}
+      verifying={p.smsVerifying}
+      error={p.smsError}
+      devHint={p.devCodeHint}
+      onSend={p.onSendCode}
+      onVerify={p.onVerifyCode}
+      onLogout={p.onLogout}
+      onBack={p.back}
+    />
+  ),
 
   advice: (p) => (
     <AdvicePage demand={p.demand} plans={p.plans} planIndex={p.planIndex} onBack={p.back} onPlan={p.onPlan} />

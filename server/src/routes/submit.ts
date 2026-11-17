@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { and, eq } from 'drizzle-orm'
 import { db } from '../db/client.ts'
 import { constraintReports, dataSubmissions, facts, lines, places } from '../db/schema.ts'
+import { resolveActorQuietly } from '../auth/middleware.ts'
 import type { DataSubmission, SubmitField } from '@/types/index.ts'
 
 /**
@@ -101,7 +102,9 @@ submitRoute.post('/', async (c) => {
     clientId,
     status: 'pending' as const
   }
-  await db.insert(dataSubmissions).values(row)
+  // 登录了就记归属，没登录留空：这两类数据匿名可用，登录只是让它跟账号走
+  const actor = await resolveActorQuietly(c.req.header('authorization'))
+  await db.insert(dataSubmissions).values({ ...row, userId: actor?.userId ?? null })
   return c.json({ item: toApi({ ...row, createdAt: new Date() } as typeof dataSubmissions.$inferSelect) }, 201)
 })
 
@@ -125,8 +128,10 @@ reportRoute.post('/', async (c) => {
     .limit(1)
   if (dupe.length) return c.json({ error: '这条你已经反馈过了' }, 409)
 
+  const actor = await resolveActorQuietly(c.req.header('authorization'))
   await db.insert(constraintReports).values({
     id: crypto.randomUUID(),
+    userId: actor?.userId ?? null,
     issueId,
     ruleCode,
     trustLevel: typeof trustLevel === 'string' ? trustLevel.slice(0, 32) : 'unknown',

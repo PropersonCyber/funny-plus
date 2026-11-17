@@ -1,0 +1,6 @@
+{"file": ".trellis/tasks/11-17-f06-account-auth-sync/design.md", "reason": "核对实现是否与 §3 读写归属规则、§4 错误码、§6 照片缺口一致"}
+{"file": ".trellis/tasks/11-17-f06-account-auth-sync/prd.md", "reason": "逐条核对 8 条 Acceptance Criteria 是否有可复现证据"}
+{"file": ".trellis/tasks/11-17-f06-account-auth-sync/implement.md", "reason": "按各任务写明的验证点逐条确认已执行，未执行的不得勾选"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "前端质量门禁：lint / typecheck / check:css 与注释规范"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "查转让类型断言与 shared/types 漂移"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "跨层一致性：schema 列 ↔ 路由读写 ↔ 前端类型三处必须同源"}

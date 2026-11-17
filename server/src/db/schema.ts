@@ -12,11 +12,13 @@ export const trips = pgTable(
   {
     id: text('id').primaryKey(),
     clientId: text('client_id'),
+    /** 登录后的归属账号；null = 匿名写入或历史数据，靠 client_id 兜底 */
+    userId: text('user_id'),
     demand: jsonb('demand').$type<Demand>().notNull(),
     plan: jsonb('plan').$type<Plan>().notNull(),
     savedAt: timestamp('saved_at', { withTimezone: true }).notNull().defaultNow()
   },
-  (t) => [index('trips_client_idx').on(t.clientId)]
+  (t) => [index('trips_client_idx').on(t.clientId), index('trips_user_idx').on(t.userId)]
 )
 
 /** 每次局部修改记一版，impact 由服务端算好存下，不靠前端回显 */
@@ -113,11 +115,14 @@ export const factFeedbacks = pgTable(
     /** 一句话补充，有长度上限，服务端再校验一次 */
     note: text('note'),
     clientId: text('client_id').notNull(),
+    /** 登录后的归属账号；null = 匿名写入或历史数据，靠 client_id 兜底 */
+    userId: text('user_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
   },
   (t) => [
     index('fact_feedbacks_fact_id_idx').on(t.factId),
-    uniqueIndex('fact_feedbacks_fact_client_uq').on(t.factId, t.clientId)
+    uniqueIndex('fact_feedbacks_fact_client_uq').on(t.factId, t.clientId),
+    index('fact_feedbacks_user_idx').on(t.userId)
   ]
 )
 
@@ -204,13 +209,16 @@ export const collections = pgTable(
   {
     id: text('id').primaryKey(),
     clientId: text('client_id').notNull(),
+    /** 登录后的归属账号；null = 匿名写入或历史数据，靠 client_id 兜底 */
+    userId: text('user_id'),
     targetType: text('target_type', { enum: ['place', 'fact', 'guide', 'play'] }).notNull(),
     targetId: text('target_id').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
   },
   (t) => [
     uniqueIndex('collections_client_target_uq').on(t.clientId, t.targetType, t.targetId),
-    index('collections_client_idx').on(t.clientId)
+    index('collections_client_idx').on(t.clientId),
+    index('collections_user_idx').on(t.userId)
   ]
 )
 
@@ -223,6 +231,8 @@ export const footprints = pgTable(
   {
     id: text('id').primaryKey(),
     clientId: text('client_id').notNull(),
+    /** 登录后的归属账号；null = 匿名写入或历史数据，靠 client_id 兜底 */
+    userId: text('user_id'),
     city: text('city').notNull(),
     placeId: text('place_id').notNull(),
     visitedOn: date('visited_on').notNull(),
@@ -230,7 +240,8 @@ export const footprints = pgTable(
   },
   (t) => [
     uniqueIndex('footprints_client_place_day_uq').on(t.clientId, t.placeId, t.visitedOn),
-    index('footprints_client_idx').on(t.clientId)
+    index('footprints_client_idx').on(t.clientId),
+    index('footprints_user_idx').on(t.userId)
   ]
 )
 
@@ -288,13 +299,16 @@ export const dataSubmissions = pgTable(
     value: text('value').notNull(),
     note: text('note'),
     clientId: text('client_id').notNull(),
+    /** 登录后的归属账号；null = 匿名写入或历史数据，靠 client_id 兜底 */
+    userId: text('user_id'),
     /** 核验状态：提交只进池子，不做审核队列；pending 只能让行程 warn，不能判 error */
     status: text('status', { enum: ['pending', 'verified', 'rejected'] }).notNull().default('pending'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
   },
   (t) => [
     uniqueIndex('data_submissions_uq').on(t.scope, t.targetId, t.field, t.clientId),
-    index('data_submissions_target_idx').on(t.targetId)
+    index('data_submissions_target_idx').on(t.targetId),
+    index('data_submissions_user_idx').on(t.userId)
   ]
 )
 
@@ -313,11 +327,14 @@ export const constraintReports = pgTable(
     planId: text('plan_id'),
     note: text('note'),
     clientId: text('client_id').notNull(),
+    /** 登录后的归属账号；null = 匿名写入或历史数据，靠 client_id 兜底 */
+    userId: text('user_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
   },
   (t) => [
     uniqueIndex('constraint_reports_uq').on(t.issueId, t.clientId),
-    index('constraint_reports_rule_idx').on(t.ruleCode)
+    index('constraint_reports_rule_idx').on(t.ruleCode),
+    index('constraint_reports_user_idx').on(t.userId)
   ]
 )
 
@@ -344,6 +361,8 @@ export const trackEvents = pgTable(
     /** 客户端一次会话一个；同设备多次测试靠它区分 */
     sessionId: text('session_id').notNull(),
     clientId: text('client_id').notNull(),
+    /** 登录后的归属账号；null = 匿名写入或历史数据，靠 client_id 兜底 */
+    userId: text('user_id'),
     /** 端标识：排查「只有 iOS 中断」这类问题时第一刀就切它 */
     platform: text('platform'),
     event: text('event').notNull(),
@@ -356,6 +375,125 @@ export const trackEvents = pgTable(
   (t) => [
     index('track_events_session_idx').on(t.sessionId),
     index('track_events_event_at_idx').on(t.event, t.at),
-    index('track_events_client_idx').on(t.clientId)
+    index('track_events_client_idx').on(t.clientId),
+    index('track_events_user_idx').on(t.userId)
   ]
+)
+
+/**
+ * 账号（F06）。
+ *
+ * phone / wechatUnionid / appleSub 三者各自唯一且都可空，理由：首发三通道定案是
+ * 「短信全端 + 微信 App + Apple iOS」，但三者的接续时间不同。先上的短信若把 phone
+ * 定成非空，后补微信/Apple 时就要改主流程；反过来全可空，则「同一人换通道登录」
+ * 能靠后绑定的 phone 合并回同一账号。
+ *
+ * 不用邮箱做锚点：Apple 有隐藏邮箱中继，同一人不同通道拿到的邮箱不一致。
+ */
+export const users = pgTable(
+  'users',
+  {
+    id: text('id').primaryKey(),
+    /** E.164 或纯 11 位国内号；账号合并锚点 */
+    phone: text('phone'),
+    /** 微信开放平台 unionid：跨应用同一人唯一，openid 只在一个应用内唯一，不能存这个 */
+    wechatUnionid: text('wechat_unionid'),
+    /** Sign in with Apple 的 sub */
+    appleSub: text('apple_sub'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow()
+  },
+  (t) => [
+    uniqueIndex('users_phone_uq').on(t.phone),
+    uniqueIndex('users_wechat_uq').on(t.wechatUnionid),
+    uniqueIndex('users_apple_uq').on(t.appleSub)
+  ]
+)
+
+/**
+ * 登录态（F06）。
+ *
+ * 只存 token 的 sha256，不存明文：库被读走时明文 token 等于把所有人的账号一起交出去。
+ * 已选滑动续期（每次校验顺延 expiresAt），所以不用 JWT —— 无状态的好处在这个策略下
+ * 不存在，而 opaque token 换来了「登出即时失效」（revokedAt）。
+ *
+ * clientId 记下签发它的设备：并账、排查「哪台设备还活着」都要它，且能回答
+ * 「同一个 clientId 被两个账号用过」这种共享设备问题。
+ */
+export const authSessions = pgTable(
+  'auth_sessions',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull(),
+    /** sha256(hex)；明文永不落库 */
+    tokenHash: text('token_hash').notNull(),
+    clientId: text('client_id'),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    /** 最近一次通过校验的时间，滑动续期的节流依据 */
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
+    /** 非空 = 已登出/已作废；不删行，留着才能解释「这个 token 为什么失效」 */
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+  },
+  (t) => [
+    uniqueIndex('auth_sessions_token_uq').on(t.tokenHash),
+    index('auth_sessions_user_idx').on(t.userId),
+    index('auth_sessions_client_idx').on(t.clientId)
+  ]
+)
+
+/**
+ * 短信验证码（F06）。
+ *
+ * 存哈希而不是明文：验证码是 6 位数字，明文落库等于全表可直接登录。
+ * attempts 与 consumedAt 是两条独立的作废路径 —— 试错超限与用过一次都必须失效，
+ * 只做其中一条会留下「验证码被暴力枚举」或「同一码可复用」的洞。
+ */
+export const smsCodes = pgTable(
+  'sms_codes',
+  {
+    id: text('id').primaryKey(),
+    phone: text('phone').notNull(),
+    codeHash: text('code_hash').notNull(),
+    attempts: integer('attempts').notNull().default(0),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    /** 非空 = 已用于登录，不能二次使用 */
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+  },
+  (t) => [index('sms_codes_phone_idx').on(t.phone, t.createdAt)]
+)
+
+/**
+ * 旅行回忆的云端副本（F06）。
+ *
+ * payload 存整份 TripMemory 而不是拆列：它的最小读写单元就是整份结构（places 是按
+ * PlanItem.id 的 map），拆开等于在服务端重写一遍共享类型，且加一个字段就要迁移一次。
+ * 代价是没法对内部字段建查询 —— 本期只按 tripId 取整份，不需要。
+ */
+export const tripMemories = pgTable(
+  'trip_memories',
+  {
+    tripId: text('trip_id').primaryKey(),
+    userId: text('user_id').notNull(),
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+  },
+  (t) => [index('trip_memories_user_idx').on(t.userId)]
+)
+
+/**
+ * 攻略草稿的云端副本（F06）。与 trip_memories 同构，拆两张表是因为主键语义不同：
+ * 回忆与行程一一对应（tripId 做主键），草稿与行程可以一对多（一个行程重生成多次）。
+ */
+export const guideDrafts = pgTable(
+  'guide_drafts',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull(),
+    tripId: text('trip_id').notNull(),
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+  },
+  (t) => [index('guide_drafts_user_idx').on(t.userId), index('guide_drafts_trip_idx').on(t.tripId)]
 )

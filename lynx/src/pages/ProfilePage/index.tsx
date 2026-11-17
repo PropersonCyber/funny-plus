@@ -6,6 +6,7 @@ import type { Collection, Footprint } from '../../../../shared/types/index.js';
 import avatarImg from '../../assets/ip/avatar.jpg';
 import styles from './index.module.scss';
 import { makeCls } from '../../styles/cls.js';
+import { maskPhone } from '../../App/useAuth.js';
 
 const cls = makeCls(styles);
 
@@ -20,9 +21,23 @@ type Props = {
   /** 目标 id → 展示名；解析不到的（被下架的地点）直接跳过不占位 */
   nameOf: (c: Collection | Footprint) => string;
   onOpenTrip: () => void;
+  /** 已登录手机号（脱敏前）；null 表示未登录，此时显示登录入口 */
+  accountPhone: string | null;
+  onLogin: () => void;
 };
 
-export function ProfilePage({ trips, activeId, onSwitch, onDelete, collections, footprints, nameOf, onOpenTrip }: Props) {
+export function ProfilePage({
+  trips,
+  activeId,
+  onSwitch,
+  onDelete,
+  collections,
+  footprints,
+  nameOf,
+  onOpenTrip,
+  accountPhone,
+  onLogin,
+}: Props) {
   const trip = trips.find((t) => t.id === activeId) ?? trips[0];
   // 等级按打卡数推：没有账号体系，用真实行为数当等级比写死 Lv1 可信
   const level = footprints.length >= 10 ? 'Lv3 旅行老手' : footprints.length >= 3 ? 'Lv2 旅行熟手' : 'Lv1 旅行新手';
@@ -65,6 +80,19 @@ export function ProfilePage({ trips, activeId, onSwitch, onDelete, collections, 
             <view className={cls('stat')}>
               <text className={cls('stat-num')}>{cities.size}</text>
               <text className={cls('stat-label')}>城市</text>
+            </view>
+          </view>
+
+          {/* 账号行：未登录时是本机使用 + 登录入口；登录只影响云同步，不影响已能用的功能 */}
+          <view className={cls('acct')} bindtap={onLogin}>
+            <view className={cls('acct-main')}>
+              <text className={cls('acct-title')}>{accountPhone ? maskPhone(accountPhone) : '未登录'}</text>
+              <text className={cls('acct-sub')}>
+                {accountPhone ? '旅行、回忆与攻略草稿已跟随账号' : '登录后可跨设备找回旅行与图文'}
+              </text>
+            </view>
+            <view className={cls('acct-btn')}>
+              <text className={cls('acct-btn-text')}>{accountPhone ? '管理' : '去登录'}</text>
             </view>
           </view>
 

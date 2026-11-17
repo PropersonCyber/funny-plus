@@ -1,5 +1,6 @@
 import { readLocal, writeLocal } from './storage.js';
 import { hostApiBase } from './hostBridge.js';
+import { authFailureAction } from './authFailure.js';
 
 /**
  * 后端调用层（原生壳 / web 预览共用）。
@@ -29,7 +30,7 @@ type Init = { method?: string; body?: string; headers?: Record<string, string> }
 
 const TOKEN_KEY = 'funny-plus.auth-token.v1';
 
-/** 现在恒为空（没有账号体系）；登录接通后从本机存储取，调用点不用改 */
+/** 当前 token；未登录返回空串，调用方据此判断要不要发云端请求 */
 export function authToken(): string {
   return readLocal(TOKEN_KEY) ?? '';
 }
@@ -37,7 +38,6 @@ export function authToken(): string {
 export function setAuthToken(token: string): void {
   writeLocal(TOKEN_KEY, token);
 }
-
 async function request<T>(path: string, init?: Init): Promise<T> {
   // 宿主没给 AbortController 时就只能靠后端超时，不因此直接失败
   const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
@@ -57,6 +57,9 @@ async function request<T>(path: string, init?: Init): Promise<T> {
     if (!res.ok) {
       const body = await res.json().catch(() => null);
       const msg = body && typeof body.error === 'string' && body.error ? body.error : `请求失败（${res.status}）`;
+      const code = body && typeof body.code === 'string' ? body.code : undefined;
+      // 登录失效就清掉本机 token，否则坏 token 会一直带着、之后每个请求都 401
+      if (authFailureAction(res.status, code) === 'clear') setAuthToken('');
       throw new ApiError(msg);
     }
     return (await res.json()) as T;
@@ -69,6 +72,8 @@ export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body: unknown) =>
     request<T>(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
+  put: <T>(path: string, body: unknown) =>
+    request<T>(path, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 };
 

@@ -14,6 +14,7 @@ import { useGuides } from './useGuides.js';
 import { useLocationChannel } from './useLocationChannel.js';
 import { useRoute } from './useRoute.js';
 import { useTrips } from './useTrips.js';
+import { useAuth } from './useAuth.js';
 import { makeCls } from '../styles/cls.js';
 import styles from './index.module.scss';
 import type { TabId } from './tabs.js';
@@ -38,6 +39,7 @@ export function App() {
   const trips = useTrips(booted);
   const content = useContent(booted);
   const guides = useGuides(booted);
+  const auth = useAuth();
   const [tab, setTab] = useState<TabId>('home');
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -127,6 +129,15 @@ export function App() {
             onPatchDraft={(next) => guides.patch(trips.active?.id ?? '', next)}
             onToggleDraftPlace={(planRef) => guides.togglePlace(trips.active?.id ?? '', planRef)}
             perPerson={trips.plans[trips.planIndex]?.budget.perPerson ?? 0}
+            accountPhone={auth.user?.phone ?? null}
+            smsCooldown={auth.sms.cooldown}
+            smsSending={auth.sms.sending}
+            smsVerifying={auth.sms.verifying}
+            smsError={auth.sms.error}
+            onSendCode={auth.sendCode}
+            onVerifyCode={auth.verify}
+            onLogout={auth.logout}
+            devCodeHint={auth.devHint}
           />
         ) : (
           <MainTabs
@@ -149,6 +160,8 @@ export function App() {
             onDismissImpact={trips.dismissImpact}
             onSwitchTrip={trips.switchTrip}
             onDeleteTrip={trips.deleteTrip}
+            accountPhone={auth.user?.phone ?? null}
+            onLogin={() => route.go('login')}
           />
         )}
       </view>

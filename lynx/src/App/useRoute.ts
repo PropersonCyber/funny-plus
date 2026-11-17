@@ -22,6 +22,7 @@ export type RouteName =
   | 'guideDraft'
   | 'guides'
   | 'hot'
+  | 'login'
   | 'memory'
   | 'play';
 export type RouteParams = {

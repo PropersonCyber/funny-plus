@@ -4,6 +4,7 @@ import { newGuideId, loadGuides, saveGuides } from '../storage.js';
 import type { GuideBook } from '../storage.js';
 import { track } from '../track.js';
 import { toast } from '../toast.js';
+import { pushGuide } from '../sync.js';
 import type { Demand, GuideDraft, GuideSection, Plan, TripMemory } from '../data.js';
 
 /**
@@ -89,7 +90,13 @@ export function useGuides(booted: boolean) {
 
   useEffect(() => {
     if (!loaded) return;
-    if (saveGuides(book)) return;
+    if (saveGuides(book)) {
+      // 草稿 id 与 tripId 不同（同一行程重生成会换 id），两个都要给云端，见 pushGuide
+      for (const [tripId, draft] of Object.entries(book)) {
+        void pushGuide(draft.id, tripId, draft);
+      }
+      return;
+    }
     if (!warned.current) {
       warned.current = true;
       toast('本机存储不可用，这次改动刷新后会丢');
