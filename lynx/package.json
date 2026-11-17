@@ -11,6 +11,7 @@
     "check:css": "node scripts/check-css.mjs"
   },
   "dependencies": {
+    "@lynx-js/genui": "^0.8.0",
     "@lynx-js/lynx-core": "^0.1.4",
     "@lynx-js/react": "^0.126.2"
   },

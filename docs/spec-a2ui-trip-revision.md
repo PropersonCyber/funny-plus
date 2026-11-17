@@ -32,6 +32,7 @@
 - `lynx/src/chatSession.ts` 与助手页持久化：只存 `{role, text}`，预览与 applied 不落盘（注释「方案卡片不存」）。跨页面回来时预览已不存在。
 - `lynx/src/App/useTrips.ts`：`revisePlan` 为同步 setState；`saveStore` 失败只在 effect 里 toast 一次，不回传调用方。修改入口共 6 个，见 FR-3。
 - `lynx/src/aiChat.ts` 和 `lynx/src/chatPayload.ts`：流式与非流式均将工具结果交给 `onRevise`。
+- 探针实测（2026-11-17，Web）：`@lynx-js/genui@0.8.0` 可装、可构建、可渲染自定义 catalog 组件，动作回传载荷只带 previewId。`@lynx-js/lynx-ui` 是 **optional peer**，不装也能构建（只有内置输入类组件才需要）。实现约束：`createSurface` 消息必须带与 `<A2UI catalogId>` 一致的 `catalogId`，缺省时渲染器按 `surface.catalogId` 查不到组件，全部判为「不支持」并走 `renderUnsupported`。
 - `server/src/routes/ai.ts`：修改意图转换为引擎操作并返回预览；模型不可用时可由引擎兜底。
 - `shared/types/index.ts`：`RevisePreview`、`TripContext` 的真实契约，以代码为准。
 - Lynx 官方 A2UI 文档：https://lynxjs.org/react/genui/a2ui ；API：https://lynxjs.org/api/genui/a2ui/ 。集成前核对实际包版本、协议及 peer dependencies，不假定尚未验证的 API 签名。
@@ -47,7 +48,7 @@ A2UI 消息仅为展示产物；原始 `RevisePreview` 是本次操作的业务�
 
 ### FR-2 确认与取消
 
-卡片仅开放确认和取消两个动作。动作只传 previewId，客户端依据它查找本轮保存的原始预览，再走现有 `onApplyRevise` 或取消处理；禁止以动作载荷中的计划、费用或其他字段覆盖原始预览。未知动作、未知 previewId 和非 pending 预览均忽略并记录可诊断信息。
+卡片仅开放确认和取消两个动作。动作只传 previewId，客户端依据它查找本轮保存的原始预览，再走现有 `onApplyRevise` 或取消处理；禁止以动作载荷中的计划、费用或其他字段覆盖原始预览。未知动作、未知 previewId 和非 pending 预览均忽略并记录可诊断信息。`createSurface` 与 `<A2UI>` 的 `catalogId` 必须一致且非空，否则组件解析不到会直接走降级 —— 这是探针实测踩到的坑。
 
 确认操作在同一预览的生命周期内最多触发一次应用：处理开始时立即锁定，成功后卡片显示「已写进行程」并保留在对话页，不再自动跳转行程页。取消后卡片移除，不可再确认，且不修改行程。应用为同步提交，不设中间态与卡片级失败重试。
 

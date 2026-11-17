@@ -10,6 +10,15 @@ import { readLocal, writeLocal } from '../../storage.js';
 import { svgIcon } from '../../icons.js';
 import type { ChangeImpact, Demand, Plan } from '../../data.js';
 import type { RevisePreview, TripContext } from '../../../../shared/types/index.js';
+import {
+  beginPreview,
+  cancelPreview,
+  confirmPreview,
+  type PreviewStatus,
+  type RevisionBase,
+  type RevisionState,
+} from '../../a2ui/revisionState.js';
+import { RevisionSurface } from '../../a2ui/RevisionSurface.js';
 import styles from './index.module.scss';
 import { makeCls } from '../../styles/cls.js';
 
@@ -21,9 +30,12 @@ type Props = {
   demand: Demand;
   /** 工作台上正在看的那套方案；没有行程时为 null */
   plan: Plan | null;
+  /** 上面这套 plan 在 plans 里的位置；过期判定要它，只比 plan 引用会漏掉同plan换序号 */
+  planIndex: number;
   onBack: () => void;
-  /** 把这次对话生成的方案落成一条行程并切到行程页 */
-  /** 返回新建行程的 id；空串表示没写成 */
+  /** 确认后去行程页核对整体：导航意图由用户点，不由应用替用户跳 */
+  onOpenItinerary: () => void;
+  /** 把这次对话生成的方案落成一条行程并切到行程页；返回新建行程 id，空串表示没写成 */
   onApplyPlans: (demand: Demand, plans: Plan[], planIndex: number) => string;
   /** 确认咕噜提的修改，写到当前行程上 */
   onApplyRevise: (plan: Plan, impact: ChangeImpact) => void;
@@ -52,8 +64,11 @@ type Turn = {
   picked?: number;
   /** 咕噜提的一次修改，等用户确认 */
   preview?: RevisePreview;
-  /** 这条修改是否已经写进行程 */
-  applied?: boolean;
+  /**
+   * 这份预览的身份与状态。放在轮次里而不是页面级 Map：
+   * 一轮只保留最后一份预览，覆盖即作废旧 previewId，天然满足「旧动作忽略」。
+   */
+  revision?: RevisionState;
 };
 
 /**
@@ -66,7 +81,16 @@ type Turn = {
  * 与工作台的关系：进来时读同一份当前行程（demand + plan），走的时候把选中的方案写回同一份 store。
  * 用户在这里看到的内容，就是行程页上排的内容 —— 中间不存在另一份「展示用」数据。
  */
-export function AssistantPage({ tripId, demand, plan, onBack, onApplyPlans, onApplyRevise }: Props) {
+export function AssistantPage({
+  tripId,
+  demand,
+  plan,
+  planIndex,
+  onBack,
+  onOpenItinerary,
+  onApplyPlans,
+  onApplyRevise,
+}: Props) {
   // 只切视觉态：录音没有接，别让按钮看起来像真的在收音
   const [listening, setListening] = useState(false);
   const toggleListening = useCallback(() => setListening((v) => !v), []);
@@ -188,12 +212,20 @@ export function AssistantPage({ tripId, demand, plan, onBack, onApplyPlans, onAp
             });
           },
           onRevise: (preview) => {
+            // 基准取「此刻这一份行程」：确认时再比一次，行程动过就判过期
+            const baseline: RevisionBase = {
+              tripId,
+              planIndex,
+              planRef: tripRef.current?.plan as Plan,
+            };
+            const revision = beginPreview(baseline);
             setTurns((prev) => {
               const last = prev[prev.length - 1];
+              // 一轮只留最后一份预览：覆盖时旧 revision 一起换掉，旧 previewId 的动作自然失效
               const next =
                 last && last.role === 'assistant'
-                  ? [...prev.slice(0, -1), { ...last, preview }]
-                  : [...prev, { role: 'assistant' as const, text: '', preview }];
+                  ? [...prev.slice(0, -1), { ...last, preview, revision }]
+                  : [...prev, { role: 'assistant' as const, text: '', preview, revision }];
               turnsRef.current = next;
               return next;
             });
@@ -241,28 +273,98 @@ export function AssistantPage({ tripId, demand, plan, onBack, onApplyPlans, onAp
     [onApplyPlans, tripId]
   );
 
+  /**
+   * 确认应用。防重与过期都交给状态机，这里只负责「把新状态写回这一轮」。
+   *
+   * 为什么按 previewId 而不是 turnIndex：对话从本机恢复时只有 role/text，轮次下标
+   * 与原始轮次对不上，拿下标定位会点错卡片。previewId 是这一份预览自己的身份。
+   */
   const applyRevise = useCallback(
     (turnIndex: number) => {
       const turn = turnsRef.current[turnIndex];
-      if (!turn?.preview) return;
-      onApplyRevise(turn.preview.plan, turn.preview.impact);
+      if (!turn?.preview || !turn.revision) return;
+
+      const current: RevisionBase = {
+        tripId,
+        planIndex,
+        planRef: plan as Plan,
+      };
+      const nextRevision = confirmPreview(turn.revision, current, () => {
+        onApplyRevise(turn.preview!.plan, turn.preview!.impact);
+      });
+      if (nextRevision === turn.revision) return;
+
       setTurns((prev) => {
-        const next = prev.map((t, i) => (i === turnIndex ? { ...t, applied: true } : t));
+        const next = prev.map((t, i) => (i === turnIndex ? { ...t, revision: nextRevision } : t));
         turnsRef.current = next;
         return next;
       });
     },
-    [onApplyRevise]
+    [onApplyRevise, tripId, planIndex, plan]
   );
 
-  /** 取消 = 把预览丢掉再重发一次上一句，让咕噜换个说法；原行程从未被改过 */
+  /** 取消 = 这一份作废、卡片移除；原行程一个字段都没动过 */
   const dropPreview = useCallback((turnIndex: number) => {
     setTurns((prev) => {
-      const next = prev.map((t, i) => (i === turnIndex ? { ...t, preview: undefined } : t));
+      const next = prev.map((t, i) => {
+        if (i !== turnIndex) return t;
+        const revision = t.revision ? cancelPreview(t.revision) : undefined;
+        return { ...t, preview: undefined, revision };
+      });
       turnsRef.current = next;
       return next;
     });
   }, []);
+
+  /**
+   * 旧卡片，同时兼任 A2UI 的降级视图。
+   *
+   * 放在组件内是因为它要用到 applyRevise / dropPreview / onOpenItinerary 这几个
+   * 已经带好防重与过期判断的入口 —— 降级路径必须与 A2UI 路径共用同一套入口，
+   * 否则「渲染失败」会变成绕开防重的后门（spec FR-4）。
+   */
+  const legacyCard = (t: Turn, index: number) => {
+    if (!t.preview) return null;
+    const status = statusOf(t);
+    return (
+      <view>
+        <text className={cls('bubble-title')}>{t.preview.reason}</text>
+        {t.preview.affected.map((a) => (
+          <text key={`${a.kind}-${a.title}`} className={cls('plan-day')}>
+            {a.title}：{a.detail}
+          </text>
+        ))}
+        <text className={cls('plan-day')}>
+          时间{fmtDelta(t.preview.impact.minutes, ' 分钟')} · 人均{fmtMoney(t.preview.impact.cost)}
+        </text>
+        {t.preview.impact.recheck.length ? (
+          <text className={cls('plan-day')}>要重新确认：{t.preview.impact.recheck.join('；')}</text>
+        ) : null}
+        {t.preview.by === 'engine' ? (
+          <text className={cls('plan-day')}>这次没连上模型，是按关键词识别的改动</text>
+        ) : null}
+        {status === 'applied' ? (
+          <view>
+            <text className={cls('plan-day')}>已写进行程</text>
+            <view className={cls('bubble-action')} bindtap={onOpenItinerary}>
+              <text className={cls('bubble-action-text')}>去行程页核对</text>
+            </view>
+          </view>
+        ) : status === 'stale' ? (
+          <text className={cls('plan-day')}>行程已变化，请让咕噜重新提一次</text>
+        ) : (
+          <view>
+            <view className={cls('bubble-action')} bindtap={() => applyRevise(index)}>
+              <text className={cls('bubble-action-text')}>确认应用</text>
+            </view>
+            <view className={cls('bubble-action')} bindtap={() => dropPreview(index)}>
+              <text className={cls('bubble-action-text')}>先不改</text>
+            </view>
+          </view>
+        )}
+      </view>
+    );
+  };
 
   return (
     <view className={cls('screen-inner')}>
@@ -347,36 +449,21 @@ export function AssistantPage({ tripId, demand, plan, onBack, onApplyPlans, onAp
                     </view>
                   ) : null}
 
-                  {t.preview ? (
-                    <view>
-                      <text className={cls('bubble-title')}>{t.preview.reason}</text>
-                      {t.preview.affected.map((a) => (
-                        <text key={`${a.kind}-${a.title}`} className={cls('plan-day')}>
-                          {a.title}：{a.detail}
-                        </text>
-                      ))}
-                      <text className={cls('plan-day')}>
-                        时间{fmtDelta(t.preview.impact.minutes, ' 分钟')} · 人均{fmtMoney(t.preview.impact.cost)}
-                      </text>
-                      {t.preview.impact.recheck.length ? (
-                        <text className={cls('plan-day')}>要重新确认：{t.preview.impact.recheck.join('；')}</text>
-                      ) : null}
-                      {t.preview.by === 'engine' ? (
-                        <text className={cls('plan-day')}>这次没连上模型，是按关键词识别的改动</text>
-                      ) : null}
-                      {t.applied ? (
-                        <text className={cls('plan-day')}>已写进行程</text>
-                      ) : (
-                        <view className={cls('bubble-action')} bindtap={() => applyRevise(i)}>
-                          <text className={cls('bubble-action-text')}>确认应用</text>
-                        </view>
-                      )}
-                      {t.applied ? null : (
-                        <view className={cls('bubble-action')} bindtap={() => dropPreview(i)}>
-                          <text className={cls('bubble-action-text')}>先不改</text>
-                        </view>
-                      )}
-                    </view>
+                  {t.preview && t.revision ? (
+                    statusOf(t) === 'pending' ? (
+                      // A2UI 版卡片。fallback 就是下面那段旧卡片，任何环节不认都会回落
+                      <RevisionSurface
+                        preview={t.preview}
+                        previewId={t.revision.previewId}
+                        onAction={(action) => {
+                          if (action.kind === 'confirm') applyRevise(i);
+                          else dropPreview(i);
+                        }}
+                        fallback={() => legacyCard(t, i)}
+                      />
+                    ) : (
+                      legacyCard(t, i)
+                    )
                   ) : null}
                 </view>
               </view>
@@ -414,7 +501,12 @@ export function AssistantPage({ tripId, demand, plan, onBack, onApplyPlans, onAp
   );
 }
 
-/** 变更影响不带正负号，加号和单位在这里拼，引擎只出数字 */
+/** 这一轮预览当前处于什么状态；没有预览就没有卡片 */
+function statusOf(t: Turn): PreviewStatus | null {
+  return t.preview ? (t.revision?.status ?? 'pending') : null;
+}
+
+
 function fmtDelta(n: number, unit: string): string {
   if (n === 0) return '没变';
   return `${n > 0 ? '+' : ''}${n}${unit}`;

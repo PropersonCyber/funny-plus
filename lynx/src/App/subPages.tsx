@@ -90,15 +90,19 @@ export const SUB_PAGES: Record<RouteName, (p: SubPageProps) => ReactElement> = {
       tripId={p.tripId}
       demand={p.demand}
       plan={p.plans[p.planIndex] ?? null}
+      planIndex={p.planIndex}
       onBack={p.back}
+      onOpenItinerary={() => {
+        p.back();
+        p.setTab('itinerary');
+      }}
       // 对话里选的方案直接落成当前行程：落到同一个 store，
       // 行程页渲染的就是用户刚才在对话里挑的那一份，不存在第二份展示数据
       onApplyPlans={(nextDemand, nextPlans, nextIndex) => p.onPlanned(nextDemand, nextPlans, nextIndex)}
+      // 确认后留在对话页：卡片要显示「已写进行程」，跳走就看不见了（spec FR-2）。
+      // 想核对整份行程用卡片上的「去行程页核对」，导航仍由用户发起。
       onApplyRevise={(nextPlan, nextImpact) => {
         p.onRevise(p.planIndex, nextPlan, nextImpact);
-        // 停在对话里看不出行程整体，退出去再切行程页让用户核对；不切会让人以为没生效
-        p.back();
-        p.setTab('itinerary');
       }}
     />
   ),

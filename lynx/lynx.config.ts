@@ -8,6 +8,12 @@ import { pluginSass } from '@rsbuild/plugin-sass';
 export default defineConfig({
   // 确定性计算层与类型、数据客户端都在 shared/（纯 TS，不依赖 DOM）
   source: {
+    // A2UI 探针独立 entry：产物与主 bundle 分开，业务代码零改动。
+    // 第一期验收后连同 src/a2ui/probe.tsx 一起删除。
+    entry: {
+      main: './src/index.tsx',
+      a2uiProbe: './src/a2ui/probe.tsx',
+    },
     alias: { '@': path.resolve(import.meta.dirname, '../shared') },
     // 后端地址构建期注入：原生端没有 origin，拿不到相对路径；
     // 不注入时为空串 → 走相对路径，由下面的 dev 代理转到 8787
