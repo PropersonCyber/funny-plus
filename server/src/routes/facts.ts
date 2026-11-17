@@ -11,7 +11,7 @@ const VALID_VERDICTS = ['met', 'not-applicable'] as const
 type Verdict = (typeof VALID_VERDICTS)[number]
 
 /** 库里的行 → 前端契约；日期列 drizzle 默认就是 'YYYY-MM-DD' 字符串，与前端比较口径一致 */
-const toApi = (r: typeof facts.$inferSelect): TravelFact => ({
+export const factToApi = (r: typeof facts.$inferSelect): TravelFact => ({
   id: r.id,
   city: r.city,
   category: r.category as TravelFact['category'],
@@ -63,7 +63,7 @@ factsRoute.get('/', async (c) => {
     .from(facts)
     .where(city ? eq(facts.city, city) : undefined)
     .orderBy(facts.id)
-  return c.json({ items: rows.map(toApi) })
+  return c.json({ items: rows.map(factToApi) })
 })
 
 factsRoute.get('/feedback', async (c) => {

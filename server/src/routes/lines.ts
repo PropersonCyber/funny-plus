@@ -10,7 +10,7 @@ import type { TransitLine } from '@/types/index.ts'
  * 全量返回、不过滤：数量级是几十条，前端启动时随 /api/content 一起预热一次，
  * 之后引擎里的线路索引就是唯一来源。分页在这里只会让「排行程时缺一条线」变成偶发 bug。
  */
-const toApi = (r: typeof lines.$inferSelect): TransitLine => ({
+export const lineToApi = (r: typeof lines.$inferSelect): TransitLine => ({
   id: r.id,
   city: r.city,
   name: r.name,
@@ -41,5 +41,5 @@ linesRoute.get('/', async (c) => {
     .from(lines)
     .where(city ? eq(lines.city, city) : undefined)
     .orderBy(lines.city, lines.id)
-  return c.json({ items: rows.map(toApi) })
+  return c.json({ items: rows.map(lineToApi) })
 })

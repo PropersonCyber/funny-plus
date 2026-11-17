@@ -1,7 +1,7 @@
 import { generateText, stepCountIs, tool } from 'ai'
 import { z } from 'zod'
 import { chatModel } from './model.ts'
-import { dayBrief, replaceCandidates } from '@/engine/planEdit.ts'
+import { dayBrief } from '@/engine/planEdit.ts'
 import { placesOf } from '@/engine/placeIndex.ts'
 import type { Demand, Plan, ReviseOp } from '@/types/index.ts'
 
@@ -116,7 +116,3 @@ export async function proposeReviseOp(
         : { op: 'reorder', day: picked.day, order: picked.order!, reason: picked.reason }
   return { ok: true, op }
 }
-
-/** 对话工具用：先给出这一天的可选替换点，避免模型在「换哪个」上没有依据 */
-export const candidatesFor = (plan: Plan, demand: Demand, day: number, targetId: string) =>
-  replaceCandidates(plan, demand, day, targetId).map((p) => ({ id: p.id, name: p.name, ticket: p.ticket }))
