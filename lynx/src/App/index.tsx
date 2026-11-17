@@ -1,9 +1,9 @@
-import { useCallback, useState } from '@lynx-js/react';
+import { useCallback, useEffect, useState } from '@lynx-js/react';
 
 import '../styles/base.scss';
 import { PlanSheet } from '../pages/PlanSheet/index.js';
 import type { Demand, Plan } from '../data.js';
-import { track } from '../track.js';
+import { flushOnHide, track } from '../track.js';
 import { ToastHost } from '../toast.js';
 import { MainTabs } from './MainTabs.js';
 import { SUB_PAGES } from './subPages.js';
@@ -28,6 +28,10 @@ const cls = makeCls(styles);
  */
 export function App() {
   useLocationChannel();
+  // 切后台/卸载前补报一次埋点：最后几步往往是判断旅程是否完成的关键
+  useEffect(() => {
+    flushOnHide();
+  }, []);
   const booted = useBootstrap();
   const route = useRoute();
   const trips = useTrips(booted);
