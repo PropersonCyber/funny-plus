@@ -12,6 +12,7 @@ install! 'cocoapods', :deterministic_uuids => false
 target 'FunnyPlus' do
   pod 'Lynx', :path => 'vendor/Lynx'
   pod 'LynxBase', :path => 'vendor/LynxBase'
+  pod 'XElement/SVG', :path => 'vendor/XElement'
   pod 'LynxServiceAPI', :path => 'vendor/LynxServiceAPI'
   # LynxServiceAPI 只有协议，真正干活的实现要单独引：没有 LynxService/Http，
   # 原生端的 fetch 会直接抛一个 message 为空的异常（界面上看就是「请求失败」但查不到原因）

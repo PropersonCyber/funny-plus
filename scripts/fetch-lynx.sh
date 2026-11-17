@@ -13,7 +13,7 @@ BASE="https://github.com/lynx-family/lynx/releases/download/$VER"
 
 mkdir -p "$VENDOR"
 
-for name in Lynx LynxBase LynxServiceAPI; do
+for name in Lynx LynxBase LynxServiceAPI XElement; do
   if [ -f "$VENDOR/$name/$name.podspec.json" ]; then
     echo "✓ $name 已存在，跳过"
     continue
@@ -23,7 +23,11 @@ for name in Lynx LynxBase LynxServiceAPI; do
   curl -fsSL --retry 3 -o "$tmp/pkg.zip" "$BASE/$name-$VER.zip"
   unzip -q -o "$tmp/pkg.zip" -d "$tmp/x"
   rm -rf "$VENDOR/$name"
-  mv "$tmp/x/$name" "$VENDOR/$name"
+  if [ -f "$tmp/x/$name.podspec.json" ]; then
+    mv "$tmp/x" "$VENDOR/$name"
+  else
+    mv "$tmp/x/$name" "$VENDOR/$name"
+  fi
   rm -rf "$tmp"
   echo "✓ $name"
 done

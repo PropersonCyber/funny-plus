@@ -8,18 +8,30 @@
 
 /* Begin PBXBuildFile section */
 		028AC1977D2A3DC878C6C7A8 /* libPods-FunnyPlus.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 3C117FF8C8D53D37AF0D433C /* libPods-FunnyPlus.a */; };
-		16F72DD8B809433F89506621 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 2C8DFFA1795D425FA97521A1 /* main.m */; };
-		A1B2C3D4E5F60718293A4B5E /* FPSVGImageLoader.m in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5F /* FPSVGImageLoader.m */; };
-		F4C3D4E5F60718293A4B5C71 /* FPInputUI.m in Sources */ = {isa = PBXBuildFile; fileRef = F4C3D4E5F60718293A4B5C70 /* FPInputUI.m */; };
+		A11B00000000000000000001 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A00000000000000000001 /* AppDelegate.swift */; };
+		A11B00000000000000000002 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A00000000000000000002 /* SceneDelegate.swift */; };
+		A11B00000000000000000003 /* LynxHostController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A00000000000000000003 /* LynxHostController.swift */; };
+		A11B00000000000000000004 /* HostBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A00000000000000000004 /* HostBridge.swift */; };
+		A11B00000000000000000005 /* WebHostController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A00000000000000000005 /* WebHostController.swift */; };
+		A11B00000000000000000006 /* FPInputUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A00000000000000000006 /* FPInputUI.swift */; };
+		A11B00000000000000000007 /* FPSVGImageLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A00000000000000000007 /* FPSVGImageLoader.swift */; };
+		A11B00000000000000000009 /* LynxHostClient.m in Sources */ = {isa = PBXBuildFile; fileRef = A11A00000000000000000009 /* LynxHostClient.m */; };
 		727129B9090D4FCB9AE2C284 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 221AC4980F214A7EB7D5755E /* Assets.xcassets */; };
 		FB9DCE1029124E7EA28BA11D /* web in Resources */ = {isa = PBXBuildFile; fileRef = CB2F0A4F97F44A07A6BE6F14 /* web */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		221AC4980F214A7EB7D5755E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		2C8DFFA1795D425FA97521A1 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
-		A1B2C3D4E5F60718293A4B5F /* FPSVGImageLoader.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FPSVGImageLoader.m; sourceTree = "<group>"; };
-		F4C3D4E5F60718293A4B5C70 /* FPInputUI.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = FPInputUI.m; sourceTree = "<group>"; };
+		A11A00000000000000000001 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		A11A00000000000000000002 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		A11A00000000000000000003 /* LynxHostController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LynxHostController.swift; sourceTree = "<group>"; };
+		A11A00000000000000000004 /* HostBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostBridge.swift; sourceTree = "<group>"; };
+		A11A00000000000000000005 /* WebHostController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebHostController.swift; sourceTree = "<group>"; };
+		A11A00000000000000000006 /* FPInputUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPInputUI.swift; sourceTree = "<group>"; };
+		A11A00000000000000000007 /* FPSVGImageLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPSVGImageLoader.swift; sourceTree = "<group>"; };
+		A11A00000000000000000008 /* FunnyPlus-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "FunnyPlus-Bridging-Header.h"; sourceTree = "<group>"; };
+		A11A00000000000000000009 /* LynxHostClient.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LynxHostClient.m; sourceTree = "<group>"; };
+		A11A0000000000000000000A /* LynxHostClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LynxHostClient.h; sourceTree = "<group>"; };
 		3C117FF8C8D53D37AF0D433C /* libPods-FunnyPlus.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-FunnyPlus.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		85B7120BE86941CFF7B6188E /* Pods-FunnyPlus.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-FunnyPlus.release.xcconfig"; path = "Target Support Files/Pods-FunnyPlus/Pods-FunnyPlus.release.xcconfig"; sourceTree = "<group>"; };
 		9FE20030E6F745C390DA66DB /* FunnyPlus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FunnyPlus.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -42,10 +54,17 @@
 		1FDAE45BA6464974952208CE /* FunnyPlus */ = {
 			isa = PBXGroup;
 			children = (
-				2C8DFFA1795D425FA97521A1 /* main.m */,
-				A1B2C3D4E5F60718293A4B5F /* FPSVGImageLoader.m */,
+				A11A00000000000000000001 /* AppDelegate.swift */,
+				A11A00000000000000000002 /* SceneDelegate.swift */,
+				A11A00000000000000000003 /* LynxHostController.swift */,
+				A11A00000000000000000004 /* HostBridge.swift */,
+				A11A00000000000000000005 /* WebHostController.swift */,
+				A11A00000000000000000006 /* FPInputUI.swift */,
+				A11A00000000000000000007 /* FPSVGImageLoader.swift */,
+				A11A00000000000000000008 /* FunnyPlus-Bridging-Header.h */,
+				A11A0000000000000000000A /* LynxHostClient.h */,
+				A11A00000000000000000009 /* LynxHostClient.m */,
 				CB2F0A4F97F44A07A6BE6F14 /* web */,
-				F4C3D4E5F60718293A4B5C70 /* FPInputUI.m */,
 				221AC4980F214A7EB7D5755E /* Assets.xcassets */,
 			);
 			path = FunnyPlus;
@@ -194,9 +213,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				16F72DD8B809433F89506621 /* main.m in Sources */,
-				A1B2C3D4E5F60718293A4B5E /* FPSVGImageLoader.m in Sources */,
-				F4C3D4E5F60718293A4B5C71 /* FPInputUI.m in Sources */,
+				A11B00000000000000000001 /* AppDelegate.swift in Sources */,
+				A11B00000000000000000002 /* SceneDelegate.swift in Sources */,
+				A11B00000000000000000003 /* LynxHostController.swift in Sources */,
+				A11B00000000000000000004 /* HostBridge.swift in Sources */,
+				A11B00000000000000000005 /* WebHostController.swift in Sources */,
+				A11B00000000000000000006 /* FPInputUI.swift in Sources */,
+				A11B00000000000000000007 /* FPSVGImageLoader.swift in Sources */,
+				A11B00000000000000000009 /* LynxHostClient.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -206,6 +230,7 @@
 		983072E7B19B41B78ADDE780 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				SDKROOT = iphoneos;
@@ -242,6 +267,10 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.maka.funnyplus;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "FunnyPlus/FunnyPlus-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
@@ -276,6 +305,10 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.funnyplus.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "FunnyPlus/FunnyPlus-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
@@ -283,6 +316,7 @@
 		C7E6731E369F49B7B65CB41A /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				SDKROOT = iphoneos;

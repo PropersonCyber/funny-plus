@@ -1,6 +1,6 @@
 # iOS 资源
 
-给后续原生壳工程（LynxView）用的品牌资源与配置口径。**这里只有资源，没有 Xcode 工程**。
+品牌资源，以及 `FunnyPlus/` 里的 Swift 宿主工程（原生 LynxView）。图标口径见下。
 
 ## 图标
 
@@ -31,13 +31,14 @@
 
 Xcode 里对应 `PRODUCT_NAME = funnyplus`、`INFOPLIST_KEY_CFBundleDisplayName = 趣哪玩儿`。App Store 的展示名另外在 App Store Connect 填，同样是「趣哪玩儿」。
 
-## 建壳时需要的东西（还没做）
+## 壳的现状
 
-1. `npm run build` 产出 `lynx/dist/main.lynx.bundle`，作为 App 资源打进包
-2. CocoaPods 引 Lynx：`pod 'Lynx'`，版本对齐 `lynx/package.json` 里的 `@lynx-js/react`
-3. 用 `LynxView` 加载**本地 bundle**（线上不要读 dev server 的 URL）
-4. 启动图：iOS 14+ 用 `Info.plist` 的 `UILaunchScreen`，底色 `#F5F7FC`（`--surface`），居中放 `docs/materials/brand/app-icon-symbol.svg` 渲染的图形
-5. 安全区：现在 `lynx` 里写死了 60px 顶部留白（原生端取不到 `env(safe-area-inset-top)`），嵌壳后应由宿主注入真实安全区
+工程在 `FunnyPlus/`，宿主是 Swift，用 `LynxView` 加载本地 `main.lynx.bundle`。Lynx 通过 CocoaPods 的本地 `vendor/` 引入，不是 `pod 'Lynx'` 的 git 源。
+
+还没做的：
+
+1. 启动图：`Info.plist` 的 `UILaunchScreen` 还是空的。底色应按 `#F5F7FC`（`--surface`），居中放 `docs/materials/brand/app-icon-symbol.svg`
+2. 安全区：`lynx` 里仍写死 60px 顶部留白（原生端取不到 `env(safe-area-inset-top)`），宿主还没有注入真实安全区
 
 ## 图标设计上的一个已知取舍
 

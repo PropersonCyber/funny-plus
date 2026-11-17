@@ -1,18 +1,26 @@
 # FunnyPlus iOS 壳（趣哪玩儿）
 
-WKWebView 壳 + 内置 Lynx Web 运行时（`@lynx-js/web-core` 预构建静态包），把 `lynx/dist/main.web.bundle` 当离线资源跑。不依赖 Lynx 原生 SDK，也不需要 CocoaPods。
+Swift 宿主 + 原生 LynxView，加载随包的 `web/main.lynx.bundle`。业务界面在 `lynx/`，这里只做平台适配。Lynx SDK 仍是 Objective-C，通过 CocoaPods 本地 `vendor/` 引入。
+
+`SceneDelegate` 的根控制器是 `LynxHostController`。旧的 WKWebView 路径还在 `WebHostController`，用来对照，不是当前入口。`LynxHostClient.m` 留在 Objective-C：`LynxViewClient` 的资源加载方法是 required，Swift 实现了它就会把资源请求从 SDK 默认加载里抢走。
 
 ## 目录
 
 ```
 FunnyPlus/
-  main.m                 # SceneDelegate + WKWebView + app:// scheme handler
-  Info.plist             # 显示名「趣哪玩儿」、UIScene 配置、ATS 放开
-  Assets.xcassets/       # AppIcon（单尺寸 1024）
-  web/                   # 构建产物：index.html + static/ + main.web.bundle
+  AppDelegate.swift / SceneDelegate.swift
+  LynxHostController.swift   # 原生 LynxView
+  HostBridge.swift           # 定位与登录回跳
+  FPInputUI.swift            # SDK 没有的 <input>
+  FPSVGImageLoader.swift     # data:image/svg+xml
+  LynxHostClient.m           # 只接 Lynx 错误回调
+  WebHostController.swift    # 旧 Web 运行时，默认不挂
+  Info.plist
+  Assets.xcassets/
+  web/                       # main.lynx.bundle，以及旧 web 运行时产物
 ```
 
-## 为什么用自定义 scheme
+## 为什么旧 Web 路径用自定义 scheme
 
 `file://` 下 WKWebView 的 `fetch()` 取不到 wasm，Lynx Web 运行时初始化会静默失败（白屏）。
 所以用 `app://local/index.html` + `LocalSchemeHandler` 当静态文件服务器，按扩展名返回 MIME（`.wasm` → `application/wasm`）。
@@ -22,12 +30,9 @@ FunnyPlus/
 ## 更新产物
 
 ```bash
-npm run build:ios                              # 出包并同步进 iOS 壳（漏了这一步，App 里还是旧页面）
-# 等价于：npm --prefix lynx run build && cp lynx/dist/main.web.bundle ios/FunnyPlus/FunnyPlus/web/
-# web 运行时快照不进仓，从依赖包里同步（升 @lynx-js/web-core 版本后也要重跑）
-rsync -a --delete lynx/node_modules/@lynx-js/web-core/dist/client_prod/static ios/FunnyPlus/FunnyPlus/web/
+npm run build:ios                              # 出 lynx bundle 并拷进 iOS 壳
 cd ios/FunnyPlus
-xcodebuild -project FunnyPlus.xcodeproj -scheme FunnyPlus \
+xcodebuild -workspace FunnyPlus.xcworkspace -scheme FunnyPlus \
   -configuration Release -sdk iphoneos -derivedDataPath /tmp/dd CODE_SIGNING_ALLOWED=NO build
 ```
 
@@ -47,5 +52,5 @@ cd /tmp/ipa && zip -qry ~/Downloads/趣哪玩儿-0.1.0-unsigned.ipa Payload
 ## 已知限制
 
 - 未签名 ipa 不能直接双击安装，必须重签
-- Bundle 内所有图片是 data URI 内联，`main.web.bundle` 5.4MB；要减体积得调 `lynx.config.ts` 的 `output.dataUriLimit.image` 改成外链资源
-- 这是 web 运行时（WKWebView），不是原生 Lynx 渲染；要原生得回到 Lynx iOS SDK 源码编译路线
+- 当前入口是原生 LynxView，读的是 `main.lynx.bundle`。`WebHostController` 仍能跑旧的 web 运行时，但默认不挂
+- iOS 的 SVG 解码只覆盖 `path` / `circle`。图标里的 `<rect>` 在这端不会画出来，这是迁移前就有的限制

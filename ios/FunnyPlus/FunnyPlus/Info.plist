@@ -40,8 +40,8 @@
        缺这条 key 时系统直接拒绝授权，前端会按「没有定位」降级而不是报错。 -->
   <key>NSLocationWhenInUseUsageDescription</key>
   <string>用于把你所在的城市作为默认出游城市</string>
-  <!-- 三方登录回跳：微信 SDK 授权后以 app:// 打开本应用。现在只占位，
-       真正的 handleOpenURL 在 main.m 的 AppDelegate 里，等 AppID 到手再补。 -->
+  <!-- 三方登录回跳：微信 SDK 授权后以 scheme 打开本应用。现在只占位，
+       handleOpenURL 在 SceneDelegate，等 AppID 到手再补。 -->
   <key>CFBundleURLTypes</key>
   <array>
     <dict>
