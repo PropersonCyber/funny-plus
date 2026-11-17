@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from '@lynx-js/react';
+/* 主线程手势走 JSXS 对主线程的扩展属性，JSX 命名空间里要能看到 */
+import type {} from '@lynx-js/react/jsx-runtime';
+
+import { IconSvg } from '../../IconSvg.js';
+import { useCallback, useEffect, useMemo, useRef, useState, useMainThreadRef } from '@lynx-js/react';
+import { clampView, Gesture, IDENTITY, isIdentity, project, unproject, type View } from '../../mapGesture.js';
+import type { MainThread } from '@lynx-js/types';
 
 import mapArt from '../../assets/gen/map-bg.jpg';
 import mascotPeek from '../../assets/ip/mascot-peek.png';
@@ -26,7 +32,6 @@ import {
 } from '../../mapProjection.js';
 import { legGeometry } from '../../routeGeometry.js';
 import { fillDayGeometry } from '../../travel.js';
-import { Gesture, IDENTITY, isIdentity, project, unproject, type View } from '../../mapGesture.js';
 import { staticMapUrl } from '../../geo.js';
 import { ticketText } from '../../ticketText.js';
 
@@ -103,49 +108,82 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
    * 缩放平移是「内容坐标 → 屏幕坐标」，两层分开才能拖动时不抖。
    */
   const [mapView, setMapView] = useState<View>(IDENTITY);
-  // touch 回调里读不到最新的 state（闭包），用 ref 并存一份
+  // touchend 读不到 state 里的最新视图（渲染还没提交），用 ref 存一份
   const viewRef = useRef<View>(IDENTITY);
-  const gestureRef = useRef(new Gesture());
+  // 主线程侧自己的视图副本。touch 回调跑在主线程，读不到背景线程的 viewRef；
+  // 每个回调开头的 `viewRef.current = v` 是背景→主线程的同步点（值在渲染时快照过去）
+  const mtViewRef = useMainThreadRef<View>(IDENTITY);
+  const mtGestureRef = useMainThreadRef<MtGesture | null>(null);
   // 新底图是否还在路上。手势提交后视图先不复位，等新图真正加载完再复位，
   // 否则用户会看到「刚放大又弹回去」—— 那时新图还没到，屏幕上是旧图。
   const pendingResetRef = useRef(false);
   // touchend 要把手势结果提交成一次重取图，但 commitCamera 定义在后面（依赖 baseView），
   // 用 ref 转一层，避免为了顺序把回调挪来挪去、也避免闭包拿到过期的 baseView
   const commitRef = useRef<(v: View) => void>(() => {});
+  // 底图 / 蒙版 / 路线三层跟着手势走，主线程拿它们的节点引用
+  const mtBaseRef = useMainThreadRef<MainThread.Element>(null);
+  const mtTintRef = useMainThreadRef<MainThread.Element>(null);
+  const mtRouteRef = useMainThreadRef<MainThread.Element>(null);
+  const mtPillRef = useMainThreadRef<MainThread.Element>(null);
+  const mtMarkersRef = useMainThreadRef<(MainThread.Element | null)[]>([]);
+  // 主线程侧每个 marker 的内容坐标（），初始化后不再变
+  const mtMarkerPos = useRef<{ order: number; x: number; y: number }[]>([]);
+
+  /**
+   * 背景线程用：手势彻底结束（或换天/换方案复位）时把视口收敛回 state，
+   * 之后正常渲染就会把 transform / marker 位置对齐到 v。
+   */
   const applyView = useCallback((v: View) => {
     viewRef.current = v;
     setMapView(v);
   }, []);
 
-  /** Lynx 的 touch 事件给 clientX/clientY；拿不到时退回 x/y，别整块手势瞎掉 */
-  const ptsOf = (e: any) =>
-    (e?.touches ?? []).map((t: any) => ({ x: Number(t.clientX ?? t.x ?? 0), y: Number(t.clientY ?? t.y ?? 0) }));
-
-  const onTouchStart = useCallback((e: any) => {
+  /**
+   * touch 回调跑在主线程：手势直接改节点属性，不再每帧 setState 绕一圈背景线程
+   * （普通回调要「背景线程算 → setState → diff → 主线程」，跟手必然滞后）。
+   * 主线程函数只能调用主线程函数，所以 Gesture 的方法在这一层重新实现（见文件末尾）。
+   */
+  const onTouchStart = (e: MainThread.TouchEvent) => {
+    'main thread';
     const pts = ptsOf(e);
     // 新手指按下时 touchstart 会重放全部触点，基准要跟着重置，
     // 否则双指变三指再变回双指时，间距基准还是旧的，会猛跳一下
-    gestureRef.current.begin(viewRef.current, pts);
-  }, []);
+    mtGestureRef.current = mtBegin(mtViewRef.current ?? IDENTITY, pts);
+  };
 
-  const onTouchMove = useCallback((e: any) => {
-    const next = gestureRef.current.move(ptsOf(e));
-    if (next) applyView(next);
-  }, [applyView]);
+  const onTouchMove = (e: MainThread.TouchEvent) => {
+    'main thread';
+    const g = mtGestureRef.current;
+    if (!g) return;
+    const next = mtMove(g, ptsOf(e));
+    if (!next) return;
+    mtViewRef.current = next;
+    applyMtView(next, {
+      base: mtBaseRef.current,
+      tint: mtTintRef.current,
+      route: mtRouteRef.current,
+      pill: mtPillRef.current,
+      markers: mtMarkersRef.current,
+      pos: mtMarkerPos.current,
+    });
+  };
 
-  const onTouchEnd = useCallback((e: any) => {
+  const onTouchEnd = (e: MainThread.TouchEvent) => {
+    'main thread';
     const pts = ptsOf(e);
     // 松一根手指后剩下的那根要继续能拖：以剩余触点重新起基准
     if (pts.length > 0) {
-      gestureRef.current.begin(viewRef.current, pts);
+      mtGestureRef.current = mtBegin(mtViewRef.current ?? IDENTITY, pts);
       return;
     }
-    gestureRef.current.end();
+    const g = mtGestureRef.current;
+    if (g) mtGestureEnd(g);
+    mtGestureRef.current = null;
     // 手势彻底结束：把「我拖到哪、放到多大」提交成一次真实取景变更。
     // 放着不提交的话，这只手看到的是一张被 CSS 拉大/挪动的旧图，
     // 松手后既没有新细节，也没有任何东西记住用户在多看哪一块。
-    commitRef.current(viewRef.current);
-  }, []);
+    commitRef.current(mtViewRef.current ?? IDENTITY);
+  };
 
   // 补到折线后 bump 一次，触发下面 stops/routeSvg 重算（折线存在模块内存里，不进 state）
   const [geoBump, setGeoBump] = useState(0);
@@ -342,6 +380,10 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
     });
   }, [plan, dayNo, geoBump]);
 
+  // 把每个 marker 的内容坐标（）同步给主线程：触摸回调里按 order 直接换算屏幕位置，
+  // 不用把 stops 整个序列化过去（bubble 里有 place 对象，序列化代价高）
+  mtMarkerPos.current = stops.map((s) => ({ order: s.order, x: s.x, y: s.y }));
+
   /**
    * 冷启动补折线。
    *
@@ -435,7 +477,7 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
     // 所以 y 只做翻转、不再乘 aspect。
     // 再套一层视口变换：内容坐标 → 屏幕坐标 → SVG 坐标
     const toSvg = (x: number, y: number) => {
-      const p = project(mapView, x, y);
+      const p = { x, y };
       return { x: p.x, y: ((100 - p.y) / 100) * 216 };
     };
 
@@ -491,7 +533,7 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
     );
     // 原生 Lynx 没有 svg 组件，路线图也是 data URI 交给 <image>
     return svgDataUri(svg);
-  }, [stops, legs, plan, dayNo, mapView]);
+  }, [stops, legs, plan, dayNo]);
 
   const pickedSpot = picked === null ? undefined : stops.find((s) => s.order === picked);
 
@@ -541,10 +583,10 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
   return (
     <view
       className={cls('map-full')}
-      bindtouchstart={onTouchStart}
-      catchtouchmove={onTouchMove}
-      bindtouchend={onTouchEnd}
-      bindtouchcancel={onTouchEnd}
+      main-thread:bindtouchstart={onTouchStart}
+      main-thread:catchtouchmove={onTouchMove}
+      main-thread:bindtouchend={onTouchEnd}
+      main-thread:bindtouchcancel={onTouchEnd}
     >
       {/*
         底图：有取景信息时用高德静态图（服务端透传，key 不过河），否则退回插画。
@@ -552,6 +594,7 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
         用户至少要看到一张底图，而不是一块白板。
       */}
       <image
+        main-thread:ref={mtBaseRef}
         src={showArt ? mapArt : baseMapSrc}
         mode="aspectFill"
         className={showArt ? undefined : cls('map-base')}
@@ -587,6 +630,7 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
       {/* 蒙版跟着底图一起变换：底图被拉伸时蒙版留在原地，缩放中会看见一条没被染色的边 */}
       {showArt ? null : (
         <view
+          main-thread:ref={mtTintRef}
           className={cls('map-tint')}
           style={{ transform: `translate(${mapView.dx}%, ${-mapView.dy}%) scale(${mapView.scale})` }}
         />
@@ -596,7 +640,7 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
       {showArt ? <view className={cls('map-veil')} /> : null}
       <view className={cls('map-top')}>
         <view className={cls('map-top-pill')}>
-          <image src={svgIcon('pin', COLOR.primary)} style={{ width: '15px', height: '15px', marginRight: '5px' }} />
+          <IconSvg content={svgIcon('pin', COLOR.primary)} style={{ width: '15px', height: '15px', marginRight: '5px' }} />
           <text className={cls('map-top-city')}>
             {demand.destination} {plan.days.length}天{plan.days.length > 1 ? `${plan.days.length - 1}晚` : ''}
           </text>
@@ -620,16 +664,17 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
             toast('地图内不做搜索，已切到景点列表');
           }}
         >
-          <image src={svgIcon('search', '#3F5980')} style={{ width: '17px', height: '17px' }} />
+          <IconSvg content={svgIcon('search', '#3F5980')} style={{ width: '17px', height: '17px' }} />
         </view>
       </view>
 
       {routeSvg ? (
-        <image src={routeSvg} style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' }} />
+        <image main-thread:ref={mtRouteRef} src={routeSvg} style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' }} />
       ) : null}
       {/* 当天里程胶囊：贴起点一侧，只回答「第几天、这天一共走多远」 */}
       {daySummary ? (
         <view
+          main-thread:ref={mtPillRef}
           className={cls('map-day-pill')}
           style={(() => {
             // 胶囊整体在点的左侧：起点贴边时往里收一点，别让文字滑出屏幕
@@ -648,6 +693,7 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
         // 圆图和文字会整个消失（web 端 shrink-to-fit 不会，所以只在真机上暴露）
         <view
           key={s.order}
+          main-thread:ref={(el: MainThread.Element) => { mtMarkersRef.current[s.order - 1] = el; }}
           className={cls(mkClass(picked, s))}
           style={(() => {
             // marker 跟着视口一起变换；气泡本身尺寸不变（缩放的是地图像素，
@@ -679,7 +725,7 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
               {s.dist ? (
                 <view className={cls('mk-dist-row')}>
                   <text className={cls('mk-dist')}>{s.dist}</text>
-                  <image src={svgIcon('chevronRight', '#7E93D6')} style={{ width: '11px', height: '11px' }} />
+                  <IconSvg content={svgIcon('chevronRight', '#7E93D6')} style={{ width: '11px', height: '11px' }} />
                 </view>
               ) : null}
             </view>
@@ -758,7 +804,7 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
                         />
                         {picked === s.order ? (
                           <view className={cls('spot-check')}>
-                            <image src={svgIcon('check', '#FFFFFF')} style={{ width: '11px', height: '11px' }} />
+                            <IconSvg content={svgIcon('check', '#FFFFFF')} style={{ width: '11px', height: '11px' }} />
                           </view>
                         ) : null}
                       </view>
@@ -799,7 +845,7 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
                       {s.time} 起 · 停留 {s.stay} 分 · 门票 {ticketText(s.ticket)}
                     </text>
                   </view>
-                  <image src={svgIcon('chevronRight', '#C7D2E3')} style={{ width: '13px', height: '13px' }} />
+                  <IconSvg content={svgIcon('chevronRight', '#C7D2E3')} style={{ width: '13px', height: '13px' }} />
                 </view>
               );
             })}
@@ -810,13 +856,13 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
             {plays.map((p) => (
               <view key={p.id} className={cls('sp-row')} bindtap={() => onPlay(p.id)}>
                 <view className={cls('sp-icon')}>
-                  <image src={svgIcon('sparkles', '#2478F2')} style={{ width: '18px', height: '18px' }} />
+                  <IconSvg content={svgIcon('sparkles', '#2478F2')} style={{ width: '18px', height: '18px' }} />
                 </view>
                 <view className={cls('sp-main')}>
                   <text className={cls('sp-name')}>{p.title}</text>
                   <text className={cls('sp-meta')}>{p.note}</text>
                 </view>
-                <image src={svgIcon('chevronRight', '#C7D2E3')} style={{ width: '13px', height: '13px' }} />
+                <IconSvg content={svgIcon('chevronRight', '#C7D2E3')} style={{ width: '13px', height: '13px' }} />
               </view>
             ))}
           </scroll-view>
@@ -824,8 +870,8 @@ export function MapPage({ demand, plans, planIndex, onPlan, plays, onPlay }: Pro
       </view>
       ) : (
         <view className={cls('sheet-reopen')} catchtap={() => setSheetOpen(true)}>
-          <image
-            src={svgIcon('chevronRight', '#2478F2')}
+          <IconSvg
+            content={svgIcon('chevronRight', '#2478F2')}
             className={cls('sheet-reopen-icon')}
             style={{ width: '14px', height: '14px' }}
           />
@@ -863,4 +909,81 @@ function clock(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return `${h < 10 ? '0' : ''}${h}:${m < 10 ? '0' : ''}${m}`;
+}
+
+/* ───────────────────────── 主线程手势（MTS） ─────────────────────────
+ *
+ * 触摸事件在主线程触发。用普通回调处理要走「主线程触发 → 背景线程执行 → setState
+ * → diff → 主线程渲染」，跟手必然滞后；官方给的解法就是 'main thread' 函数 +
+ * main-thread: 事件前缀，直接在主线程改节点属性（见 Lynx 文档 Main Thread Script）。
+ *
+ * 限制（文档明列）：只能调用主线程函数、捕获变量靠 JSON 快照同步（渲染时刷新）、
+ * 不支持嵌套定义、类组件构造器 / getter / setter 不能当主线程函数。
+ * 所以 Gesture 类的方法在这一层不能用（它们是背景线程的普通函数），
+ * 下面按 mapGesture.ts 的算法重写成主线程函数；背景线程的 Gesture 仍保留，
+ * 因为 commitCamera 等背景逻辑还要用同一套算法。
+ */
+
+/** Lynx 的 touch 事件给 clientX/clientY；拿不到时退回 x/y，别整块手势瞎掉 */
+function ptsOf(e: any): { x: number; y: number }[] {
+  return (e?.touches ?? []).map((t: any) => ({ x: Number(t.clientX ?? t.x ?? 0), y: Number(t.clientY ?? t.y ?? 0) }));
+}
+
+/** 主线程侧手势状态：Gesture 只含两个数组，可 JSON 序列化，能安全跨线程 */
+type MtGesture = Gesture;
+
+/** 与 Gesture.begin 等价：记下起点基准，供 move 计算 */
+function mtBegin(v: View, pts: { x: number; y: number }[]): MtGesture {
+  const g = new Gesture();
+  g.begin(v, pts);
+  return g;
+}
+
+function mtMove(g: MtGesture, pts: { x: number; y: number }[]): View | null {
+  return g.move(pts);
+}
+
+function mtGestureEnd(g: MtGesture): void {
+  g.end();
+}
+
+/** 主线程把视口写进节点：底图 / 蒙版 / 路线（百分比 translate + scale） */
+function applyMtView(
+  v: View,
+  refs: {
+    base: MainThread.Element | null;
+    tint: MainThread.Element | null;
+    route: MainThread.Element | null;
+    pill: MainThread.Element | null;
+    markers: (MainThread.Element | null)[];
+    pos: { order: number; x: number; y: number }[];
+  },
+): void {
+  'main thread';
+  const t = `translate(${v.dx}%, ${-v.dy}%) scale(${v.scale})`;
+  refs.base?.setStyleProperty('transform', t);
+  refs.tint?.setStyleProperty('transform', t);
+  refs.route?.setStyleProperty('transform', t);
+  // 里程胶囊：跟随起点（x 收到 [30,92] 区间，防止滑出屏幕）
+  const p0 = refs.pos[0];
+  if (p0) {
+    const sp = projectMt(v, p0.x, p0.y);
+    const x = Math.min(92, Math.max(30, sp.x));
+    refs.pill?.setStyleProperty('left', `${x}%`);
+    refs.pill?.setStyleProperty('bottom', `${sp.y}%`);
+  }
+  // marker：内容坐标 → 屏幕百分比（气泡尺寸不变，只挪位置）
+  for (let i = 0; i < refs.markers.length; i++) {
+    const el = refs.markers[i];
+    const p = refs.pos[i];
+    if (!el || !p) continue;
+    const sp = projectMt(v, p.x, p.y);
+    el.setStyleProperty('left', `${sp.x}%`);
+    el.setStyleProperty('bottom', `${sp.y}%`);
+  }
+}
+
+/** 与 mapGesture.project 等价（主线程不能用背景线程的普通函数） */
+function projectMt(v: View, x: number, y: number): { x: number; y: number } {
+  return { x: (x - 50) * v.scale + 50 + v.dx, y: (y - 50) * v.scale + 50 + v.dy };
 }

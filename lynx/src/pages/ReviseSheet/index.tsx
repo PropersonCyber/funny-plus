@@ -1,3 +1,4 @@
+import { IconSvg } from '../../IconSvg.js';
 import { useCallback, useState } from '@lynx-js/react';
 
 import { revisePlan } from '../../data.js';
@@ -116,7 +117,7 @@ export function ReviseSheet({ plan, demand, dayIndex, tripId, onClose, onApplied
         <view className={cls('sheet-grabber')} />
 
         <view className={cls('rs-head')}>
-          <image src={svgIcon('sparkles', '#2478F2')} style={{ width: '20px', height: '20px', marginRight: '8px' }} />
+          <IconSvg content={svgIcon('sparkles', '#2478F2')} style={{ width: '20px', height: '20px', marginRight: '8px' }} />
           <view className={cls('rs-head-text')}>
             <text className={cls('sheet-title')}>调整第 {dayIndex} 天</text>
             <text className={cls('rs-sub')}>只改这一天，其它天不动</text>

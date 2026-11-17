@@ -1,134 +1,556 @@
-// 本模块专属样式（CSS Modules，类名会被哈希）
+// 选择出发城市：设计稿 1:1。
+// 结构自上而下：山水横幅（标题压吉祥物旁）→ 搜索框 → 当前定位 → 国内/境外分段
+// → 滚动区（热门横滑 / 地区宫格 / 全部城市 A-Z + 右侧索引）。
+// 只有滚动区参与滚动：横幅和搜索框常驻，滚下去还能直接换关键词。
 
-.city-page {
+.tc-page {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background-color: #eaf2fe;
+}
+
+/* ---------------- 顶部横幅 ---------------- */
+
+.tc-hero {
+  position: relative;
+  /* 150px 时吉祥物高 122，头顶会顶进状态栏和灵动岛，标题也被岛挡住 */
+  height: 206px;
+  /* 不裁：吉祥物要压出横幅下沿，跟搜索框形成层次 */
+  overflow: visible;
+}
+
+.tc-hero-bg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
   height: 100%;
-  background-color: #ffffff;
-  padding: 52px 16px 20px 16px;
 }
-.city-head {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  margin-bottom: 14px;
-}
-.city-back {
+
+.tc-back {
+  position: absolute;
+  left: 14px;
+  /* 全仓状态栏口径是 60px；再低一点，避开 iPhone 18 Pro 的灵动岛 */
+  top: 64px;
   width: 34px;
   height: 34px;
   border-radius: 17px;
-  background-color: #f1f5fb;
+  background-color: rgba(255, 255, 255, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 10px rgba(31, 71, 135, 0.14);
+}
+
+/* 标题左对齐、压在山水亮处，靠深色字 + 浅色描边保证可读性 */
+.tc-hero-text {
+  position: absolute;
+  left: 62px;
+  top: 58px;
+  display: flex;
+  flex-direction: column;
+}
+
+.tc-title {
+  font-size: 26px;
+  font-weight: bold;
+  color: #12294f;
+  text-shadow: 0 2px 6px rgba(255, 255, 255, 0.85);
+}
+
+/* 标题下那道黄色手绘下划线：用渐变条近似，不额外引图 */
+.tc-underline {
+  width: 92px;
+  height: 4px;
+  border-radius: 2px;
+  margin-top: 2px;
+  background-image: linear-gradient(90deg, rgba(255, 208, 74, 0), #ffd04a 30%, #ffc22e 70%, rgba(255, 194, 46, 0));
+}
+
+.tc-subtitle {
+  font-size: 11px;
+  color: #2c4a76;
+  margin-top: 6px;
+}
+
+/* 吉祥物压出横幅下沿，压住搜索框上沿一点点 */
+.tc-mascot {
+  position: absolute;
+  right: 6px;
+  bottom: -10px;
+  width: 122px;
+  height: 122px;
+}
+
+/* ---------------- 搜索框 ---------------- */
+
+.tc-search {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  height: 44px;
+  margin: -6px 14px 0 14px;
+  padding: 0 12px 0 14px;
+  border-radius: 22px;
+  background-color: #ffffff;
+  box-shadow: 0 6px 18px rgba(48, 104, 175, 0.12);
+}
+
+.tc-input {
+  flex: 1;
+  height: 100%;
+  margin-left: 8px;
+  font-size: 14px;
+  color: #172b4d;
+}
+
+.tc-input-ph {
+  color: #9aabc4;
+}
+
+.tc-search-clear {
+  width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  background-color: #eef3fd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tc-search-clear-icon {
+  font-size: 11px;
+  color: #7d8fab;
+}
+
+/* ---------------- 当前定位 ---------------- */
+
+.tc-loc {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin: 10px 14px 0 14px;
+  padding: 10px 12px;
+  border-radius: 18px;
+  background-color: #ffffff;
+  /* 半透蓝调，让卡片跟下面的纯白宫格区分开 */
+  background-image: linear-gradient(100deg, #f2f8ff, #e8f2ff);
+  box-shadow: 0 6px 18px rgba(48, 104, 175, 0.1);
+}
+
+.tc-loc-pin {
+  width: 34px;
+  height: 34px;
+  border-radius: 17px;
+  background-color: #dcebff;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-right: 10px;
 }
-.city-search {
+
+.tc-loc-text {
+  display: flex;
+  flex-direction: column;
   flex: 1;
-  height: 36px;
-  border-radius: 18px;
-  background-color: #f4f7fc;
+  min-width: 0;
+}
+
+.tc-loc-label {
+  font-size: 11px;
+  color: #6b86ab;
+}
+
+.tc-loc-value {
+  margin-top: 2px;
+  font-size: 19px;
+  font-weight: bold;
+  color: #2b7bff;
+}
+
+/* 还没拿到城市时，同一句话用浅色，避免「定位中…」看起来像一座城 */
+.tc-loc-wait {
+  font-size: 15px;
+  font-weight: normal;
+  color: #7d94b5;
+}
+
+.tc-loc-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 16px;
+  background-color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 8px rgba(43, 123, 255, 0.18);
+}
+
+/* ---------------- 国内 / 境外 分段 ---------------- */
+
+.tc-tabs {
   display: flex;
   flex-direction: row;
   align-items: center;
-  padding: 0 14px;
+  height: 44px;
+  margin: 12px 14px 0 14px;
+  padding: 4px;
+  border-radius: 22px;
+  background-color: #ffffff;
+  box-shadow: 0 6px 18px rgba(48, 104, 175, 0.08);
 }
-.city-input {
+
+.tc-tab {
   flex: 1;
-  font-size: 13px;
-  color: #172b4d;
+  height: 36px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.city-cur {
+
+.tc-tab-on {
+  background-image: linear-gradient(100deg, #2b7bff, #1769f2);
+  box-shadow: 0 4px 12px rgba(43, 123, 255, 0.32);
+}
+
+.tc-tab-text {
+  font-size: 14px;
+  font-weight: bold;
+  color: #3c5a85;
+}
+
+.tc-tab-text.on {
+  color: #ffffff;
+}
+
+/* ---------------- 滚动区 ---------------- */
+
+/* 滚动区 + 索引条的外层：索引条要浮在滚动内容上，只能是 scroll-view 的兄弟 */
+.tc-list-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  padding: 12px 14px;
-  border-radius: 16px;
-  background-color: #eef4ff;
-  margin-bottom: 16px;
 }
-.city-cur-label {
-  font-size: 11px;
-  color: #7183a2;
-}
-.city-cur-value {
-  font-size: 16px;
-  font-weight: bold;
-  color: #172b4d;
-  margin-top: 2px;
-}
-.city-cur-note {
-  font-size: 10px;
-  color: #8a99b3;
+
+.tc-body {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
   margin-top: 4px;
 }
-.city-sec {
-  font-size: 12px;
-  color: #8a99b3;
-  margin: 4px 0 6px 0;
+
+/* 热门 + 地区合成一个直接子节点，保证 A-Z 跳转的 index 不随搜索态变化 */
+.tc-top {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
 }
-.city-item {
+
+.tc-block {
+  margin-top: 14px;
+  width: 100%;
+}
+
+.tc-block-head {
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 2px;
-  border-bottom: 1px solid #f1f5fb;
+  padding: 0 16px 8px 16px;
 }
-.city-item-text {
-  font-size: 15px;
-  color: #172b4d;
+
+.tc-block-title-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
 }
-.city-item-on {
+
+.tc-block-title {
+  font-size: 17px;
   font-weight: bold;
-  color: #2478f2;
+  color: #12294f;
 }
-.city-item-tick {
-  font-size: 11px;
-  color: #2478f2;
+
+.tc-flame {
+  width: 20px;
+  height: 20px;
+  margin-right: 6px;
 }
-.city-empty {
+
+/* 用图标 + 浅蓝底代替设计稿里的彩色小方块，跟首页图标风格一致 */
+.tc-title-badge {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background-color: #dcebff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 7px;
+}
+
+.tc-count {
   font-size: 12px;
-  color: #a5b2c7;
-  padding: 10px 0;
+  color: #6b86ab;
 }
-.city-hot {
+
+.tc-more {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.tc-more-text {
+  font-size: 13px;
+  color: #2b7bff;
+  margin-right: 2px;
+}
+
+/* ---------------- 热门城市：横向滑动 ---------------- */
+
+/* 横滑自己会按内容撑宽，外层必须裁一刀，否则第 4 张卡画到屏幕外、还压住右侧字母 */
+.tc-hot-clip {
+  height: 108px;
+  overflow: hidden;
+  margin-right: 20px;
+}
+
+.tc-hot {
+  width: 100%;
+  height: 108px;
+}
+
+.tc-hot-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  height: 108px;
+}
+
+.tc-hot-card {
+  position: relative;
+  /* 横滑里必须禁掉收缩，否则卡片被压扁，或者反过来把容器撑出父级 */
+  flex-grow: 0;
+  flex-shrink: 0;
+  flex-basis: 106px;
+  width: 106px;
+  height: 104px;
+  margin-left: 12px;
+  border-radius: 16px;
+  overflow: hidden;
+  background-color: #dce8f8;
+}
+
+.tc-hot-card-last {
+  /* 右侧字母索引浮在滚动区上，末卡留出空隙，滑到头才不会钻到字母下面 */
+  margin-right: 28px;
+}
+
+.tc-hot-img {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* 底部压深，让城市名在任何照片上都读得出来 */
+.tc-hot-veil {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 56%;
+  background-image: linear-gradient(to top, rgba(6, 22, 46, 0.72), rgba(6, 22, 46, 0));
+}
+
+.tc-hot-name {
+  position: absolute;
+  left: 0;
+  bottom: 8px;
+  width: 100%;
+  text-align: center;
+  font-size: 14px;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+/* ---------------- 按地区选择：三列宫格 ---------------- */
+
+.tc-regions {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  margin-top: 2px;
-}
-.city-hot-chip {
-  padding: 7px 14px;
-  border-radius: 14px;
-  background-color: #f4f7fc;
-  margin: 0 8px 8px 0;
-}
-.city-hot-text {
-  font-size: 12px;
-  color: #8a99b3;
-}
-.city-tip {
-  font-size: 10px;
-  color: #a5b2c7;
-  margin-top: 6px;
+  padding: 0 10px;
 }
 
-/* 搜到了但城市没开放：给结论，不要留一个空列表让人猜是没搜到还是不支持 */
-.city-miss {
+.tc-region {
+  /* 三列：100% / 3，减去两侧留白，再用 30% 收一下宽裕度 */
+  width: 30.6%;
+  margin: 0 1.3% 8px 1.3%;
+  padding: 9px 8px;
+  border-radius: 14px;
+  background-color: #ffffff;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  box-shadow: 0 4px 12px rgba(48, 104, 175, 0.08);
+}
+
+/* 没有城市的地区整块降透明度：比隐藏更像「还没开门」，也保住宫格对齐 */
+.tc-region-off {
+  opacity: 0.62;
+}
+
+.tc-region-icon {
+  font-size: 16px;
+  margin-right: 6px;
+}
+
+.tc-region-text {
   display: flex;
   flex-direction: column;
-  padding: 18px 16px;
-  border-radius: 12px;
-  background-color: rgba(255, 255, 255, 0.9);
+  flex: 1;
+  min-width: 0;
 }
-.city-miss-title {
-  font-size: 15px;
-  font-weight: bold;
-  color: #172b4d;
-}
-.city-miss-note {
-  margin-top: 6px;
+
+.tc-region-name {
   font-size: 12px;
-  line-height: 18px;
-  color: #7e93d6;
+  font-weight: bold;
+  color: #12294f;
+}
+
+.tc-region-count {
+  font-size: 9px;
+  color: #8fa3bf;
+  margin-top: 2px;
+}
+
+/* ---------------- 全部城市：字母分组 + 右侧索引 ---------------- */
+
+.tc-group {
+  margin-bottom: 6px;
+}
+
+/* 字母条：浅蓝底通栏，跟下面白 chips 拉开层次 */
+.tc-letter {
+  height: 26px;
+  margin: 0 14px 8px 14px;
+  padding-left: 12px;
+  border-radius: 8px;
+  background-color: #dbe9fb;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+}
+
+.tc-letter-text {
+  font-size: 13px;
+  font-weight: bold;
+  color: #2b5c99;
+}
+
+.tc-chips {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  padding: 0 14px;
+}
+
+.tc-chip {
+  width: 31%;
+  margin: 0 1% 8px 1%;
+  height: 38px;
+  border-radius: 19px;
+  background-color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 10px rgba(48, 104, 175, 0.08);
+}
+
+.tc-chip-on {
+  background-color: #2b7bff;
+}
+
+.tc-chip-text {
+  font-size: 13px;
+  color: #17325c;
+}
+
+.tc-chip-text.on {
+  color: #ffffff;
+  font-weight: bold;
+}
+
+/* 右侧索引条：浮在滚动区上（scroll-view 的兄弟），只有 22px 宽 */
+.tc-idx {
+  position: absolute;
+  right: 2px;
+  top: 0;
+  bottom: 0;
+  width: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(234, 242, 254, 0.72);
+  border-radius: 11px;
+}
+
+.tc-idx-item {
+  height: 15px;
+  width: 20px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tc-idx-text {
+  font-size: 9px;
+  font-weight: bold;
+  color: #3d6ad6;
+}
+
+.tc-idx-text.off {
+  font-weight: normal;
+  color: #c5d0e2;
+}
+
+/* ---------------- 空态 ---------------- */
+
+.tc-empty-box {
+  margin: 14px 14px 0 14px;
+  padding: 22px 16px;
+  border-radius: 16px;
+  background-color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 6px 18px rgba(48, 104, 175, 0.08);
+}
+
+.tc-empty-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #17325c;
+}
+
+.tc-empty-note {
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 17px;
+  color: #7d94b5;
+  text-align: center;
+}
+
+.tc-bottom {
+  height: 18px;
 }

@@ -1,3 +1,4 @@
+import { IconSvg } from '../../IconSvg.js';
 import { useCallback, useState } from '@lynx-js/react';
 
 import { svgDataUri } from '../../icon-svg.js';
@@ -108,12 +109,12 @@ export function AdvicePage({ demand, plans, planIndex, onBack, onPlan }: Props) 
       <view className={cls('page')}>
         <view className={cls('page-head')}>
           <view className={cls('icon-btn')} bindtap={onBack}>
-            <image src={svgIcon('chevronLeft', '#2A3A57')} style={{ width: '18px', height: '18px' }} />
+            <IconSvg content={svgIcon('chevronLeft', '#2A3A57')} style={{ width: '18px', height: '18px' }} />
           </view>
           <text className={cls('page-title')}>智能建议</text>
           <view className={cls('head-link')} bindtap={onBack}>
             <text className={cls('head-link-text')}>收起</text>
-            <image src={svgIcon('chevronRight', '#2478F2')} style={{ width: '13px', height: '13px', marginLeft: '2px' }} />
+            <IconSvg content={svgIcon('chevronRight', '#2478F2')} style={{ width: '13px', height: '13px', marginLeft: '2px' }} />
           </view>
         </view>
 
@@ -130,7 +131,7 @@ export function AdvicePage({ demand, plans, planIndex, onBack, onPlan }: Props) 
             </view>
             <view className={cls('tip-hl')}>
               <view className={cls('tip-hl-icon')}>
-                <image src={svgIcon('sparkles', '#F5A03C')} style={{ width: '16px', height: '16px' }} />
+                <IconSvg content={svgIcon('sparkles', '#F5A03C')} style={{ width: '16px', height: '16px' }} />
               </view>
               <view className={cls('tip-hl-main')}>
                 <text className={cls('tip-hl-title')}>时间与花费都按方案实算</text>
@@ -146,7 +147,7 @@ export function AdvicePage({ demand, plans, planIndex, onBack, onPlan }: Props) 
             {observedTips.map((t) => (
               <view key={t} className={cls('tip-row')}>
                 <view className={cls('tip-check')}>
-                  <image src={svgIcon('shield', '#20B98A')} style={{ width: '12px', height: '12px' }} />
+                  <IconSvg content={svgIcon('shield', '#20B98A')} style={{ width: '12px', height: '12px' }} />
                 </view>
                 <text className={cls('tip-text')}>{t}</text>
               </view>
@@ -161,7 +162,7 @@ export function AdvicePage({ demand, plans, planIndex, onBack, onPlan }: Props) 
           </view>
           <view className={cls('advice-body')}>
             <view className={cls('advice-icon')}>
-              <image src={svgIcon('transport', '#FFFFFF')} style={{ width: '20px', height: '20px' }} />
+              <IconSvg content={svgIcon('transport', '#FFFFFF')} style={{ width: '20px', height: '20px' }} />
             </view>
             <view className={cls('advice-main')}>
               <text className={cls('advice-title')}>

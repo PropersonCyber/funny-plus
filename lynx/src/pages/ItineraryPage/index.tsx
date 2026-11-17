@@ -1,3 +1,4 @@
+import { IconSvg } from '../../IconSvg.js';
 import { useCallback, useState } from '@lynx-js/react';
 import { trustLabel } from '../../../../shared/engine/facts.js';
 
@@ -116,7 +117,7 @@ export function ItineraryPage({
             ) : null}
             <view className={cls('head-link')} bindtap={onDetail}>
               <text className={cls('head-link-text')}>详情</text>
-              <image src={svgIcon('chevronRight', '#2478F2')} style={{ width: '13px', height: '13px', marginLeft: '2px' }} />
+              <IconSvg content={svgIcon('chevronRight', '#2478F2')} style={{ width: '13px', height: '13px', marginLeft: '2px' }} />
             </view>
           </view>
         </view>

@@ -19,7 +19,9 @@ const KEYS = [
   'funny-plus.trip.v1',
   'funny-plus.content.v1',
   'funny-plus.feedback.v1',
-  'funny-plus.client-id.v1'
+  'funny-plus.client-id.v1',
+  // 与 chatSession.CHAT_STORAGE_KEY 同一串：漏了的话重启后对话读不回来
+  'funny-plus.chat.v1'
 ];
 const DB_NAME = 'funny-plus';
 const DB_STORE = 'kv';

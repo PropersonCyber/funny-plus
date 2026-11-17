@@ -1,4 +1,4 @@
-import { icon, svgDataUri } from './icon-svg.js';
+import { icon } from './icon-svg.js';
 
 export const COLOR = {
   primary: '#2478F2',
@@ -7,11 +7,11 @@ export const COLOR = {
 };
 
 export function tabSvg(name: string, active: boolean): string {
-  return svgDataUri(icon(name, active ? COLOR.primary : COLOR.idle));
+  return icon(name, active ? COLOR.primary : COLOR.idle);
 }
 
 export function svgIcon(name: string, color: string = COLOR.primary): string {
-  return svgDataUri(icon(name, color));
+  return icon(name, color);
 }
 
 // 地图元素（assets/map）

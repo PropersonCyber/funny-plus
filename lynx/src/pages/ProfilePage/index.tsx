@@ -1,3 +1,4 @@
+import { IconSvg } from '../../IconSvg.js';
 import { svgIcon } from '../../icons.js';
 import { toast } from '../../toast.js';
 import type { SavedTrip } from '../../storage.js';
@@ -79,8 +80,8 @@ export function ProfilePage({ trips, activeId, onSwitch, onDelete, collections, 
 
           <view className={cls('card card-tight')}>
             <view className={cls('menu-row menu-row-last')} bindtap={onOpenTrip}>
-              <image
-                src={svgIcon('itinerary', '#2478F2')}
+              <IconSvg
+                content={svgIcon('itinerary', '#2478F2')}
                 style={{ width: '19px', height: '19px', marginRight: '11px' }}
               />
               <view className={cls('save-main')}>
@@ -88,7 +89,7 @@ export function ProfilePage({ trips, activeId, onSwitch, onDelete, collections, 
                   {trip ? `${trip.demand.destination} · ${trip.demand.dayCount} 天行程` : '我的行程'}
                 </text>
               </view>
-              <image src={svgIcon('chevronRight', '#C7D2E3')} style={{ width: '13px', height: '13px' }} />
+              <IconSvg content={svgIcon('chevronRight', '#C7D2E3')} style={{ width: '13px', height: '13px' }} />
             </view>
           </view>
 

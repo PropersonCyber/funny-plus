@@ -1,7 +1,9 @@
 // 来自 docs/materials/icons，保持 currentColor，渲染时替换
 export const SVG: Record<string, string> = {
+  bird: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M3.5 13.2c1.6-3.6 4.6-5.6 8.2-5.6 1.7 0 3 .4 4.1 1.1-1 .9-1.2 2.1-.2 3.1 1.5.5 3.1-.1 4.2-1.2.5 2.2-.8 4.2-3.2 5.4-3.2 1.6-7.4 2.2-10.4.4-2.1-1.3-3.6-2.6-2.7-3.2Z"/></svg>`,
   budget: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h3M17 15h.01M6 6V4h12v2"/></svg>`,
   food: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v7M4.5 3v4a2.5 2.5 0 0 0 5 0V3M7 9.5V21M16 3v18M16 3c3 2 4 5 4 8h-4"/></svg>`,
+  globe: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.4 2.5 2.4 13.5 0 16M12 4c-2.4 2.5-2.4 13.5 0 16"/></svg>`,
   home: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.8 12 3l9 7.8v9.1a1.6 1.6 0 0 1-1.6 1.6h-5.1v-6.2h-4.6v6.2H4.6A1.6 1.6 0 0 1 3 19.9z"/></svg>`,
   itinerary: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4M16 3v4M4 10h16M8 14h3M8 17h7"/></svg>`,
   locate: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6.4"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><path d="M12 2.4v3M12 18.6v3M2.4 12h3M18.6 12h3"/></svg>`,
@@ -61,16 +63,8 @@ export function base64Ascii(input: string): string {
 }
 
 /**
- * 图标一律画成纯白，颜色交给渲染时的 `tint-color`。
- *
- * 为什么不把颜色直接烧进 SVG 再编码（原来那版做法）：
- *   1. LynxUIImage 对 SVG 的解码依赖 LynxServiceImageProtocol 的
- *      loadSVGImageWithURL:，而 LynxService 4.2.0 里根本没有这个实现，
- *      结果每个图标都静默空白（日志里是 com.lynx.error 399）。
- *   2. 颜色独立出来后，同一图标在选/未选两种状态下不用各存一份 base64。
- *
- * 原生端 `<image>` 认 data URI（PNG/JPEG），所以这里把 SVG 先转成位图。
- * 实现见 svgDataUri 的注释——当前走的是「先画成 PNG」那条路。
+ * 给「本身就是一张 SVG 图」的 <image> 用，例如地图路线、建议页弧线。
+ * 图标字符串不走这里，见 IconSvg。
  */
 export function svgDataUri(svg: string): string {
   return svg ? `data:image/svg+xml;base64,${base64Ascii(svg)}` : '';

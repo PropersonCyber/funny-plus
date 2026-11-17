@@ -1,3 +1,4 @@
+import { IconSvg } from '../../IconSvg.js';
 import { useState } from '@lynx-js/react';
 
 import heroImg from '../../assets/gen/hero.jpg';
@@ -34,7 +35,7 @@ export function TripDetailPage({ demand, plans, planIndex, versions, onBack, onN
         <view className={cls('page')}>
           <view className={cls('page-head')}>
             <view className={cls('icon-btn')} bindtap={onBack}>
-              <image src={svgIcon('chevronLeft', '#2A3A57')} style={{ width: '18px', height: '18px' }} />
+              <IconSvg content={svgIcon('chevronLeft', '#2A3A57')} style={{ width: '18px', height: '18px' }} />
             </view>
             <text className={cls('page-sub-head')}>行程详情</text>
             <view className={cls('icon-btn')} />
@@ -62,7 +63,7 @@ export function TripDetailPage({ demand, plans, planIndex, versions, onBack, onN
             {/* 三格 meta 以前是固定 mock（2 人 / ¥3000 / 高铁+公交），跟真实方案对不上就成假数据 */}
             {metaOf(demand, plan).map((m) => (
               <view key={m.label} className={cls('meta-item')}>
-                <image src={svgIcon(m.icon, '#2478F2')} style={{ width: '18px', height: '18px', marginBottom: '4px' }} />
+                <IconSvg content={svgIcon(m.icon, '#2478F2')} style={{ width: '18px', height: '18px', marginBottom: '4px' }} />
                 <text className={cls('meta-value')}>{m.label}</text>
                 <text className={cls('meta-note')}>{m.note}</text>
               </view>

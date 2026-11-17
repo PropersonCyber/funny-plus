@@ -1,3 +1,4 @@
+import { IconSvg } from '../../IconSvg.js';
 import { useCallback, useMemo } from '@lynx-js/react';
 
 import chengdu from '../../assets/gen/chengdu.jpg';
@@ -46,7 +47,7 @@ function TipIcon({ name, size = 13 }: { name: string; size?: number }) {
   const img = (QICON as Record<string, string>)[name];
   const style = { width: `${size}px`, height: `${size}px` };
   if (img) return <image src={img} mode="aspectFit" style={style} />;
-  return <image src={svgIcon(name || 'pin', '#4A6699')} style={style} />;
+  return <IconSvg content={svgIcon(name || 'pin', '#4A6699')} style={style} />;
 }
 
 /** 首页「热门推荐」卡片上的固定文案，与设计稿一致；不随城市变，避免每城各写一句蹭文案 */
@@ -125,10 +126,10 @@ export function HotDetailPage({ city, places, plays, onBack, onSeeAllPlaces, onO
             <image src={cover} mode="aspectFill" className={cls('hot-hero-img')} />
             <view className={cls('hot-top')}>
               <view className={cls('hot-round-btn')} bindtap={onBack}>
-                <image src={svgIcon('chevronLeft', '#2478F2')} style={{ width: '17px', height: '17px' }} />
+                <IconSvg content={svgIcon('chevronLeft', '#2478F2')} style={{ width: '17px', height: '17px' }} />
               </view>
               <view className={cls('hot-round-btn')} catchtap={onShare}>
-                <image src={svgIcon('share', '#2478F2')} style={{ width: '17px', height: '17px' }} />
+                <IconSvg content={svgIcon('share', '#2478F2')} style={{ width: '17px', height: '17px' }} />
               </view>
             </view>
             {/* 设计稿里吉祥物站在画面右侧、举着糖葫芦；卡片压上来时它不会被裁掉，所以放在 hero 层 */}
@@ -140,7 +141,7 @@ export function HotDetailPage({ city, places, plays, onBack, onSeeAllPlaces, onO
               <image src={QICON.flame} mode="aspectFit" className={cls('hot-flame')} />
               <text className={cls('hot-title')}>{HOT_TITLE}</text>
               <view className={cls('hot-city-chip')}>
-                <image src={filledIcon('pin', '#2478F2')} style={{ width: '12px', height: '12px', marginRight: '3px' }} />
+                <IconSvg content={filledIcon('pin', '#2478F2')} style={{ width: '12px', height: '12px', marginRight: '3px' }} />
                 <text className={cls('hot-city-text')}>{city.id}</text>
               </view>
             </view>
@@ -151,7 +152,7 @@ export function HotDetailPage({ city, places, plays, onBack, onSeeAllPlaces, onO
               <text className={cls('hot-stat-sep')}>|</text>
               <text className={cls('hot-stat')}>{city.visitedText}</text>
               <text className={cls('hot-stat-sep')}>|</text>
-              <image src={svgIcon('clock', '#7183A2')} style={{ width: '13px', height: '13px', marginRight: '4px' }} />
+              <IconSvg content={svgIcon('clock', '#7183A2')} style={{ width: '13px', height: '13px', marginRight: '4px' }} />
               <text className={cls('hot-stat')}>{city.days}</text>
             </view>
 
@@ -172,7 +173,7 @@ export function HotDetailPage({ city, places, plays, onBack, onSeeAllPlaces, onO
               </view>
               <view className={cls('hot-sec-more')} bindtap={onSeeAllPlaces}>
                 <text className={cls('hot-sec-more-text')}>查看更多</text>
-                <image src={svgIcon('chevronRight', '#8A99B3')} style={{ width: '12px', height: '12px' }} />
+                <IconSvg content={svgIcon('chevronRight', '#8A99B3')} style={{ width: '12px', height: '12px' }} />
               </view>
             </view>
 
@@ -196,7 +197,7 @@ export function HotDetailPage({ city, places, plays, onBack, onSeeAllPlaces, onO
 
             <view className={cls('hot-sec-head hot-sec-head-tight')}>
               <view className={cls('hot-sec-title-row')}>
-                <image src={filledIcon('pin', '#2478F2')} style={{ width: '16px', height: '16px', marginRight: '5px' }} />
+                <IconSvg content={filledIcon('pin', '#2478F2')} style={{ width: '16px', height: '16px', marginRight: '5px' }} />
                 <text className={cls('hot-sec-title')}>推荐行程</text>
               </view>
             </view>
@@ -222,7 +223,7 @@ export function HotDetailPage({ city, places, plays, onBack, onSeeAllPlaces, onO
                   </view>
                 </view>
                 <view className={cls('hot-plan-go')}>
-                  <image src={svgIcon('arrowRight', '#FFFFFF')} style={{ width: '14px', height: '14px' }} />
+                  <IconSvg content={svgIcon('arrowRight', '#FFFFFF')} style={{ width: '14px', height: '14px' }} />
                 </view>
               </view>
             ) : null}
@@ -230,7 +231,7 @@ export function HotDetailPage({ city, places, plays, onBack, onSeeAllPlaces, onO
             {(city.tips?.length ?? 0) > 0 ? (
               <view className={cls('hot-tips')}>
                 <view className={cls('hot-tips-head')}>
-                  <image src={svgIcon('bulb', '#F5A03C')} style={{ width: '16px', height: '16px', marginRight: '5px' }} />
+                  <IconSvg content={svgIcon('bulb', '#F5A03C')} style={{ width: '16px', height: '16px', marginRight: '5px' }} />
                   <text className={cls('hot-tips-title')}>旅行小贴士</text>
                 </view>
                 {(city.tips ?? []).map((t) => (
@@ -255,7 +256,7 @@ export function HotDetailPage({ city, places, plays, onBack, onSeeAllPlaces, onO
 
       <view className={cls('hot-bar')}>
         <view className={cls('hot-cta')} bindtap={onAddPlan}>
-          <image src={filledIcon('navigation', '#FFFFFF')} style={{ width: '17px', height: '17px', marginRight: '7px' }} />
+          <IconSvg content={filledIcon('navigation', '#FFFFFF')} style={{ width: '17px', height: '17px', marginRight: '7px' }} />
           <text className={cls('hot-cta-text')}>加入行程</text>
         </view>
       </view>

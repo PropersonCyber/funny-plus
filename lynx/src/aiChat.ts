@@ -1,5 +1,7 @@
 import { hostApiBase } from './hostBridge.js';
 import { authToken } from './api.js';
+import { readToolResult } from './chatPayload.js';
+import type { ChatPayload } from './chatPayload.js';
 import type { Demand, Plan, RevisePreview, TripContext } from '../../shared/types/index.js';
 
 /**
@@ -110,7 +112,7 @@ export function canStream(): boolean {
   }
 }
 
-/** 兜底通道：一次拿全文 */
+/** 兜底通道：一次拿全文，方案和修改预览都要交出去 */
 async function chatNonStream(
   messages: ChatMessage[],
   slots: ChatSlots,
@@ -119,19 +121,12 @@ async function chatNonStream(
 ): Promise<ChatResult> {
   const { res, done } = await postAi('chat', { messages, slots, trip, stream: false });
   try {
-    const body = (await res.json().catch(() => null)) as {
-      text?: string;
-      slots?: ChatSlots;
-      plans?: { ok?: boolean; plans?: Plan[]; demand?: Demand };
-      error?: string;
-    } | null;
+    const body = (await res.json().catch(() => null)) as ChatPayload | null;
     if (!res.ok || !body) throw new Error(body?.error || `请求失败（${res.status}）`);
 
     if (body.text) handlers.onDelta(body.text);
-    // 没带 demand 就拼不出可用的行程（工作台还要拿它算预算/校验），宁可不给也不给半份
-    if (body.plans?.ok && body.plans.plans?.length && body.plans.demand) {
-      handlers.onPlans?.(body.plans.plans, body.plans.demand);
-    }
+    readToolResult('generatePlans', body.plans, handlers);
+    readToolResult('proposeRevise', body.revise, handlers);
     return { slots: body.slots ?? slots, streamed: false };
   } finally {
     done();
@@ -207,12 +202,8 @@ export async function chat(
             handlers.onDelta(parsed.text);
           } else if (event === 'tool' && typeof parsed.name === 'string') {
             handlers.onTool?.(parsed.name);
-          } else if (event === 'tool_result' && parsed.name === 'generatePlans') {
-            const out = parsed.output as { ok?: boolean; plans?: Plan[]; demand?: Demand } | undefined;
-            if (out?.ok && out.plans?.length && out.demand) handlers.onPlans?.(out.plans, out.demand);
-          } else if (event === 'tool_result' && parsed.name === 'proposeRevise') {
-            const out = parsed.output as { ok?: boolean; preview?: RevisePreview } | undefined;
-            if (out?.ok && out.preview) handlers.onRevise?.(out.preview);
+          } else if (event === 'tool_result' && typeof parsed.name === 'string') {
+            readToolResult(parsed.name, parsed.output, handlers);
           } else if (event === 'done' && parsed.slots) {
             next = parsed.slots as ChatSlots;
           } else if (event === 'error') {

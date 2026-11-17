@@ -1,15 +1,9 @@
+import { IconSvg } from '../../IconSvg.js';
 import { useCallback, useMemo, useState } from '@lynx-js/react';
 
-// 这一版的城市封面是新生成的 AI 插画（gpt-image-2.5），和首页老图分开命名，
-// 不动首页正在用的 chengdu/chongqing/beijing/dali，避免改一处影响两个页面。
-import chengdu from '../../assets/gen/chengdu_new.jpg';
-import chongqing from '../../assets/gen/chongqing_new.jpg';
-import beijing from '../../assets/gen/beijing_new.jpg';
-import dali from '../../assets/gen/dali_new.jpg';
-import hangzhou from '../../assets/gen/hangzhou.jpg';
-import lijiang from '../../assets/gen/lijiang.jpg';
-import xian from '../../assets/gen/xian.jpg';
-import zhangjiajie from '../../assets/gen/zhangjiajie.jpg';
+// 城市封面映射抽到 assets/city-covers：选择出发城市页也要用同一份，
+// 各写一份的话加城市要改两处，漏一处就是封面静默变成成都。
+import { cover } from '../../assets/city-covers.js';
 import listHero from '../../assets/gen/list-hero.jpg';
 import iconCamera from '../../assets/gen/icon-camera.jpg';
 import iconCulture from '../../assets/gen/icon-culture.jpg';
@@ -33,22 +27,6 @@ import {
 } from './hotCities.js';
 
 const cls = makeCls(styles);
-
-/**
- * 封面图映射。新城市的图还没生成时**必须**有兜底：
- * 缺一张图就让整页白屏，比缺图本身严重得多。
- */
-const CITY_IMG: Record<string, string> = {
-  chengdu,
-  chongqing,
-  beijing,
-  dali,
-  hangzhou,
-  lijiang,
-  xian,
-  zhangjiajie,
-};
-const cover = (key: string) => CITY_IMG[key] ?? chengdu;
 
 /** chips 的图标：走已有的小图，不为这版新画一套 */
 const CAT_ICON: Record<CategoryKey, string> = {
@@ -110,10 +88,10 @@ export function CityListPage({ onBack, onOpen }: Props) {
         <view className={cls('hc-hero-veil')} />
         <view className={cls('hc-hero-top')}>
           <view className={cls('hc-round')} bindtap={onBack}>
-            <image src={svgIcon('chevronLeft', '#2A3A57')} style={{ width: '18px', height: '18px' }} />
+            <IconSvg content={svgIcon('chevronLeft', '#2A3A57')} style={{ width: '18px', height: '18px' }} />
           </view>
           <view className={cls('hc-round')} catchtap={() => toast('搜索即将上线')}>
-            <image src={svgIcon('search', '#2A3A57')} style={{ width: '17px', height: '17px' }} />
+            <IconSvg content={svgIcon('search', '#2A3A57')} style={{ width: '17px', height: '17px' }} />
           </view>
         </view>
         <view className={cls('hc-hero-text')}>
@@ -173,8 +151,8 @@ export function CityListPage({ onBack, onOpen }: Props) {
           <text className={cls('hc-filter-caret')}>▾</text>
         </view>
         <view className={cls('hc-mode')} bindtap={() => setListMode((v) => !v)}>
-          <image
-            src={svgIcon(listMode ? 'more' : 'map', '#3F5980')}
+          <IconSvg
+            content={svgIcon(listMode ? 'more' : 'map', '#3F5980')}
             style={{ width: '16px', height: '16px' }}
           />
         </view>

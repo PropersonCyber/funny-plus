@@ -130,7 +130,7 @@ export function openLocationSettings(): boolean {
 
 export type Regeo = { city: string; province: string; district: string; coord: 'gcj02' };
 
-const CITY_CACHE = 'funny-plus.located-city.v1';
+export const CITY_CACHE = 'funny-plus.located-city.v1';
 /** 城市名缓存 30 分钟：逆地理按次计费，冷启动一次就够，不需要每次进页面都打 */
 const CITY_TTL_MS = 30 * 60 * 1000;
 
@@ -172,8 +172,11 @@ export async function resolveCity(point: GeoPoint): Promise<CityResult> {
   }
 }
 
-/** 一次性拿「定位 → 城市名」，给首页 / 城市选择页用 */
-export async function locateCity(): Promise<
+/**
+ * 一次性拿「定位 → 城市名」，给首页 / 城市选择页用。
+ * `fresh` 跳过 30 分钟缓存：用户点了重新定位，不能把刚才那座城市再吐出来。
+ */
+export async function locateCity(opts?: { fresh?: boolean }): Promise<
   | { status: 'ok'; city: string }
   | { status: 'empty' }
   | {
@@ -181,8 +184,10 @@ export async function locateCity(): Promise<
       reason: 'not_configured' | 'error' | 'no_location' | 'denied' | 'pending';
     }
 > {
-  const hit = cachedCity();
-  if (hit) return { status: 'ok', city: hit };
+  if (!opts?.fresh) {
+    const hit = cachedCity();
+    if (hit) return { status: 'ok', city: hit };
+  }
   const loc = await locate();
   if (!loc.ok) {
     // denied / pending 要原样透给界面：一个该引导去设置，一个该继续转圈

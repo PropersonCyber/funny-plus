@@ -1,3 +1,4 @@
+import { IconSvg } from '../../IconSvg.js';
 import { useCallback, useMemo } from '@lynx-js/react';
 
 // 举相机的那张（设计稿里攻略封面用的就是它）
@@ -64,7 +65,7 @@ const GUIDE_DEMAND: Demand = {
 function RoundBtn({ icon, onTap }: { icon: string; onTap: () => void }) {
   return (
     <view className={cls('gd-round-btn')} catchtap={onTap}>
-      <image src={svgIcon(icon, '#2478F2')} style={{ width: '17px', height: '17px' }} />
+      <IconSvg content={svgIcon(icon, '#2478F2')} style={{ width: '17px', height: '17px' }} />
     </view>
   );
 }
@@ -195,12 +196,12 @@ export function GuideDetailPage({ guide, onBack, collected, onToggleCollect }: P
             </view>
 
             <view className={cls('gd-stat-row')}>
-              <image src={filledIcon('star', '#FFB020')} style={{ width: '14px', height: '14px', marginRight: '4px' }} />
+              <IconSvg content={filledIcon('star', '#FFB020')} style={{ width: '14px', height: '14px', marginRight: '4px' }} />
               <text className={cls('gd-stat-strong')}>{guide.rating.toFixed(1)}</text>
               <text className={cls('gd-stat-sep')}>|</text>
               <text className={cls('gd-stat')}>{fmtViews(guide.views)}人去过</text>
               <text className={cls('gd-stat-sep')}>|</text>
-              <image src={svgIcon('clock', '#7183A2')} style={{ width: '13px', height: '13px', marginRight: '4px' }} />
+              <IconSvg content={svgIcon('clock', '#7183A2')} style={{ width: '13px', height: '13px', marginRight: '4px' }} />
               <text className={cls('gd-stat')}>{plan ? spanText(plan.days.length) : spanText(guide.dayCount)}</text>
             </view>
 
@@ -229,12 +230,12 @@ export function GuideDetailPage({ guide, onBack, collected, onToggleCollect }: P
                   <view className={cls('gd-card')}>
                     <view className={cls('gd-card-head gd-card-head-between')}>
                       <view className={cls('gd-card-head')}>
-                        <image src={filledIcon('calendarStar', '#2478F2')} style={{ width: '16px', height: '16px', marginRight: '6px' }} />
+                        <IconSvg content={filledIcon('calendarStar', '#2478F2')} style={{ width: '16px', height: '16px', marginRight: '6px' }} />
                         <text className={cls('gd-card-title')}>行程亮点</text>
                       </view>
                       <view className={cls('gd-hl-more')} bindtap={onShare}>
                         <text className={cls('gd-hl-more-text')}>查看更多</text>
-                        <image src={svgIcon('chevronRight', '#8A99B3')} style={{ width: '12px', height: '12px' }} />
+                        <IconSvg content={svgIcon('chevronRight', '#8A99B3')} style={{ width: '12px', height: '12px' }} />
                       </view>
                     </view>
                     <view className={cls('gd-hl-row')}>
@@ -253,7 +254,7 @@ export function GuideDetailPage({ guide, onBack, collected, onToggleCollect }: P
 
                 <view className={cls('gd-card')}>
                   <view className={cls('gd-card-head')}>
-                    <image src={filledIcon('itinerary', '#2478F2')} style={{ width: '16px', height: '16px', marginRight: '6px' }} />
+                    <IconSvg content={filledIcon('itinerary', '#2478F2')} style={{ width: '16px', height: '16px', marginRight: '6px' }} />
                     <text className={cls('gd-card-title')}>行程安排</text>
                   </view>
 
@@ -280,15 +281,15 @@ export function GuideDetailPage({ guide, onBack, collected, onToggleCollect }: P
                                   <image className={cls('gd-tl-thumb')} src={spotImg(place.name, cover)} mode="aspectFill" />
                                   <view className={cls('gd-tl-body')}>
                                     <view className={cls('gd-tl-name-row')}>
-                                      <image src={filledIcon('pin', '#2478F2')} style={{ width: '13px', height: '13px', marginRight: '4px' }} />
+                                      <IconSvg content={filledIcon('pin', '#2478F2')} style={{ width: '13px', height: '13px', marginRight: '4px' }} />
                                       <text className={cls('gd-tl-name')}>{place.name}</text>
                                     </view>
                                     <view className={cls('gd-tl-meta-row')}>
-                                      <image src={svgIcon(place.hype ? 'sparkles' : 'clock', '#A5B2C7')} style={{ width: '11px', height: '11px', marginRight: '4px' }} />
+                                      <IconSvg content={svgIcon(place.hype ? 'sparkles' : 'clock', '#A5B2C7')} style={{ width: '11px', height: '11px', marginRight: '4px' }} />
                                       <text className={cls('gd-tl-meta')}>{place.hype ?? placeNote(place)}</text>
                                     </view>
                                   </view>
-                                  <image src={svgIcon('chevronRight', '#C3CFE2')} style={{ width: '15px', height: '15px' }} />
+                                  <IconSvg content={svgIcon('chevronRight', '#C3CFE2')} style={{ width: '15px', height: '15px' }} />
                                 </>
                               ) : (
                                 <view className={cls('gd-tl-meal')}>
@@ -309,7 +310,7 @@ export function GuideDetailPage({ guide, onBack, collected, onToggleCollect }: P
                   <view className={cls('gd-fit')}>
                     <view className={cls('gd-fit-row')}>
                       <view className={cls('gd-fit-icon', )} style={{ backgroundColor: 'rgba(36,120,242,0.12)' }}>
-                        <image src={filledIcon('profile', '#2478F2')} style={{ width: '14px', height: '14px' }} />
+                        <IconSvg content={filledIcon('profile', '#2478F2')} style={{ width: '14px', height: '14px' }} />
                       </view>
                       <view className={cls('gd-fit-main')}>
                         <text className={cls('gd-fit-title')}>{plan.suitableFor}</text>
@@ -318,7 +319,7 @@ export function GuideDetailPage({ guide, onBack, collected, onToggleCollect }: P
                     </view>
                     <view className={cls('gd-fit-row')}>
                       <view className={cls('gd-fit-icon')} style={{ backgroundColor: 'rgba(32,185,138,0.14)' }}>
-                        <image src={filledIcon('itinerary', '#20B98A')} style={{ width: '14px', height: '14px' }} />
+                        <IconSvg content={filledIcon('itinerary', '#20B98A')} style={{ width: '14px', height: '14px' }} />
                       </view>
                       <view className={cls('gd-fit-main')}>
                         <text className={cls('gd-fit-title')}>{plan.days.length} 天走了 {countStops(plan)} 个点</text>
@@ -327,7 +328,7 @@ export function GuideDetailPage({ guide, onBack, collected, onToggleCollect }: P
                     </view>
                     <view className={cls('gd-fit-row')}>
                       <view className={cls('gd-fit-icon')} style={{ backgroundColor: 'rgba(139,124,255,0.16)' }}>
-                        <image src={filledIcon('shield', '#8B7CFF')} style={{ width: '14px', height: '14px' }} />
+                        <IconSvg content={filledIcon('shield', '#8B7CFF')} style={{ width: '14px', height: '14px' }} />
                       </view>
                       <view className={cls('gd-fit-main')}>
                         <text className={cls('gd-fit-title')}>人均 ¥{plan.budget.perPerson}</text>
@@ -347,7 +348,7 @@ export function GuideDetailPage({ guide, onBack, collected, onToggleCollect }: P
       {plan ? (
         <view className={cls('gd-bar')}>
           <view className={cls(collected ? 'gd-cta gd-cta-on' : 'gd-cta')} bindtap={onToggleCollect}>
-            <image src={filledIcon('navigation', '#FFFFFF')} style={{ width: '17px', height: '17px', marginRight: '7px' }} />
+            <IconSvg content={filledIcon('navigation', '#FFFFFF')} style={{ width: '17px', height: '17px', marginRight: '7px' }} />
             <text className={cls('gd-cta-text')}>{collected ? '已收藏' : '收藏行程'}</text>
           </view>
         </view>
@@ -445,7 +446,7 @@ function WarnCard({ city }: { city: string }) {
   return (
     <view className={cls('gd-card')}>
       <view className={cls('gd-card-head')}>
-        <image src={filledIcon('shield', '#1E9E6A')} style={{ width: '16px', height: '16px', marginRight: '6px' }} />
+        <IconSvg content={filledIcon('shield', '#1E9E6A')} style={{ width: '16px', height: '16px', marginRight: '6px' }} />
         <text className={cls('gd-card-title')}>出发前注意</text>
       </view>
       {facts.map((f, i) => (

@@ -1,10 +1,12 @@
+import { IconSvg } from '../../IconSvg.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from '@lynx-js/react';
 
 import mascotAi from '../../assets/ip/mascot-ai.png';
 import { MOCK } from '../../mock.js';
 import { chat, aiStatus } from '../../aiChat.js';
 import type { ChatMessage, ChatSlots } from '../../aiChat.js';
-import { svgDataUri } from '../../icon-svg.js';
+import { CHAT_STORAGE_KEY, followTrip, parseChatBook, readLog, writeLog } from '../../chatSession.js';
+import { readLocal, writeLocal } from '../../storage.js';
 import { svgIcon } from '../../icons.js';
 import type { ChangeImpact, Demand, Plan } from '../../data.js';
 import type { RevisePreview, TripContext } from '../../../../shared/types/index.js';
@@ -21,7 +23,8 @@ type Props = {
   plan: Plan | null;
   onBack: () => void;
   /** 把这次对话生成的方案落成一条行程并切到行程页 */
-  onApplyPlans: (demand: Demand, plans: Plan[], planIndex: number) => void;
+  /** 返回新建行程的 id；空串表示没写成 */
+  onApplyPlans: (demand: Demand, plans: Plan[], planIndex: number) => string;
   /** 确认咕噜提的修改，写到当前行程上 */
   onApplyRevise: (plan: Plan, impact: ChangeImpact) => void;
 };
@@ -29,7 +32,7 @@ type Props = {
 /** 麦克风图表不在 docs/materials/icons 里，只有这一个页面用，就地内联 */
 const MIC_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.6" width="6" height="11" rx="3"/><path d="M5.2 11a6.8 6.8 0 0 0 13.6 0M12 17.8V21"/></svg>`;
 
-const micSvg = (color: string) => svgDataUri(MIC_SVG.split('currentColor').join(color));
+const micSvg = (color: string) => MIC_SVG.split('currentColor').join(color);
 
 /** 工具名 → 等待文案。模型调工具时会有几秒没有文本输出，不给反馈就像卡死 */
 const TOOL_HINT: Record<string, string> = {
@@ -69,19 +72,38 @@ export function AssistantPage({ tripId, demand, plan, onBack, onApplyPlans, onAp
   const toggleListening = useCallback(() => setListening((v) => !v), []);
 
   const [enabled, setEnabled] = useState<boolean | null>(null);
-  const [turns, setTurns] = useState<Turn[]>([]);
+  // 按当前行程把上次的对话从本机读回来。方案卡片不存：行程以工作台那份为准
+  const stored = useRef(readLog(parseChatBook(readLocal(CHAT_STORAGE_KEY)), tripId));
+  const [turns, setTurns] = useState<Turn[]>(() => stored.current.turns);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [hint, setHint] = useState('');
 
   // 槽位与历史用 ref：流式回调里要读到最新值，state 的快照会读到旧的
-  const slotsRef = useRef<ChatSlots>({});
-  const turnsRef = useRef<Turn[]>([]);
+  const slotsRef = useRef<ChatSlots>(stored.current.slots);
+  const turnsRef = useRef<Turn[]>(stored.current.turns);
+
+  const persist = useCallback((id: string, nextTurns: Turn[], slots: ChatSlots) => {
+    const book = parseChatBook(readLocal(CHAT_STORAGE_KEY));
+    writeLocal(
+      CHAT_STORAGE_KEY,
+      JSON.stringify(
+        writeLog(book, id, {
+          turns: nextTurns.map((t) => ({ role: t.role, text: t.text })),
+          slots,
+        })
+      )
+    );
+  }, []);
+
+  useEffect(() => {
+    persist(tripId, turns, slotsRef.current);
+  }, [persist, tripId, turns]);
 
   /**
    * 开口前就把当前需求填进槽位。
    * 不填的话用户说「第二天轻松点」时咕噜还在问「去哪儿、玩几天」，
-   * 而这两件事工作台上早就有了。
+   * 而这两件事工作台上早就有了。已经从本机恢复过槽位时不再覆盖。
    */
   useEffect(() => {
     if (slotsRef.current.destination) return;
@@ -180,6 +202,7 @@ export function AssistantPage({ tripId, demand, plan, onBack, onApplyPlans, onAp
         tripRef.current
       );
       slotsRef.current = res.slots;
+      persist(tripId, turnsRef.current, res.slots);
     } catch (err) {
       const msg = err instanceof Error ? err.message : '网络异常，请重试';
       setTurns((prev) => {
@@ -193,7 +216,7 @@ export function AssistantPage({ tripId, demand, plan, onBack, onApplyPlans, onAp
       // 清空输入框：Lynx 的 input 无受控 value，换 key 重挂载
       setInputKey((k) => k + 1);
     }
-  }, [draft, sending, appendDelta]);
+  }, [draft, sending, appendDelta, persist, tripId]);
 
   const onInput = useCallback((e: { detail: { value: string } }) => setDraft(e.detail.value), []);
 
@@ -210,9 +233,12 @@ export function AssistantPage({ tripId, demand, plan, onBack, onApplyPlans, onAp
     (turnIndex: number) => {
       const turn = turnsRef.current[turnIndex];
       if (!turn?.plans?.length || !turn.planDemand) return;
-      onApplyPlans(turn.planDemand, turn.plans, turn.picked ?? 0);
+      const nextId = onApplyPlans(turn.planDemand, turn.plans, turn.picked ?? 0);
+      if (!nextId) return;
+      const book = parseChatBook(readLocal(CHAT_STORAGE_KEY));
+      writeLocal(CHAT_STORAGE_KEY, JSON.stringify(followTrip(book, tripId, nextId)));
     },
-    [onApplyPlans]
+    [onApplyPlans, tripId]
   );
 
   const applyRevise = useCallback(
@@ -244,12 +270,12 @@ export function AssistantPage({ tripId, demand, plan, onBack, onApplyPlans, onAp
         <view className={cls('page')}>
           <view className={cls('page-head')}>
             <view className={cls('icon-btn')} bindtap={onBack}>
-              <image src={svgIcon('chevronLeft', '#2A3A57')} style={{ width: '18px', height: '18px' }} />
+              <IconSvg content={svgIcon('chevronLeft', '#2A3A57')} style={{ width: '18px', height: '18px' }} />
             </view>
             <text className={cls('page-sub-head')}>咕噜</text>
             <view className={cls('head-link')} bindtap={onBack}>
               <text className={cls('head-link-text')}>收起</text>
-              <image src={svgIcon('chevronRight', '#2478F2')} style={{ width: '13px', height: '13px', marginLeft: '2px' }} />
+              <IconSvg content={svgIcon('chevronRight', '#2478F2')} style={{ width: '13px', height: '13px', marginLeft: '2px' }} />
             </view>
           </view>
 
@@ -378,10 +404,10 @@ export function AssistantPage({ tripId, demand, plan, onBack, onApplyPlans, onAp
           />
         </view>
         <view className={listening ? cls('chat-mic chat-mic-on') : cls('chat-mic')} bindtap={toggleListening}>
-          <image src={micSvg(listening ? '#FFFFFF' : '#2478F2')} style={{ width: '17px', height: '17px' }} />
+          <IconSvg content={micSvg(listening ? '#FFFFFF' : '#2478F2')} style={{ width: '17px', height: '17px' }} />
         </view>
         <view className={sending ? cls('chat-send chat-send-busy') : cls('chat-send')} bindtap={send}>
-          <image src={svgIcon('route', '#FFFFFF')} style={{ width: '16px', height: '16px' }} />
+          <IconSvg content={svgIcon('route', '#FFFFFF')} style={{ width: '16px', height: '16px' }} />
         </view>
       </view>
     </view>

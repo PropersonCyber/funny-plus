@@ -1,3 +1,4 @@
+import { IconSvg } from '../../IconSvg.js';
 import { useCallback, useState } from '@lynx-js/react';
 
 import heroBanner from '../../assets/gen/hero-banner.jpg';
@@ -15,6 +16,7 @@ import { svgIcon, COLOR, QICON } from '../../icons.js';
 import { filledIcon } from '../../icons-filled.js';
 import type { City, Guide, Play } from '../../../../shared/types/index.js';
 import { toast } from '../../toast.js';
+import { useLocationFace } from '../../useLocationFace.js';
 import styles from './index.module.scss';
 import { makeCls } from '../../styles/cls.js';
 
@@ -24,7 +26,8 @@ type Props = {
   city: string;
   onPickCity: () => void;
   /** 热门推荐「查看更多」：进热门城市列表页。和 onPickCity 分开——
-      定位胶囊是「我人在哪」，查看更多是「还有哪些城市」 */
+      定位胶囊是「我人在哪」，查看更多是「还有哪些城市」。
+      胶囊文案不读 city，city 只用来把当前目的地排到热门推荐最前 */
   onAllCities: () => void;
   onPlan: () => void;
   onTab: (tab: 'map' | 'itinerary' | 'guide' | 'profile') => void;
@@ -65,6 +68,8 @@ const QUICK = [
 ] as const;
 
 export function HomePage({ city, onPickCity, onAllCities, onOpenCity, onPlan, onTab, onAdvice, onAssistant, onGuide, onAllGuides, onPlay, cities, guides, plays }: Props) {
+  // 胶囊是「我人在哪」，和城市页「当前定位」读同一份，不要把已选目的地填进来
+  const located = useLocationFace();
   // 当前城市排在最前，帮用户确认「切过去了」
   const cityList = cities.slice().sort((a, b) => (b.id === city ? 1 : 0) - (a.id === city ? 1 : 0));
   // 首页只露出前 3 条：一排放 4 张会把标题挤成两行，剩下的一次性堆上来也不像「精选」
@@ -106,14 +111,14 @@ export function HomePage({ city, onPickCity, onAllCities, onOpenCity, onPlan, on
         <view className={cls('home-in')}>
           <view className={cls('ai-card')} bindtap={onPlan}>
             <view className={cls('ai-icon-box')}>
-              <image src={filledIcon('sparkle', '#FFFFFF')} style={{ width: '20px', height: '20px' }} />
+              <IconSvg content={filledIcon('sparkle', '#FFFFFF')} style={{ width: '20px', height: '20px' }} />
             </view>
             <view className={cls('ai-text')}>
               <text className={cls('ai-title')}>AI 规划你的专属旅行</text>
               <text className={cls('ai-sub')}>告诉我想法，生成最佳行程</text>
             </view>
             <view className={cls('ai-go')}>
-              <image src={svgIcon('chevronRight', '#8A99B3')} style={{ width: '14px', height: '14px' }} />
+              <IconSvg content={svgIcon('chevronRight', '#8A99B3')} style={{ width: '14px', height: '14px' }} />
             </view>
           </view>
 
@@ -135,7 +140,7 @@ export function HomePage({ city, onPickCity, onAllCities, onOpenCity, onPlan, on
             </view>
             <view className={cls('section-more-row')} bindtap={onAllCities}>
               <text className={cls('section-more')}>查看更多</text>
-              <image src={svgIcon('chevronRight', '#A5B2C7')} style={{ width: '12px', height: '12px', marginLeft: '2px' }} />
+              <IconSvg content={svgIcon('chevronRight', '#A5B2C7')} style={{ width: '12px', height: '12px', marginLeft: '2px' }} />
             </view>
           </view>
 
@@ -176,7 +181,7 @@ export function HomePage({ city, onPickCity, onAllCities, onOpenCity, onPlan, on
               bindtap={() => setWeeklyIndex((i) => i + 1)}
             >
               <text className={cls('section-more')}>换一批</text>
-              <image src={svgIcon('refresh', '#A5B2C7')} style={{ width: '13px', height: '13px' }} />
+              <IconSvg content={svgIcon('refresh', '#A5B2C7')} style={{ width: '13px', height: '13px' }} />
             </view>
           </view>
 
@@ -194,7 +199,7 @@ export function HomePage({ city, onPickCity, onAllCities, onOpenCity, onPlan, on
               <text className={cls('weekly-desc')}>{weekly?.note ?? ''}</text>
             </view>
             <view className={cls('weekly-go')}>
-              <image src={svgIcon('chevronRight', '#8A99B3')} style={{ width: '13px', height: '13px' }} />
+              <IconSvg content={svgIcon('chevronRight', '#8A99B3')} style={{ width: '13px', height: '13px' }} />
             </view>
           </view>
 
@@ -205,7 +210,7 @@ export function HomePage({ city, onPickCity, onAllCities, onOpenCity, onPlan, on
             </view>
             <view className={cls('section-more-row')} bindtap={() => plays[0] && onPlay(plays[0].id)}>
               <text className={cls('section-more')}>更多玩法</text>
-              <image src={svgIcon('chevronRight', '#A5B2C7')} style={{ width: '12px', height: '12px', marginLeft: '2px' }} />
+              <IconSvg content={svgIcon('chevronRight', '#A5B2C7')} style={{ width: '12px', height: '12px', marginLeft: '2px' }} />
             </view>
           </view>
           <view className={cls('play-row')}>
@@ -245,7 +250,7 @@ export function HomePage({ city, onPickCity, onAllCities, onOpenCity, onPlan, on
             </view>
             <view className={cls('section-more-row')} bindtap={onAllGuides}>
               <text className={cls('section-more')}>查看更多</text>
-              <image src={svgIcon('chevronRight', '#A5B2C7')} style={{ width: '12px', height: '12px', marginLeft: '2px' }} />
+              <IconSvg content={svgIcon('chevronRight', '#A5B2C7')} style={{ width: '12px', height: '12px', marginLeft: '2px' }} />
             </view>
           </view>
           <view className={cls('guide-row')}>
@@ -278,13 +283,13 @@ export function HomePage({ city, onPickCity, onAllCities, onOpenCity, onPlan, on
       {stuck ? <view className={cls('loc-bar')} /> : null}
       <view className={cls('loc-row')}>
         <view className={cls('loc-chip')} bindtap={onPickCity}>
-          <image src={svgIcon('pin', '#2478F2')} style={{ width: '14px', height: '14px', marginRight: '5px' }} />
-          <text className={cls('loc-city')}>{city}</text>
+          <IconSvg content={svgIcon('pin', '#2478F2')} style={{ width: '14px', height: '14px', marginRight: '5px' }} />
+          <text className={cls('loc-city')} text-maxline="1">{located.label}</text>
         </view>
         <view className={cls('loc-tools')}>
           {/* 搜索入口：本期唯一能搜的是城市，直接进城市页那个真搜索框，别再开到规划弹窗 */}
           <view className={cls('loc-scan')} bindtap={onPickCity}>
-            <image src={svgIcon('search', '#1B4F8F')} style={{ width: '20px', height: '20px' }} />
+            <IconSvg content={svgIcon('search', '#1B4F8F')} style={{ width: '20px', height: '20px' }} />
           </view>
         </view>
       </view>

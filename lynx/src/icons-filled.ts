@@ -1,6 +1,5 @@
 // 实心（filled）图标：设计稿里 tab 选中态与首页快捷入口用的是实心字形，跟线性图标不是同一套。
 // 手写成 SVG，缩放不糊，颜色走参数。
-import { svgDataUri } from './icon-svg.js';
 
 const C = 'currentColor';
 
@@ -28,5 +27,5 @@ export const FILLED: Record<string, string> = {
 };
 
 export function filledIcon(name: string, color: string): string {
-  return svgDataUri((FILLED[name] ?? '').split('currentColor').join(color));
+  return (FILLED[name] ?? '').split('currentColor').join(color);
 }

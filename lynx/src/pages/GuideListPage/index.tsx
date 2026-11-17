@@ -1,3 +1,4 @@
+import { IconSvg } from '../../IconSvg.js';
 import chengdu from '../../assets/gen/chengdu.jpg';
 import chongqing from '../../assets/gen/chongqing.jpg';
 import beijing from '../../assets/gen/beijing.jpg';
@@ -26,7 +27,7 @@ export function GuideListPage({ guides, onBack, onOpen }: Props) {
     <view className={cls('gl-page')}>
       <view className={cls('gl-head')}>
         <view className={cls('gl-back')} bindtap={onBack}>
-          <image src={svgIcon('chevronLeft', '#2A3A57')} style={{ width: '18px', height: '18px' }} />
+          <IconSvg content={svgIcon('chevronLeft', '#2A3A57')} style={{ width: '18px', height: '18px' }} />
         </view>
         <view className={cls('gl-head-main')}>
           <text className={cls('gl-title')}>精选攻略</text>
@@ -41,7 +42,7 @@ export function GuideListPage({ guides, onBack, onOpen }: Props) {
             <view className={cls('gl-main')}>
               <text className={cls('gl-row-title')}>{g.title}</text>
               <view className={cls('gl-meta')}>
-                <image src={filledIcon('star', '#FFB020')} style={{ width: '11px', height: '11px', marginRight: '3px' }} />
+                <IconSvg content={filledIcon('star', '#FFB020')} style={{ width: '11px', height: '11px', marginRight: '3px' }} />
                 <text className={cls('gl-rate')}>{(g.rating ?? 0).toFixed(1)}</text>
                 <text className={cls('gl-dot')}>·</text>
                 <text className={cls('gl-dim')}>{fmtViews(g.views)}人去过</text>
@@ -56,7 +57,7 @@ export function GuideListPage({ guides, onBack, onOpen }: Props) {
                 ))}
               </view>
             </view>
-            <image src={svgIcon('chevronRight', '#C3CFE2')} style={{ width: '16px', height: '16px' }} />
+            <IconSvg content={svgIcon('chevronRight', '#C3CFE2')} style={{ width: '16px', height: '16px' }} />
           </view>
         ))}
       </scroll-view>
