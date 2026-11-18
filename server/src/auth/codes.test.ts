@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   DEV_CODE,
   SMS_MAX_ATTEMPTS,
@@ -7,6 +7,7 @@ import {
   checkCode,
   hashCode,
   inCooldown,
+  isDev,
   newCodeDigits,
   normalizePhone,
   type CodeRow
@@ -90,5 +91,23 @@ describe('inCooldown', () => {
   it('超过冷却期允许重发，且首次发送（无记录）直接放行', () => {
     expect(inCooldown(new Date(NOW.getTime() - SMS_RESEND_COOLDOWN_MS - 1000), NOW)).toBe(false)
     expect(inCooldown(null, NOW)).toBe(false)
+  })
+})
+
+describe('开发码开关（R1/R2）', () => {
+  it('默认关闭：不设变量、设空、设 production 都不开', () => {
+    // 必须 stubEnv 而不是传 undefined：传 undefined 会走默认参数、读到真实的 process.env
+    vi.stubEnv('AUTH_DEV_CODE', '')
+    expect(isDev()).toBe(false)
+    vi.stubEnv('AUTH_DEV_CODE', 'production')
+    expect(isDev()).toBe(false)
+    vi.stubEnv('AUTH_DEV_CODE', '0')
+    expect(isDev()).toBe(false)
+    vi.stubEnv('AUTH_DEV_CODE', 'true')
+    expect(isDev()).toBe(false)
+    vi.unstubAllEnvs()
+  })
+  it('只有显式设成 1 才开', () => {
+    expect(isDev('1')).toBe(true)
   })
 })

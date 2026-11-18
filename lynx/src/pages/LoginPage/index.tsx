@@ -1,6 +1,7 @@
 import { useCallback, useState } from '@lynx-js/react';
 
 import { maskPhone } from '../../App/useAuth.js';
+import { syncState } from '../../sync.js';
 import styles from './index.module.scss';
 
 /**
@@ -30,6 +31,8 @@ export type LoginPageProps = {
 export function LoginPage(props: LoginPageProps) {
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
+  // 登录页停留时间短，进来那一刻的状态够了，不订阅
+  const sync = syncState();
 
   const loggedIn = !!props.phone;
   const canSend = !props.sending && props.cooldown <= 0 && phone.replace(/\D/g, '').length >= 11;
@@ -56,7 +59,11 @@ export function LoginPage(props: LoginPageProps) {
     return (
       <view className={styles['lg-page']}>
         <text className={styles['lg-title']}>已登录</text>
-        <text className={styles['lg-sub']}>旅行、回忆与攻略草稿会跟着这个账号，换设备也能找回。</text>
+        <text className={styles['lg-sub']}>
+          {sync === 'failed'
+            ? '有改动还没同步到云端，网络恢复后再保存一次就会补上。'
+            : '旅行、回忆与攻略草稿会跟着这个账号，换设备也能找回。'}
+        </text>
         <view className={styles['lg-field']}>
           <text className={styles['lg-label']}>当前账号</text>
           <text className={styles['lg-input']}>{maskPhone(props.phone)}</text>

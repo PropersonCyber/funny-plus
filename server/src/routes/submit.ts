@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, isNull, or } from 'drizzle-orm'
 import { db } from '../db/client.ts'
 import { constraintReports, dataSubmissions, facts, lines, places } from '../db/schema.ts'
 import { resolveActorQuietly } from '../auth/middleware.ts'
@@ -40,11 +40,22 @@ export const submitRoute = new Hono()
  */
 submitRoute.get('/', async (c) => {
   const clientId = (c.req.query('clientId') ?? '').slice(0, CLIENT_MAX)
-  if (!clientId) return c.json({ items: [] })
+  const actor = await resolveActorQuietly(c.req.header('authorization'))
+  // 登录后换设备来查：只按 clientId 查不到已并账的记录（userId 换了、clientId 不同），
+  // 所以登录时按 userId 查，并带上本机尚未并账的行；未登录仍只按 clientId。
+  const scope = actor
+    ? or(
+        eq(dataSubmissions.userId, actor.userId),
+        clientId ? and(isNull(dataSubmissions.userId), eq(dataSubmissions.clientId, clientId)) : undefined
+      )
+    : clientId
+      ? eq(dataSubmissions.clientId, clientId)
+      : null
+  if (!scope) return c.json({ items: [] })
   const rows = await db
     .select()
     .from(dataSubmissions)
-    .where(eq(dataSubmissions.clientId, clientId))
+    .where(scope)
     .orderBy(dataSubmissions.createdAt)
   return c.json({ items: rows.map(toApi) })
 })

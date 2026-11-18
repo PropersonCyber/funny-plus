@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { media } from '../env.ts'
 
@@ -91,6 +91,22 @@ export async function readPhoto(id: string, mime: string): Promise<Uint8Array | 
   }
 }
 
+
+/**
+ * 删除磁盘上的照片。文件不存在不算失败：调用方要的效果是「删完之后读不到」，
+ * 而读不到本来就成立，为一条早被清掉的文件报错只会让删除接口变得不可重试。
+ */
+export async function deletePhoto(id: string, mime: string): Promise<void> {
+  if (!media.configured()) return
+  if (!isAllowedMime(mime)) return
+  const target = photoPath(id, mime)
+  if (!target) return
+  try {
+    await rm(target)
+  } catch {
+    // 已经没了就是我们要的结果
+  }
+}
 /**
  * 照片的对外地址。
  *

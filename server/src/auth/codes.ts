@@ -20,10 +20,13 @@ export const SMS_RESEND_COOLDOWN_MS = 60 * 1000
 export const SMS_MAX_ATTEMPTS = 5
 
 /**
- * 非生产环境的固定验证码。
+ * 开发用固定验证码。
  *
  * 为什么要有它：真实短信服务商还没接，没有它整条登录链路无法自测。
- * 只在 `NODE_ENV !== 'production'` 生效（见 `isDev`），生产路径仍走同一张 sms_codes 表。
+ *
+ * 为什么是「显式开启」而不是「非 production 即开」：仓库里 NODE_ENV 没有任何一处设置，
+ * 按代码默认值部署就会走进非生产分支——等于生产环境接受固定码。安全开关必须默认关、
+ * 且只能靠一个明确的变量打开。
  */
 export const DEV_CODE = '123456'
 
@@ -42,8 +45,15 @@ export type CodeCheck =
   | { state: 'consumed' }
   | { state: 'too_many' }
 
-export function isDev(env: string | undefined = process.env.NODE_ENV): boolean {
-  return env !== 'production'
+/**
+ * 开发码是否启用。只看一个显式变量，不看 NODE_ENV。
+ *
+ * 反过来做（非 production 即开）的风险是：仓库里没有任何地方设 NODE_ENV，
+ * 部署方也不会主动设，于是「非生产」成了默认——固定码就默认在线上可用。
+ * 开一个能看懂的开关，比依赖一个没人设的环境变量靠得住。
+ */
+export function isDev(flag: string | undefined = process.env.AUTH_DEV_CODE): boolean {
+  return flag === '1'
 }
 
 /**

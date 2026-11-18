@@ -1,4 +1,6 @@
 import { IconSvg } from '../../IconSvg.js';
+import { useEffect, useState } from '@lynx-js/react';
+import { onSyncStateChange, syncState } from '../../sync.js';
 import { svgIcon } from '../../icons.js';
 import { toast } from '../../toast.js';
 import type { SavedTrip } from '../../storage.js';
@@ -38,6 +40,10 @@ export function ProfilePage({
   accountPhone,
   onLogin,
 }: Props) {
+
+  // 同步状态要能自己变：推送是 fire-and-forget 的，界面不订阅就永远是登录成功那一刻的样子
+  const [sync, setSync] = useState(syncState());
+  useEffect(() => onSyncStateChange(setSync), []);
   const trip = trips.find((t) => t.id === activeId) ?? trips[0];
   // 等级按打卡数推：没有账号体系，用真实行为数当等级比写死 Lv1 可信
   const level = footprints.length >= 10 ? 'Lv3 旅行老手' : footprints.length >= 3 ? 'Lv2 旅行熟手' : 'Lv1 旅行新手';
@@ -88,7 +94,13 @@ export function ProfilePage({
             <view className={cls('acct-main')}>
               <text className={cls('acct-title')}>{accountPhone ? maskPhone(accountPhone) : '未登录'}</text>
               <text className={cls('acct-sub')}>
-                {accountPhone ? '旅行、回忆与攻略草稿已跟随账号' : '登录后可跨设备找回旅行与图文'}
+                {accountPhone
+                  ? sync === 'failed'
+                    ? '有改动还没同步到云端，网络恢复后再试试'
+                    : sync === 'pending'
+                      ? '正在同步到云端…'
+                      : '旅行、回忆与攻略草稿已跟随账号'
+                  : '登录后可跨设备找回旅行与图文'}
               </text>
             </view>
             <view className={cls('acct-btn')}>

@@ -200,4 +200,12 @@ authRoute.get('/wechat-appid', (c) =>
 )
 
 /** dev 固定码，供前端在非生产环境给出提示文案；生产环境恒返回空 */
-authRoute.get('/dev-code', (c) => c.json({ code: isDev() ? DEV_CODE : '', dev: isDev() }))
+/**
+ * 开发用：把固定码回给前端，省得每台机器都要翻日志。
+ * 开关关掉时必须 404 —— 返回空 code 等于告诉外面「这条路由存在但没开」，
+ * 那就成了一个可探测的入口。
+ */
+authRoute.get('/dev-code', (c) => {
+  if (!isDev()) return c.json({ error: '不存在', code: 'not_found' }, 404)
+  return c.json({ code: DEV_CODE })
+})

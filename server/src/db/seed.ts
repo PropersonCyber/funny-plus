@@ -46,6 +46,11 @@ const demoDemands: Demand[] = [
 // 线路要在生成示例行程之前灌进引擎：行程里排到索道/观光车时，时间按班次算
 for (const l of seedLines) {
   const { id, ...rest } = l
+  // 演示班次的首末班是构造值，只配当测试夹具。进库就会被当成「官方已核验」拿去算时间
+  if (l.isDemo) {
+    console.warn(`[seed] 跳过演示线路 ${id}：构造值不得进入生产数据集`)
+    continue
+  }
   if (l.stops.length < 2) {
     // 单站点线路是数据错误（PRD FR-01），宁可跳过也不要让它进库去给人算时间
     console.warn(`[seed] 跳过线路 ${id}：站点少于 2 个`)

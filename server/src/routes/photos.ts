@@ -1,20 +1,24 @@
 import { Hono } from 'hono'
-import { eq } from 'drizzle-orm'
+import { eq, isNull } from 'drizzle-orm'
 import { db } from '../db/client.ts'
-import { photos } from '../db/schema.ts'
-import { requireUser } from '../auth/middleware.ts'
+import { guideShares, photos } from '../db/schema.ts'
+import { requireUser, resolveActorQuietly } from '../auth/middleware.ts'
 import { media } from '../env.ts'
-import { isAllowedMime, newPhotoId, photoUrl, readPhoto, sha256, storePhoto } from '../sync/storage.ts'
+import { deletePhoto, isAllowedMime, newPhotoId, photoUrl, readPhoto, sha256, storePhoto } from '../sync/storage.ts'
+import { referencesPhoto } from '../sync/photos.ts'
 
 /**
  * 照片上传与读回（F08 后半）。
  *
- * 这是全仓第一个往磁盘写用户内容的接口，两条口子分开管：
- *   POST 要登录 —— 匿名上传等于给任何人一个免费图床。
- *   GET  不要登录 —— 分享页的访客没账号，照片必须能直接加载。
+ * 这是全仓第一个往磁盘写用户内容的接口，两个口子都按归属管：
+ *   POST   要登录 —— 匿名上传等于给任何人一个免费图床。
+ *   GET    匿名只在「这张照片已被一份未撤回的分享引用」时才放行 —— 分享页访客没账号；
+ *          只被私人回忆引用的照片，凭 id 也取不走。
+ *   DELETE 要登录且是本人 —— 被有效分享引用的照片拒绝删除，否则已发出去的攻略会裂图。
  *
- * GET 不鉴权是可接受的：id 是 128 bit 随机值，不知道 id 就取不到；
- * 内容本身就是用户主动要发出去的照片。
+ * 早先 GET 完全不鉴权，理由写的是「id 是 128 bit 随机值，不知道 id 就取不到」。
+ * 那个理由只挡住盲猜，挡不住 id 从别处泄漏（日志、转发、截图）后的取回——
+ * 私人回忆里的照片不该因为「被谁看到过 id」就变成公开资源。
  */
 export const photoRoute = new Hono()
 
@@ -71,15 +75,27 @@ photoRoute.post('/', requireUser, async (c) => {
 })
 
 /**
- * 公开读回。
+ * 读回。
  *
- * 用 immutable 长缓存：id 与内容一一对应且永不改写，同一 URL 的字节不会变，
- * 让浏览器和 CDN 放心长期缓存。这也是「不给照片做版本号」的底气。
+ * 两类合法读者：照片主人本人（带 token），以及匿名访客——但只在那张照片已被
+ * 一份未撤回的分享快照引用时。
+ *
+ * 缓存策略按是否公开分：公开的用 immutable 长缓存（分享页可反复加载、走 CDN），
+ * 私人的一律 private + no-store —— 私人照片要是进了共享缓存，下一个请求的人就绕过了鉴权。
  */
 photoRoute.get('/:id', async (c) => {
   const id = c.req.param('id')
   const [row] = await db.select().from(photos).where(eq(photos.id, id)).limit(1)
   if (!row) return c.json({ error: '照片不存在', code: 'not_found' }, 404)
+
+  const publicShared = await isPubliclyShared(row.id)
+  if (!publicShared) {
+    const actor = await resolveActorQuietly(c.req.header('authorization'))
+    if (!actor || actor.userId !== row.userId) {
+      // 不存在与无权访问给同一个状态码：403 会告诉探测者「这个 id 是真的」
+      return c.json({ error: '照片不存在', code: 'not_found' }, 404)
+    }
+  }
 
   const bytes = await readPhoto(row.id, row.mime)
   if (!bytes) return c.json({ error: '照片不存在', code: 'not_found' }, 404)
@@ -87,6 +103,40 @@ photoRoute.get('/:id', async (c) => {
   return c.body(bytes, 200, {
     'content-type': row.mime,
     'content-length': String(bytes.byteLength),
-    'cache-control': 'public, max-age=31536000, immutable'
+    'cache-control': publicShared ? 'public, max-age=31536000, immutable' : 'private, no-store'
   })
 })
+
+/**
+ * 删除本人照片（R3）。
+ *
+ * 已被有效分享引用的不让删：撤下文件会让别人正在看的攻略裂图，
+ * 而用户想撤的是分享本身，那是 unpublish 的事，不是删照片。
+ */
+photoRoute.delete('/:id', requireUser, async (c) => {
+  const actor = c.get('actor')
+  if (!actor) return c.json({ error: '请先登录', code: 'unauthorized' }, 401)
+
+  const id = c.req.param('id')
+  const [row] = await db.select().from(photos).where(eq(photos.id, id)).limit(1)
+  if (!row) return c.json({ error: '照片不存在', code: 'not_found' }, 404)
+  // 别人的照片一律 404，不确认它的存在
+  if (row.userId !== actor.userId) return c.json({ error: '照片不存在', code: 'not_found' }, 404)
+
+  if (await isPubliclyShared(row.id)) {
+    return c.json({ error: '这张照片正在被已发布的攻略引用，请先撤回分享', code: 'in_use' }, 409)
+  }
+
+  await db.delete(photos).where(eq(photos.id, row.id))
+  await deletePhoto(row.id, row.mime)
+  return c.json({ ok: true })
+})
+
+/** 这张照片是否被某份未撤回的分享快照引用 */
+async function isPubliclyShared(photoId: string): Promise<boolean> {
+  const active = await db
+    .select({ snapshot: guideShares.snapshot })
+    .from(guideShares)
+    .where(isNull(guideShares.revokedAt))
+  return active.some((s) => referencesPhoto(s.snapshot, photoId))
+}

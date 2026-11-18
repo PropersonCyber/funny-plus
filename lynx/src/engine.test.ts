@@ -5,9 +5,10 @@ import { isExpired, splitByFreshness } from '../../shared/engine/facts.js';
 import { clearRouteMinutes, hasRoute, setPlaces, setRouteMinutes, travelMinutes } from '../../shared/engine/placeIndex.js';
 import { generatePlans, keywordReviseOp, revisePlan } from '../../shared/engine/planner.js';
 import { applyReviseOp } from '../../shared/engine/planEdit.js';
+import { canJudgeHard, lineSegmentFor, setLines } from '../../shared/engine/lines.js';
 import { validatePlan } from '../../shared/engine/validate.js';
 import { legsOf } from './legs.js';
-import type { Demand, ItineraryItem, Place, Plan, TravelFact } from '../../shared/types/index.js';
+import type { Demand, ItineraryItem, Place, Plan, TransitLine, TravelFact } from '../../shared/types/index.js';
 
 // 引擎是纯函数，「确定性」是产品卖点，这里用固定地点池把口径钉住：
 // 改预算常数、改校验阈值、改人天口径，下面几条会先红。
@@ -412,5 +413,49 @@ describe('只对真正用到的相邻段取真实耗时', () => {
       0,
     );
     expect(legsOf([plan], byId).length).toBe(expected);
+  });
+});
+
+// R4：演示班次是构造值（首末班、票价都是编的），trust 却写着 official。
+// 拿它判硬错误，等于让假数据拦住真行程。
+describe('演示班次不参与硬约束（R4）', () => {
+  const line = (over: Partial<TransitLine>): TransitLine => ({
+    id: 'l',
+    city: '重庆',
+    name: '演示线',
+    mode: 'cableway',
+    stops: [
+      { name: 'A', lng: 106.5, lat: 29.5, placeId: 'a' },
+      { name: 'B', lng: 106.6, lat: 29.6, placeId: 'b' },
+    ],
+    rideAtPlaceId: 'a',
+    firstBus: 450,
+    lastBus: 1020,
+    intervalMin: 15,
+    tickets: [{ kind: '单程', price: 20 }],
+    needAdvance: null,
+    capacity: null,
+    rideMin: 4,
+    source: '构造值',
+    trust: 'official',
+    ...over,
+  });
+
+  it('isDemo 为真时即使 official 也不判硬', () => {
+    expect(canJudgeHard(line({ isDemo: true }))).toBe(false);
+    // 未标 isDemo 的 official 仍可判硬，别把整条路堵死
+    expect(canJudgeHard(line({ isDemo: false }))).toBe(true);
+  });
+
+  it('同段有真实线路时，演示班次不排前面', () => {
+    const demo = line({ id: 'demo', isDemo: true, rideAtPlaceId: 'b' });
+    // 真实那条首末班全空，靠 trust 也赢不了 demo 的 30 分，必须靠 isDemo 沉底
+    const real = line({ id: 'real', trust: 'pending', firstBus: null, lastBus: null, isDemo: false, rideAtPlaceId: 'b' });
+    setLines([demo, real]);
+    const items: ItineraryItem[] = [
+      { kind: 'place', title: 'A', placeId: 'a', startMin: 600, endMin: 660, cost: null, stayMin: 60, transportMin: 0 },
+      { kind: 'place', title: 'B', placeId: 'b', startMin: 670, endMin: 700, cost: null, stayMin: 30, transportMin: 10 },
+    ] as ItineraryItem[];
+    expect(lineSegmentFor(items, 1)?.line.id).toBe('real');
   });
 });

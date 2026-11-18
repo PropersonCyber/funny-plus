@@ -1,7 +1,8 @@
 import { Hono } from 'hono'
-import { and, count, eq } from 'drizzle-orm'
+import { and, count, eq, isNull, or } from 'drizzle-orm'
 import { db } from '../db/client.ts'
 import { factFeedbacks, facts } from '../db/schema.ts'
+import { resolveActorQuietly } from '../auth/middleware.ts'
 // 类型从 shared 单向引；tsx 跑源码时会被抹掉，所以镜像里不需要打 shared
 import type { TravelFact } from '@/types/index.ts'
 
@@ -68,17 +69,29 @@ factsRoute.get('/', async (c) => {
 
 factsRoute.get('/feedback', async (c) => {
   const clientId = (c.req.query('clientId') ?? '').slice(0, CLIENT_ID_MAX)
+  const actor = await resolveActorQuietly(c.req.header('authorization'))
   const grouped = await db
     .select({ factId: factFeedbacks.factId, verdict: factFeedbacks.verdict, total: count() })
     .from(factFeedbacks)
     .groupBy(factFeedbacks.factId, factFeedbacks.verdict)
 
-  const mine = clientId
+  // 「我投过哪些」登录后按 userId 找：换设备时 clientId 换了，只按 clientId 会查不到自己投过的
+  const mine = actor
     ? await db
         .select({ factId: factFeedbacks.factId, verdict: factFeedbacks.verdict })
         .from(factFeedbacks)
-        .where(eq(factFeedbacks.clientId, clientId))
-    : []
+        .where(
+          or(
+            eq(factFeedbacks.userId, actor.userId),
+            clientId ? and(isNull(factFeedbacks.userId), eq(factFeedbacks.clientId, clientId)) : undefined
+          )
+        )
+    : clientId
+      ? await db
+          .select({ factId: factFeedbacks.factId, verdict: factFeedbacks.verdict })
+          .from(factFeedbacks)
+          .where(eq(factFeedbacks.clientId, clientId))
+      : []
 
   return c.json({ items: summarize(grouped as Grouped[], mine as Mine[]) })
 })

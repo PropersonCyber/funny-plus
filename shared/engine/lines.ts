@@ -33,8 +33,9 @@ export const LINE_MODE_LABEL: Record<LineMode, string> = {
 /**
  * 班次表算不算「可判硬约束」。
  * 只有官方核验过的一手信息才配拦用户，其余（待核实/用户填报）最多提示（FR-02 / FR-06）。
+ * 演示班次即使标了 official 也不算：它的首末班是构造值，拿它拦用户等于用假数据拦住真行程。
  */
-export const canJudgeHard = (line: TransitLine): boolean => line.trust === 'official'
+export const canJudgeHard = (line: TransitLine): boolean => line.trust === 'official' && !line.isDemo
 
 /**
  * >= startMin 的最近一班车的发车时刻；末班之后没有车就返回 null。
@@ -86,10 +87,12 @@ export function lineSegmentFor(items: ItineraryItem[], index: number): { line: T
 const TRUST_RANK: Record<string, number> = { official: 3, credible: 2, experience: 1, pending: 0 }
 
 const rankLine = (a: TransitLine, b: TransitLine): number => {
-  const score = (l: TransitLine) => (TRUST_RANK[l.trust] ?? 0) * 10 + (l.lastBus !== null ? 1 : 0) + (l.isDemo ? -0.5 : 0)
+  // 演示班次排最后：它 trust 是 official，只降半分仍会压过真实但 pending 的条目，
+  // 用户看到的第一个「有班次」的线就成了构造值
+  const score = (l: TransitLine) =>
+    l.isDemo ? -1 : (TRUST_RANK[l.trust] ?? 0) * 10 + (l.lastBus !== null ? 1 : 0)
   return score(b) - score(a)
 }
-
 /**
  * 人数 → 交通结论（FR-03）。
  *

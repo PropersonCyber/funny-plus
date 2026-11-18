@@ -33,3 +33,26 @@ function walk(value: unknown): unknown {
 function isRemotePhoto(p: unknown): boolean {
   return !!p && typeof p === 'object' && (p as { kind?: unknown }).kind === 'remote'
 }
+
+/**
+ * 快照树里是否引用了这张照片（R3）。
+ *
+ * 照片一旦被一份未撤回的分享快照引用，匿名访客就必须能读到——分享页没有账号。
+ * 反过来，只被私人回忆引用的照片不能让任何人凭 id 取走。
+ *
+ * 按 id 匹配而不是 URL：URL 含 `MEDIA_PUBLIC_BASE`，换域名后历史快照里的地址
+ * 就不再相等，那会让已发布的分享页在换域名后集体裂图。
+ */
+export function referencesPhoto(snapshot: unknown, photoId: string): boolean {
+  const seen = new Set<unknown>()
+  const walk = (value: unknown): boolean => {
+    if (!value || typeof value !== 'object') return false
+    if (seen.has(value)) return false
+    seen.add(value)
+    if (Array.isArray(value)) return value.some(walk)
+    const obj = value as Record<string, unknown>
+    if (obj.kind === 'remote' && obj.id === photoId) return true
+    return Object.values(obj).some(walk)
+  }
+  return walk(snapshot)
+}

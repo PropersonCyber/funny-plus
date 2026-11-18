@@ -104,21 +104,20 @@ meRoute.post('/collections', async (c) => {
 })
 
 meRoute.delete('/collections', async (c) => {
+  const actor = c.get('actor')
   const clientId = clientOf(c)
   const targetType = c.req.query('targetType') as CollectTarget | undefined
   const targetId = c.req.query('targetId') ?? ''
   if (!clientId || !targetType || !TARGETS.includes(targetType) || !targetId) {
     return c.json({ error: '参数不完整' }, 400)
   }
+  // 已登录只认 userId：clientId 是请求参数、由客户端任意填写，
+  // 拿它当已登录请求的凭证，等于谁填对别人的 clientId 就能删别人的数据。
+  // 未并账的本机行由首次登录的 claimAnonData 认领（auth.ts），不走这条删除路径兜底。
+  const scope = actor ? eq(collections.userId, actor.userId) : eq(collections.clientId, clientId)
   await db
     .delete(collections)
-    .where(
-      and(
-        eq(collections.clientId, clientId),
-        eq(collections.targetType, targetType),
-        eq(collections.targetId, targetId)
-      )
-    )
+    .where(and(scope, eq(collections.targetType, targetType), eq(collections.targetId, targetId)))
   return c.json({ ok: true })
 })
 

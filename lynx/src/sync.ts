@@ -21,44 +21,59 @@ export function isLoggedIn(): boolean {
   return !!authToken();
 }
 
+// 状态机单独放 syncStatus.ts：它能被 rstest 直接测，而 sync.ts 依赖 api.ts 不行
+import { setSyncState } from './syncStatus.js';
+
+export { onSyncStateChange, syncState } from './syncStatus.js';
+export type { SyncState } from './syncStatus.js';
+
 /** 推送一条行程；返回是否真的发出去了（未登录 = 没发） */
 export async function pushTrip(trip: SavedTrip): Promise<boolean> {
   if (!isLoggedIn()) return false;
+  setSyncState('pending');
   try {
     await api.put(`/api/trips/${encodeURIComponent(trip.id)}`, {
       demand: trip.demand,
       plan: trip.plans[trip.planIndex] ?? trip.plans[0],
       clientId: deviceId(),
     });
+    setSyncState('idle');
     return true;
   } catch {
+    setSyncState('failed');
     return false;
   }
 }
 
 export async function pushMemory(tripId: string, memory: MemoryBook[string]): Promise<boolean> {
   if (!isLoggedIn() || !tripId) return false;
+  setSyncState('pending');
   try {
     await api.put(`/api/memories/${encodeURIComponent(tripId)}`, {
       payload: memory,
       updatedAt: memory.updatedAt,
     });
+    setSyncState('idle');
     return true;
   } catch {
+    setSyncState('failed');
     return false;
   }
 }
 
 export async function pushGuide(guideId: string, tripId: string, guide: GuideBook[string]): Promise<boolean> {
   if (!isLoggedIn() || !guideId) return false;
+  setSyncState('pending');
   try {
     await api.put(`/api/guides/${encodeURIComponent(guideId)}`, {
       payload: guide,
       tripId,
       updatedAt: guide.updatedAt,
     });
+    setSyncState('idle');
     return true;
   } catch {
+    setSyncState('failed');
     return false;
   }
 }

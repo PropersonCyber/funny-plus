@@ -15,11 +15,10 @@ import path from 'node:path'
 
 const { app } = await import('../app.ts')
 const { db, pool } = await import('../db/client.ts')
-const { photos, users, authSessions, smsCodes } = await import('../db/schema.ts')
 const { media } = await import('../env.ts')
 
 const P1 = '13900000001'
-
+const { photos, users, authSessions, smsCodes, guideShares } = await import('../db/schema.ts')
 /** 1x1 透明的合法 PNG（67 字节），用来验证真实字节往返 */
 const PNG_1PX = Uint8Array.from([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
@@ -34,6 +33,7 @@ async function cleanup(): Promise<void> {
   const rows = await db.select({ id: users.id }).from(users).where(eq(users.phone, P1))
   for (const u of rows) {
     await db.delete(photos).where(eq(photos.userId, u.id))
+    await db.delete(guideShares).where(eq(guideShares.userId, u.id))
     await db.delete(authSessions).where(eq(authSessions.userId, u.id))
     await db.delete(users).where(eq(users.id, u.id))
   }
@@ -84,7 +84,7 @@ describe('照片上传', () => {
     expect(res.status).toBe(401)
   })
 
-  it('合法图片上传后返回可访问的 url，且公开 GET 读回字节一致', async () => {
+  it('未发布分享的照片，匿名读不到，本人能读', async () => {
     const token = await login(P1)
     const res = await app.request('/api/photos', {
       method: 'POST',
@@ -96,12 +96,20 @@ describe('照片上传', () => {
     expect(body.id).toMatch(/^[A-Za-z0-9_-]{16,64}$/)
     expect(body.url).toContain(`/api/photos/${body.id}`)
 
-    // 不带任何 Authorization：分享页访客就是这样取图的
-    const got = await app.request(`/api/photos/${body.id}`)
-    expect(got.status).toBe(200)
-    expect(got.headers.get('content-type')).toBe('image/png')
-    expect(got.headers.get('cache-control')).toContain('immutable')
-    const back = new Uint8Array(await got.arrayBuffer())
+    // 只被私人回忆引用：匿名拿 id 也取不走字节（R3）
+    const anon = await app.request(`/api/photos/${body.id}`)
+    expect(anon.status).toBe(404)
+    // 404 不带缓存头：错误响应进共享缓存，会让「没权限」这个结果粘在别人的浏览器上
+    expect(anon.headers.get('cache-control')).toBeNull()
+
+    // 本人带 token 能读，且字节一致
+    const mine = await app.request(`/api/photos/${body.id}`, {
+      headers: { authorization: `Bearer ${token}` }
+    })
+    expect(mine.status).toBe(200)
+    expect(mine.headers.get('content-type')).toBe('image/png')
+    expect(mine.headers.get('cache-control')).toContain('private')
+    const back = new Uint8Array(await mine.arrayBuffer())
     expect(Array.from(back)).toEqual(Array.from(PNG_1PX))
   })
 
@@ -160,5 +168,69 @@ describe('照片上传', () => {
   it('读不存在的 id 返回 404', async () => {
     const res = await app.request('/api/photos/NOT_A_REAL_ID_000')
     expect(res.status).toBe(404)
+  })
+})
+
+
+describe('照片归属与删除（R3）', () => {
+  /** 传一张照片，返回 id 与作者 userId */
+  async function uploadOne(): Promise<{ id: string; token: string; userId: string; mime: string }> {
+    const token = await login(P1)
+    const res = await app.request('/api/photos', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: form(PNG_1PX, 'image/png')
+    })
+    const body = (await res.json()) as { id: string }
+    const [row] = await db.select().from(photos).where(eq(photos.id, body.id))
+    return { id: body.id, token, userId: row.userId, mime: row.mime }
+  }
+
+  it('被有效分享引用后，匿名可读且可被 CDN 长缓存', async () => {
+    const { id, userId } = await uploadOne()
+    await db.insert(guideShares).values({
+      token: 'r3-public-token',
+      draftId: 'r3-draft',
+      userId,
+      // 快照里照片按 {id, kind:'remote', value} 存，判定认 id 不认 URL
+      snapshot: { title: 't', photos: [{ id, kind: 'remote', value: `/api/photos/${id}`, addedAt: '' }] },
+      revokedAt: null
+    })
+
+    const anon = await app.request(`/api/photos/${id}`)
+    expect(anon.status).toBe(200)
+    expect(anon.headers.get('cache-control')).toContain('immutable')
+    expect(Array.from(new Uint8Array(await anon.arrayBuffer()))).toEqual(Array.from(PNG_1PX))
+  })
+
+  it('撤回分享后匿名重新读不到，已发布期间不允许删照片', async () => {
+    const { id, token, userId } = await uploadOne()
+    await db.insert(guideShares).values({
+      token: 'r3-revoke-token',
+      draftId: 'r3-draft-2',
+      userId,
+      snapshot: { title: 't', photos: [{ id, kind: 'remote', value: `/api/photos/${id}`, addedAt: '' }] },
+      revokedAt: null
+    })
+
+    // 正被有效分享引用：删照片会让别人正在看的攻略裂图
+    const blocked = await app.request(`/api/photos/${id}`, {
+      method: 'DELETE',
+      headers: { authorization: `Bearer ${token}` }
+    })
+    expect(blocked.status).toBe(409)
+    expect(((await blocked.json()) as { code: string }).code).toBe('in_use')
+
+    // 撤回后：匿名读不到，本人能删
+    await db.update(guideShares).set({ revokedAt: new Date() }).where(eq(guideShares.token, 'r3-revoke-token'))
+    expect((await app.request(`/api/photos/${id}`)).status).toBe(404)
+
+    const gone = await app.request(`/api/photos/${id}`, {
+      method: 'DELETE',
+      headers: { authorization: `Bearer ${token}` }
+    })
+    expect(gone.status).toBe(200)
+    // 删完文件也读不到（行已删，走 404 而不是漏字节）
+    expect((await app.request(`/api/photos/${id}`, { headers: { authorization: `Bearer ${token}` } })).status).toBe(404)
   })
 })
