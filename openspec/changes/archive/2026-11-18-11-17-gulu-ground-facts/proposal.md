@@ -1,3 +1,5 @@
+Tier: 2
+
 # 11-17-gulu-ground-facts
 
 ## 背景

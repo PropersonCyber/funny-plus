@@ -1,0 +1,58 @@
+{
+  "version": 2,
+  "recorded_at": "2026-11-18T11:36:52.277581+08:00",
+  "artifacts": {
+    "proposal.md": {
+      "sha256": "sha256:75660c6ffcacb3f2151c4f2323c61c934b93f01e963d28f1c52c3ae4f041957a",
+      "size": 2208,
+      "binding": true
+    },
+    "tasks.md": {
+      "sha256": "sha256:6af0f1927369d366b3bf10ceab59ee5fa23d24920a6890f1ab25cd4e6389ee35",
+      "size": 825,
+      "binding": true
+    },
+    "e2e-report.md": {
+      "sha256": "sha256:6a1f3fd52a8b4b496d6b31ee4dd113cdf4d94c72268f576b0584da677f918993",
+      "size": 3348,
+      "binding": true
+    },
+    "specs/gulu-grounding/spec.md": {
+      "sha256": "sha256:9fc2bd5ded78b0a992f598a86348045af2fa399f33989c43b94784ccb90d263f",
+      "size": 1676,
+      "binding": true
+    },
+    "verification.json": {
+      "sha256": "",
+      "size": 0,
+      "binding": false
+    }
+  },
+  "commands": [
+    {
+      "command": "npm --prefix server run typecheck",
+      "exit_code": 0,
+      "expected_exit_code": 0
+    },
+    {
+      "command": "npm --prefix server run test",
+      "exit_code": 0,
+      "expected_exit_code": 0
+    },
+    {
+      "command": "npm --prefix lynx run typecheck",
+      "exit_code": 0,
+      "expected_exit_code": 0
+    },
+    {
+      "command": "npm --prefix lynx run test",
+      "exit_code": 0,
+      "expected_exit_code": 0
+    },
+    {
+      "command": "npm --prefix lynx run build",
+      "exit_code": 0,
+      "expected_exit_code": 0
+    }
+  ]
+}
