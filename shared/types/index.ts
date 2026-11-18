@@ -559,3 +559,37 @@ export interface GuideSectionItem {
   visited: 'yes' | 'no' | 'unknown'
   photos: PhotoRef[]
 }
+
+/**
+ * 一次发布的内容快照（F08 后半）。
+ *
+ * 与 GuideDraft 刻意不同的三处：
+ * 1. 没有 id / tripId / picked —— 访客不需要知道内部标识，`picked` 在选择阶段已经用完。
+ * 2. `sections` 只含用户勾选的条目；没勾的不在这里，不是渲染时藏起来。
+ * 3. `perPerson` 是客户端发布时算好传上来的：费用属于行程而不属于攻略草稿，
+ *    服务端不该为了一个展示字段去重跑一遍预算引擎。
+ *
+ * 照片只留 `kind: 'remote'` —— 由服务端 `stripLocalPhotos` 保证，结构上仍用 PhotoRef
+ * 是为了与回忆、草稿共用同一套渲染口径。
+ */
+export interface GuideShareSnapshot {
+  title: string
+  summary: string
+  /** 用户选的封面照片，按顺序展示 */
+  photos: PhotoRef[]
+  showCost: boolean
+  /** 仅在 showCost 为 true 时有值 */
+  perPerson?: number
+  sections: GuideSection[]
+  /** 发布时刻，ISO 串 */
+  publishedAt: string
+}
+
+/** 公开分享接口的响应：快照 + 作者公开昵称（不含任何账号标识） */
+export interface GuideShareView {
+  snapshot: GuideShareSnapshot
+  /** 形如 `u***1234`；作者没留手机号时为空串 */
+  authorLabel: string
+  /** 撤回或不存在时为 false，前端据此显示引导文案 */
+  valid: boolean
+}

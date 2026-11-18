@@ -21,13 +21,24 @@ type Props = {
   /** 翻转某个地点是否写进攻略 */
   onToggle: (planRef: string) => void;
   onRegenerate: () => void;
+  /** 是否已登录；发布需要账号 */
+  loggedIn: boolean;
+  /** 当前有效的分享；null 表示还没发布或已撤回 */
+  published: { token: string; url: string } | null;
+  /** 还在发布中，用来禁用重复点击 */
+  publishing: boolean;
+  /** 草稿里还留在本机、发不出去的照片数 */
+  dirtyPhotos: number;
+  onPublish: () => void;
+  onUnpublish: () => void;
+  onCopyLink: () => void;
+  onLogin: () => void;
 };
-
 /**
  * 攻略草稿：编辑 / 预览两态。
  *
- * 这一期只做本机草稿。「发布成链接」需要账号与服务端，界面上如实说明，
- * 不做成一个点了没反应的按钮。
+ * 发布状态由外层 useGuides 管：这一页只负责展示与把点击转上去，不在这里发请求 ——
+ * 页面卸载时请求还在飞，回来 setState 就落到已卸载的组件上。
  *
  * 勾选状态读 `draft.picked` 而不是「sections 里有没有」：
  * sections 是内容清单（含全部候选），picked 才是用户的取舍。
@@ -43,6 +54,14 @@ export function GuideDraftPage({
   onPatch,
   onToggle,
   onRegenerate,
+  loggedIn,
+  published,
+  publishing,
+  dirtyPhotos,
+  onPublish,
+  onUnpublish,
+  onCopyLink,
+  onLogin,
 }: Props) {
   const [preview, setPreview] = useState(false);
   const plan = plans[Math.min(planIndex, plans.length - 1)] ?? plans[0];
@@ -213,6 +232,45 @@ export function GuideDraftPage({
                 </view>
               ) : null}
 
+              {/* 发布区：登录后才出现真正的发布按钮，未登录如实说明并给登录入口 */}
+              <view className={cls('card')}>
+                {!loggedIn ? (
+                  <>
+                    <text className={cls('card-title')}>发布成链接</text>
+                    <text className={cls('card-note')}>发布需要登录，这样别人打开链接时才知道是谁分享的。</text>
+                    <view className={cls('gp-primary')} bindtap={onLogin}>
+                      <text className={cls('gp-primary-text')}>去登录</text>
+                    </view>
+                  </>
+                ) : published ? (
+                  <>
+                    <text className={cls('card-title')}>已发布</text>
+                    {/* 链接要能被选中抄下来：壳层没有剪贴板能力时这是唯一的兜底 */}
+                    <text className={cls('gp-link')}>{published.url}</text>
+                    <view className={cls('gp-btn-row')}>
+                      <view className={cls('gp-ghost')} bindtap={onCopyLink}>
+                        <text className={cls('gp-ghost-text')}>复制链接</text>
+                      </view>
+                      <view className={cls('gp-ghost')} bindtap={onUnpublish}>
+                        <text className={cls('gp-ghost-text')}>撤回</text>
+                      </view>
+                    </view>
+                  </>
+                ) : (
+                  <>
+                    <text className={cls('card-title')}>发布成链接</text>
+                    {dirtyPhotos ? (
+                      <text className={cls('card-note')}>
+                        有 {dirtyPhotos} 张照片还只存在本机，发布后会看不到。想带上就先去回忆页重新添加。
+                      </text>
+                    ) : null}
+                    <view className={cls('gp-primary')} bindtap={onPublish}>
+                      <text className={cls('gp-primary-text')}>{publishing ? '正在发布…' : '发布'}</text>
+                    </view>
+                  </>
+                )}
+                <text className={cls('card-note')}>发出去的是一份快照，之后你再改草稿也不会影响已发布的链接。</text>
+              </view>
               <view className={cls('gp-hint')}>
                 <text className={cls('gp-hint-text')}>以上是读者会看到的内容。</text>
               </view>

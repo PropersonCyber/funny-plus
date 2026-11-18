@@ -1,0 +1,190 @@
+// 公开分享页专属样式（CSS Modules，类名会被哈希）
+// 这一页由不装 App 的访客打开，视觉上要比 App 内页更「像个网页」：留白更大，字号更松
+
+.sp-page {
+  display: flex;
+  flex-direction: column;
+  padding: 28px 20px 40px 20px;
+}
+
+.sp-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 0;
+}
+
+.sp-state-text {
+  font-size: 14px;
+  color: #7a8699;
+}
+
+// 失效链接的引导页
+.sp-gone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80px 8px;
+}
+
+.sp-gone-title {
+  font-size: 17px;
+  font-weight: bold;
+  color: #172b4d;
+}
+
+.sp-gone-text {
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 20px;
+  color: #7a8699;
+  text-align: center;
+}
+
+.sp-gone-btn {
+  margin-top: 24px;
+  padding: 11px 26px;
+  border-radius: 22px;
+  background-color: #2478f2;
+}
+
+.sp-gone-btn-text {
+  font-size: 14px;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.sp-title {
+  font-size: 22px;
+  font-weight: bold;
+  line-height: 30px;
+  color: #172b4d;
+}
+
+.sp-summary {
+  margin-top: 10px;
+  font-size: 14px;
+  line-height: 22px;
+  color: #5a6b85;
+}
+
+.sp-meta {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.sp-meta-text {
+  margin-right: 12px;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.sp-photos {
+  display: flex;
+  flex-direction: row;
+  margin-top: 16px;
+}
+
+.sp-photo {
+  width: 108px;
+  height: 108px;
+  margin-right: 8px;
+  border-radius: 12px;
+  background-color: #eef2f9;
+}
+
+.sp-day {
+  display: flex;
+  flex-direction: column;
+  margin-top: 22px;
+}
+
+.sp-day-title {
+  font-size: 13px;
+  font-weight: bold;
+  color: #2478f2;
+}
+
+.sp-item {
+  display: flex;
+  flex-direction: column;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background-color: #f7f9fd;
+}
+
+.sp-item-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.sp-item-title {
+  flex: 1;
+  font-size: 15px;
+  font-weight: bold;
+  color: #172b4d;
+}
+
+.sp-tag {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+}
+
+// 三种到访状态必须一眼可分：读者不能把「计划过」误当成「去过」
+.sp-tag-yes {
+  background-color: #e6f4ea;
+  color: #1a7f37;
+}
+
+.sp-tag-no {
+  background-color: #fdecec;
+  color: #c0392b;
+}
+
+.sp-tag-plan {
+  background-color: #eef2f9;
+  color: #7a8699;
+}
+
+.sp-item-text {
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 20px;
+  color: #5a6b85;
+}
+
+.sp-empty {
+  margin-top: 22px;
+  padding: 18px;
+  border-radius: 14px;
+  background-color: #f7f9fd;
+}
+
+.sp-empty-text {
+  font-size: 13px;
+  color: #7a8699;
+}
+
+.sp-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 34px;
+}
+
+.sp-foot-btn {
+  padding: 12px 30px;
+  border-radius: 24px;
+  background-color: #2478f2;
+}
+
+.sp-foot-btn-text {
+  font-size: 14px;
+  font-weight: bold;
+  color: #ffffff;
+}

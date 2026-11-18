@@ -4,7 +4,7 @@ import { newGuideId, loadGuides, saveGuides } from '../storage.js';
 import type { GuideBook } from '../storage.js';
 import { track } from '../track.js';
 import { toast } from '../toast.js';
-import { pushGuide } from '../sync.js';
+import { pushGuide, publishGuide, unpublishGuide } from '../sync.js';
 import type { Demand, GuideDraft, GuideSection, Plan, TripMemory } from '../data.js';
 
 /**
@@ -153,5 +153,53 @@ export function useGuides(booted: boolean) {
     track('guide_draft_delete', { tripId });
   }, []);
 
-  return { drafts: book, draftOf, generate, patch, togglePlace, drop };
+  /**
+   * 发布 / 撤回（F08 后半）。
+   *
+   * 发布状态按 tripId 存本机，与草稿同一套 key：一趟旅程对应一份攻略一条链接。
+   * 不做「从云端查我发过哪些」，因为本机记的这一份就是用户此刻关心的那一份；
+   * 换设备后本来也该以服务端草稿为准，那是同步那一期的事。
+   *
+   * `publishing` 挡重复点击：发布要建记录、生成 token，连点两次会出两条不同的分享。
+   */
+  const [published, setPublished] = useState<Record<string, { token: string; url: string }>>({});
+  const [publishing, setPublishing] = useState(false);
+
+  const publish = useCallback(
+    async (tripId: string, perPerson: number | undefined): Promise<'ok' | 'login' | 'failed'> => {
+      const draft = book[tripId];
+      if (!draft || publishing) return 'failed';
+      setPublishing(true);
+      try {
+        const res = await publishGuide(draft.id, perPerson);
+        if (!res.ok) return res.reason;
+        setPublished((prev) => ({ ...prev, [tripId]: { token: res.token, url: res.url } }));
+        track('guide_publish', { tripId });
+        return 'ok';
+      } finally {
+        setPublishing(false);
+      }
+    },
+    [book, publishing]
+  );
+
+  const unpublish = useCallback(
+    async (tripId: string): Promise<boolean> => {
+      const draft = book[tripId];
+      if (!draft) return false;
+      const ok = await unpublishGuide(draft.id);
+      if (!ok) return false;
+      // 撤回成功就清掉本机的链接：留着一条点开是引导页的链接只会让人困惑
+      setPublished((prev) => {
+        const next = { ...prev };
+        delete next[tripId];
+        return next;
+      });
+      track('guide_unpublish', { tripId });
+      return true;
+    },
+    [book]
+  );
+
+  return { drafts: book, draftOf, generate, patch, togglePlace, drop, published, publishing, publish, unpublish };
 }

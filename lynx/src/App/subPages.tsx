@@ -11,6 +11,7 @@ import { HotDetailPage } from '../pages/HotDetailPage/index.js';
 import { GuideDraftPage } from '../pages/GuideDraftPage/index.js';
 import { MemoryPage } from '../pages/MemoryPage/index.js';
 import { PlayDetailPage } from '../pages/PlayDetailPage/index.js';
+import { SharePage } from '../pages/SharePage/index.js';
 import { TripDetailPage } from '../pages/TripDetailPage/index.js';
 import type { ChangeImpact, Demand, GuideDraft, PhotoRef, PlaceNote, Plan, TripMemory } from '../data.js';
 import type { Content, Mine } from '../remote.js';
@@ -65,6 +66,16 @@ export type SubPageProps = {
   onLogout: () => void;
   /** 非生产环境的固定验证码提示；生产为空串 */
   devCodeHint: string;
+  /** 分享页 token；只有 share 路由用，其他页面忽略 */
+  /** 当前草稿的分享；null 表示未发布 */
+  publishedDraft: { token: string; url: string } | null;
+  publishingDraft: boolean;
+  /** 草稿里还只存在本机、发布后看不到的照片数 */
+  draftDirtyPhotos: number;
+  onPublishDraft: () => void;
+  onUnpublishDraft: () => void;
+  onCopyDraftLink: () => void;
+  shareToken: string;
 };
 
 /**
@@ -140,7 +151,7 @@ export const SUB_PAGES: Record<RouteName, (p: SubPageProps) => ReactElement> = {
     />
   ),
 
-  // 攻略草稿：从回忆里挑内容整理成可给人看的版本（发布能力待账号与服务端）
+  // 攻略草稿：从回忆里挑内容整理成可给人看的版本；发布能力见 F08 后半
   guideDraft: (p) => (
     <GuideDraftPage
       demand={p.demand}
@@ -153,6 +164,26 @@ export const SUB_PAGES: Record<RouteName, (p: SubPageProps) => ReactElement> = {
       onPatch={p.onPatchDraft}
       onToggle={p.onToggleDraftPlace}
       onRegenerate={p.onGenerateDraft}
+      loggedIn={p.accountPhone !== null}
+      published={p.publishedDraft}
+      publishing={p.publishingDraft}
+      dirtyPhotos={p.draftDirtyPhotos}
+      onPublish={p.onPublishDraft}
+      onUnpublish={p.onUnpublishDraft}
+      onCopyLink={p.onCopyDraftLink}
+      onLogin={() => p.go('login')}
+    />
+  ),
+
+  // 公开分享页：访客没有账号，这一页不做登录判断，拉不到就显示引导
+  share: (p) => (
+    <SharePage
+      token={p.shareToken}
+      // 从分享页回 App：直接回首页 tab，不让访客停在一个空的子页里
+      onOpenApp={() => {
+        p.back();
+        p.setTab('home');
+      }}
     />
   ),
   assistant: (p) => (

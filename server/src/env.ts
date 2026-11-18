@@ -62,3 +62,47 @@ export const aiGateway = {
   model: aiModel,
   configured: () => aiKey.length > 0
 }
+
+/**
+ * 照片存储（F08 后半）。
+ *
+ * 没配 `MEDIA_DIR` 就返回 503，而不是悄悄写进仓库目录：上传是唯一往磁盘写用户内容的地方，
+ * 「写到哪儿」必须是显式配置项，否则 staging 与本地会用同一个目录互相污染。
+ *
+ * 上限默认 5MB，与前端 `photo.ts` 的 2MB 选择上限刻意不同：前端限的是「选图」，
+ * 后端限的是「信任边界」。前端那道能被绕过，这道不能。
+ */
+const mediaDir = (process.env.MEDIA_DIR ?? '').trim()
+const mediaMaxBytes = Number.parseInt((process.env.MEDIA_MAX_BYTES ?? '').trim(), 10)
+
+type MediaConfig = {
+  dir: string
+  maxBytes: number
+  /** 分享页与照片地址的外部前缀；未配为空串，前端拼相对路径 */
+  publicBase: string
+}
+
+export const media: MediaConfig & { configured: () => boolean } = {
+  dir: mediaDir,
+  /** 单张上限；未配或配错时用 5MB */
+  maxBytes: Number.isFinite(mediaMaxBytes) && mediaMaxBytes > 0 ? mediaMaxBytes : 5 * 1024 * 1024,
+  // 读自身属性而不是闭包里的常量：测试会整体替换 media.dir 来验证「未配置」这条分支，
+  // 闭包读常量的话那种替换是无效的，用例会静默走成「已配置」。
+  configured() {
+    return this.dir.length > 0
+  },
+  publicBase: (process.env.MEDIA_PUBLIC_BASE ?? '').trim()
+}
+
+/**
+ * 分享页要用到的前端静态产物（F08 后半）。
+ *
+ * 为什么服务端要托管 web bundle：分享页给不装 App 的访客看，他们浏览器里没有壳层，
+ * 只能由服务端把构建产物吐出去。`WEB_ASSET_DIR` 默认指向 lynx 的构建输出目录，
+ * 部署时换成 CDN 或 nginx 的目录即可，不改代码。
+ */
+export const webAssets = {
+  dir: (process.env.WEB_ASSET_DIR ?? '../lynx/dist').trim(),
+  /** 分享页外壳里引资源的前缀，指向上面的目录 */
+  base: (process.env.WEB_ASSET_BASE ?? '/web').trim()
+}

@@ -95,6 +95,42 @@
   color: #2478f2;
 }
 
+// 主行动按钮：发布是这个页面唯一的正向出口，视觉权重高于「重新生成」那类次要操作
+.gp-primary {
+  height: 44px;
+  border-radius: 22px;
+  background-color: #2478f2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.gp-primary-text {
+  font-size: 14px;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+// 已发布链接：要能被长按选中抄下来，所以用小一号的等宽观感并允许换行
+.gp-link {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 18px;
+  color: #2478f2;
+}
+
+.gp-btn-row {
+  display: flex;
+  flex-direction: row;
+  margin-top: 8px;
+}
+
+.gp-btn-row .gp-ghost {
+  flex: 1;
+  margin-right: 10px;
+}
+
 .gp-hint {
   padding: 12px 4px 0 4px;
 }

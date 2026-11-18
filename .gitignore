@@ -64,3 +64,6 @@ backup-*/
 .claude/
 .pi/
 .opencode/
+
+# 照片上传目录（F08 后半）：用户内容，不进仓
+server/.media/

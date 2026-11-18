@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from '@lynx-js/react';
+import { useCallback, useEffect, useRef, useState } from '@lynx-js/react';
 
 import '../styles/base.scss';
 import { PlanSheet } from '../pages/PlanSheet/index.js';
@@ -15,6 +15,9 @@ import { useLocationChannel } from './useLocationChannel.js';
 import { useRoute } from './useRoute.js';
 import { useTrips } from './useTrips.js';
 import { useAuth } from './useAuth.js';
+import { hostShareToken } from '../hostBridge.js';
+import { countUnshareable } from '../photoData.js';
+import { toast } from '../toast.js';
 import { makeCls } from '../styles/cls.js';
 import styles from './index.module.scss';
 import type { TabId } from './tabs.js';
@@ -46,6 +49,26 @@ export function App() {
   const openSheet = useCallback(() => setSheetOpen(true), []);
   const openTab = useCallback((id: TabId) => setTab(id), []);
 
+  /** 当前行程的草稿与其中「发不出去」的照片数，供草稿页的发布区如实提示 */
+  const activeDraft = guides.draftOf(trips.active?.id ?? '');
+  const draftDirtyPhotos = activeDraft ? countUnshareable(activeDraft.photos, activeDraft.sections) : 0;
+
+
+  /**
+   * 分享页启动：外壳把 token 放进 globalProps，这里读一次就进分享路由。
+   *
+   * 只在首帧之后跑一次：`useLocationChannel` 在首帧就把 globalProps 落进了 hostBridge，
+   * 所以 effect 里一定读得到。用 ref 挡住重复进入——用户从分享页点「回 App」后
+   * 不该再被拉回去。
+   */
+  const shareEntered = useRef(false);
+  useEffect(() => {
+    if (shareEntered.current) return;
+    shareEntered.current = true;
+    const token = hostShareToken();
+    if (token) route.go('share', { shareToken: token });
+    // route 的身份稳定（useCallback 包过），只跑一次
+  }, [route]);
   /**
    * 新方案落成一条行程后统一跳到行程页：
    * 从智能建议/行程详情/对话里生成时，route 还指着子页，不关掉会生成完停在原子页。
@@ -129,6 +152,49 @@ export function App() {
             onPatchDraft={(next) => guides.patch(trips.active?.id ?? '', next)}
             onToggleDraftPlace={(planRef) => guides.togglePlace(trips.active?.id ?? '', planRef)}
             perPerson={trips.plans[trips.planIndex]?.budget.perPerson ?? 0}
+            publishedDraft={guides.published[trips.active?.id ?? ''] ?? null}
+            publishingDraft={guides.publishing}
+            // 只数「发不出去」的照片：local 与 dataUri 换设备就失效，不能承诺读者能看到
+            draftDirtyPhotos={draftDirtyPhotos}
+            onPublishDraft={() => {
+              void (async () => {
+                const res = await guides.publish(
+                  trips.active?.id ?? '',
+                  trips.plans[trips.planIndex]?.budget.perPerson
+                );
+                if (res === 'login') {
+                  toast('发布需要先登录');
+                  route.go('login');
+                } else if (res === 'failed') {
+                  toast('发布没成功，稍后再试一次');
+                } else {
+                  toast('已发布，链接可以发出去了');
+                }
+              })();
+            }}
+            onUnpublishDraft={() => {
+              void (async () => {
+                const ok = await guides.unpublish(trips.active?.id ?? '');
+                toast(ok ? '已撤回，原链接已经打不开了' : '撤回没成功，稍后再试一次');
+              })();
+            }}
+            onCopyDraftLink={() => {
+              // 壳层没有剪贴板能力时只能提示手动复制；页面上链接本身是可选中的文本
+              const url = guides.published[trips.active?.id ?? '']?.url ?? '';
+              if (!url) return;
+              const nav = (globalThis as { navigator?: { clipboard?: { writeText?: (t: string) => Promise<void> } } })
+                .navigator;
+              // writeText 必须在点击的同步栈里调用：await 过再调会被浏览器判为「非用户手势」
+              const p = nav?.clipboard?.writeText?.(url);
+              if (!p) {
+                toast('请长按上面的链接复制');
+                return;
+              }
+              void p.then(
+                () => toast('链接已复制'),
+                () => toast('请长按上面的链接复制')
+              );
+            }}
             accountPhone={auth.user?.phone ?? null}
             smsCooldown={auth.sms.cooldown}
             smsSending={auth.sms.sending}
@@ -138,6 +204,7 @@ export function App() {
             onVerifyCode={auth.verify}
             onLogout={auth.logout}
             devCodeHint={auth.devHint}
+            shareToken={route.params.shareToken}
           />
         ) : (
           <MainTabs
@@ -166,7 +233,8 @@ export function App() {
         )}
       </view>
 
-      <TabBar current={tab} onPick={onPickTab} />
+      {/* 分享页是给站外访客看的只读页：底部 tab 会让人以为这是 App 内页，还会占掉一屏 */}
+      {route.route === 'share' ? null : <TabBar current={tab} onPick={onPickTab} />}
 
       {sheetOpen ? (
         <PlanSheet

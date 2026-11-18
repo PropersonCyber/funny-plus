@@ -22,6 +22,15 @@ export type HostLocation = {
 let location: HostLocation | null = null;
 let apiBase = '';
 
+/**
+ * 分享页 token。
+ *
+ * 分享页由服务端外壳注入 `__fpShareToken`（见 server/src/routes/shareShell.ts），
+ * 走的是与定位、`__fpApiBase` 完全相同的 globalProps 通道 —— 原生 Lynx 与 web 渲染器
+ * 都拿不到 `globalThis.lynx`，只有 React 层的 `useGlobalProps()` 能读到。
+ */
+let shareToken = '';
+
 /** App 根组件调：把 useGlobalProps() 的结果落进来 */
 export function setHostProps(props: unknown): void {
   if (!props || typeof props !== 'object') return;
@@ -31,6 +40,9 @@ export function setHostProps(props: unknown): void {
   if (loc && typeof loc === 'object') location = loc as HostLocation;
 
   const base = p.__fpApiBase;
+  const st = p.__fpShareToken;
+  if (typeof st === 'string' && st) shareToken = st;
+
   if (typeof base === 'string' && base) apiBase = base;
 }
 
@@ -54,4 +66,9 @@ export function locationStamp(): string {
 /** 后端地址；宿主没下发时为空串（web 预览走相对路径由 dev server 代理） */
 export function hostApiBase(): string {
   return apiBase;
+}
+
+/** 分享页 token；不是分享页时为空串，调用方据此保持在正常首页 */
+export function hostShareToken(): string {
+  return shareToken;
 }

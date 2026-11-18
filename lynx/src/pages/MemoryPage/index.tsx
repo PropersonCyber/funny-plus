@@ -2,7 +2,7 @@ import { useState } from '@lynx-js/react';
 
 import { IconSvg } from '../../IconSvg.js';
 import { svgIcon } from '../../icons.js';
-import { canPickPhoto, photoSrc, pickPhoto } from '../../photo.js';
+import { canPickPhoto, photoSrc, pickPhoto, uploadPhoto } from '../../photo.js';
 import { track } from '../../track.js';
 import { toast } from '../../toast.js';
 import { makeCls } from '../../styles/cls.js';
@@ -74,15 +74,34 @@ export function MemoryPage({
       }))
   );
 
-  const addPhotos = async () => {
+  /**
+   * 选图后先尝试换成云端地址，换成了再存。
+   *
+   * 为什么先上传再存：存下 `dataUri` 再异步替换，中间那段时间里「已存的照片」和
+   * 「上传结果」是两个来源，用户删掉照片后上传回来又把引用写回本地，会出现
+   * 删不掉的幽灵照片。先换后存没有这个窗口。
+   *
+   * 上传失败不阻断：照片留在本机照样能看，只是不能跟着攻略分享 —— 这比「选完图
+   * 什么都没发生」好得多，所以保留原引用并提示一次。
+   */
+  const pickAndUpload = async (): Promise<PhotoRef | null> => {
     const picked = await pickPhoto();
+    if (!picked) return null;
+    const uploaded = await uploadPhoto(picked);
+    if (uploaded) return uploaded;
+    toast('照片先存在本机，分享攻略时不会带上它');
+    return picked;
+  };
+
+  const addPhotos = async () => {
+    const picked = await pickAndUpload();
     if (!picked) return;
     onPhotos([...memory.photos, picked]);
     track('photo_add', { scope: 'overview', count: memory.photos.length + 1 });
   };
 
   const addPlacePhotos = async (row: { planRef: string; dayIndex: number; placeId: string; title: string }) => {
-    const picked = await pickPhoto();
+    const picked = await pickAndUpload();
     if (!picked) return;
     const existing = memory.places[row.planRef]?.photos ?? [];
     onSavePlace({

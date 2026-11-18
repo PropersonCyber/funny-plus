@@ -497,3 +497,54 @@ export const guideDrafts = pgTable(
   },
   (t) => [index('guide_drafts_user_idx').on(t.userId), index('guide_drafts_trip_idx').on(t.tripId)]
 )
+
+/**
+ * 上传到本机的照片（F08 后半）。
+ *
+ * 为什么不存 path 而由后端按 id 推导：id 是主键且不可变，路径由 id 分桶算出，
+ * 二者只需一处一致。存 path 的话，将来换存储后端（本地磁盘 → S3）就得改所有历史行。
+ *
+ * sha256 用来做「同图不重复落盘」与内容校验；mime 读回时要用，不能靠文件名后缀猜。
+ */
+export const photos = pgTable(
+  'photos',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull(),
+    mime: text('mime').notNull(),
+    bytes: integer('bytes').notNull(),
+    sha256: text('sha256').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+  },
+  (t) => [index('photos_user_idx').on(t.userId), index('photos_sha_idx').on(t.sha256)]
+)
+
+/**
+ * 一次发布 = 一条分享。
+ *
+ * token 是主键且随机生成（不派生自 draftId）：草稿 id 是客户端生成的，可枚举、也泄露
+ * 「谁发的」。用随机 token 才能做到「链接不泄露内部标识」。
+ *
+ * snapshot 存发布那一刻的完整内容，而不是每次读 guide_drafts：草稿会继续被编辑，
+ * 实时引用会让「我发出去的是什么」在作者改完之后悄悄变掉。
+ *
+ * revokedAt 而非删除行：撤回后要能回答「这个 token 曾经存在、现在失效」，
+ * 删掉行会让「失效」和「从没存在」无法区分，重新发布也就没法换新 token。
+ */
+export const guideShares = pgTable(
+  'guide_shares',
+  {
+    token: text('token').primaryKey(),
+    draftId: text('draft_id').notNull(),
+    userId: text('user_id').notNull(),
+    snapshot: jsonb('snapshot').$type<Record<string, unknown>>().notNull(),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+  },
+  (t) => [
+    index('guide_shares_user_idx').on(t.userId),
+    index('guide_shares_draft_idx').on(t.draftId),
+    // 查「该草稿当前有效的分享」走这条；revokedAt 为 null 的行极少，索引很小
+    index('guide_shares_draft_active_idx').on(t.draftId, t.revokedAt)
+  ]
+)

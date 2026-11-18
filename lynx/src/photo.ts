@@ -1,4 +1,6 @@
 import { newPhotoId } from './storage.js';
+import { api } from './api.js';
+import { parseDataUri } from './photoData.js';
 import type { PhotoRef } from './data.js';
 
 /**
@@ -178,4 +180,44 @@ function pickFromBrowser(): Promise<PhotoRef | null> {
  */
 export function photoSrc(ref: PhotoRef): string {
   return ref.value;
+}
+
+/**
+ * 把一张本机照片传到服务端，换成可跨设备的 remote 引用（F08 后半）。
+ *
+ * 为什么不直接改入参：调用方可能已经把引用写进回忆存档了，就地改会让「存了什么」
+ * 和「当时选了什么」变得不可追溯。返回新对象，由调用方决定何时替换。
+ *
+ * 返回 null 表示这次没换成 —— 未登录、存储未接、网络失败、格式不认识都归到这里。
+ * 调用方保留原引用即可，界面上如实说「暂时存不到云端」，不要假装成功。
+ *
+ * `local` 一类不做上传：那是壳层给的文件路径，业务侧没有读取它的能力（`canPickPhoto`
+ * 的注释里写了这一层限制），强行 read 只会得到一个坏图。
+ */
+export async function uploadPhoto(ref: PhotoRef): Promise<PhotoRef | null> {
+  if (ref.kind === 'remote') return ref;
+  if (ref.kind !== 'dataUri') return null;
+
+  const parsed = parseDataUri(ref.value);
+  if (!parsed) return null;
+
+  // 后端只认 jpeg/png/webp/gif；其他类型（比如 heic）在这里早些放弃，省一次往返
+  const ext = parsed.mime === 'image/png' ? 'png' : parsed.mime === 'image/webp' ? 'webp' : parsed.mime === 'image/gif' ? 'gif' : 'jpg';
+  const form = new FormData();
+  // 转成 ArrayBuffer 再包 Blob：Uint8Array 的泛型 buffer 可能是 SharedArrayBuffer，
+  // 直接塞进去过不了 BlobPart 的类型（DOM lib 只接受 ArrayBuffer 支撑的视图）
+  const buf = parsed.bytes.buffer.slice(
+    parsed.bytes.byteOffset,
+    parsed.bytes.byteOffset + parsed.bytes.byteLength
+  ) as ArrayBuffer;
+  form.append('file', new Blob([buf], { type: parsed.mime }), `${ref.id}.${ext}`);
+
+  try {
+    const res = await api.upload<{ id: string; url: string }>('/api/photos', form);
+    if (!res || typeof res.url !== 'string' || !res.url) return null;
+    return { id: ref.id, kind: 'remote', value: res.url, addedAt: ref.addedAt };
+  } catch {
+    // 上传失败不该让回忆页报错：照片留在本机还能看，只是不能跟着攻略分享
+    return null;
+  }
 }

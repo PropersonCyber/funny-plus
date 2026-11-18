@@ -24,7 +24,8 @@ export type RouteName =
   | 'hot'
   | 'login'
   | 'memory'
-  | 'play';
+  | 'play'
+  | 'share';
 export type RouteParams = {
   /** 攻略详情要展示哪一条 */
   guideId: string;
@@ -32,9 +33,11 @@ export type RouteParams = {
   playId: string;
   /** 热门城市详情要展示哪一座 */
   cityId: string;
+  /** 分享页要展示的 token；只有分享路由用 */
+  shareToken: string;
 };
 
-const EMPTY_PARAMS: RouteParams = { guideId: '', playId: '', cityId: '' };
+const EMPTY_PARAMS: RouteParams = { guideId: '', playId: '', cityId: '', shareToken: '' };
 
 export function useRoute() {
   // 设计稿里的「智能建议」不是 tab，是从首页快捷入口进的子页，所以 route 与 tab 并存

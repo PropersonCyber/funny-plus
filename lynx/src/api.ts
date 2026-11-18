@@ -24,9 +24,14 @@ function resolveBase(): string {
 }
 const TIMEOUT_MS = 8000;
 
+/** 上传超时：图片比普通请求大得多，用同一个 8 秒会把成功上传判成失败 */
+const UPLOAD_TIMEOUT_MS = 60000;
+
 export class ApiError extends Error {}
 
-type Init = { method?: string; body?: string; headers?: Record<string, string> };
+// body 同时支持字符串（JSON）与 FormData（上传）：multipart 由运行时自己补 boundary，
+// 一旦我们手写了 content-type 反而会坏掉，所以类型上不给 headers 强绑
+type Init = { method?: string; body?: string | FormData; headers?: Record<string, string> };
 
 const TOKEN_KEY = 'funny-plus.auth-token.v1';
 
@@ -38,10 +43,10 @@ export function authToken(): string {
 export function setAuthToken(token: string): void {
   writeLocal(TOKEN_KEY, token);
 }
-async function request<T>(path: string, init?: Init): Promise<T> {
+async function request<T>(path: string, init?: Init, timeoutMs = TIMEOUT_MS): Promise<T> {
   // 宿主没给 AbortController 时就只能靠后端超时，不因此直接失败
   const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-  const timer = ctl ? setTimeout(() => ctl.abort(), TIMEOUT_MS) : null;
+  const timer = ctl ? setTimeout(() => ctl.abort(), timeoutMs) : null;
   try {
     const token = authToken();
     const headers = {
@@ -75,6 +80,15 @@ export const api = {
   put: <T>(path: string, body: unknown) =>
     request<T>(path, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+  /**
+   * 文件上传（multipart）。
+   *
+   * 单独一个入口而不是复用 post：FormData 的 content-type 由运行时自己补 boundary，
+   * 手写 `application/json` 会让后端解析不出表单。超时也放宽 —— 5MB 图片走移动网络
+   * 远超普通请求的 8 秒，用同一个超时会把成功上传判成失败。
+   */
+  upload: <T>(path: string, form: FormData) =>
+    request<T>(path, { method: 'POST', body: form }, UPLOAD_TIMEOUT_MS),
 };
 
 const CLIENT_KEY = 'funny-plus.client-id.v1';
