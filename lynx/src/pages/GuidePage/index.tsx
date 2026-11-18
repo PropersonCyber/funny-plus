@@ -219,6 +219,8 @@ export function GuidePage({ city, plans }: Props) {
                   {f.validUntil ? `有效期至 ${f.validUntil}` : `核验 ${f.verifiedAt}`}
                 </text>
               </view>
+              {/* 来源单独一行：和「核验于几号」挤在一行会被截断，而来源恰恰是最该看清的部分 */}
+              <text className={cls('fact-source')}>{f.source}</text>
               <view className={cls('gd-feedback')}>
                 {(['met', 'not-applicable'] as Verdict[]).map((v) => {
                   const mine = (verdicts[f.id] ?? myVerdict(f.id)) === v;

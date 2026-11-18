@@ -1,5 +1,5 @@
 import { IconSvg } from '../../IconSvg.js';
-import { useCallback, useState } from '@lynx-js/react';
+import { useCallback, useEffect, useMemo, useState } from '@lynx-js/react';
 import { trustLabel } from '../../../../shared/engine/facts.js';
 
 import chengdu from '../../assets/gen/chengdu.jpg';
@@ -73,6 +73,36 @@ export function ItineraryPage({
     },
     [onPickPlan]
   );
+
+  /**
+   * 数据缺口（F10）。用户看到「暂无票价」却没人知道——这是最该补的数据缺口，
+   * 因此按「哪天有哪些点缺票价/缺核验时间」记一条。不进渲染路径，
+   * 靠 plan+day 去重，避免每次刷新都重复上报。
+   */
+  const gap = useMemo(() => {
+    const p = plans[planIndex] ?? plans[0];
+    const d = p?.days.find((x) => x.index === dayIndex) ?? p?.days[0];
+    if (!d) return null;
+    const noTicket: string[] = [];
+    const noVerify: string[] = [];
+    for (const item of d.items) {
+      if (item.kind !== 'place' || !item.placeId) continue;
+      if (item.cost === null || item.cost === undefined) noTicket.push(item.placeId);
+      const place = placeById(item.placeId);
+      if (!place?.verifiedAt) noVerify.push(item.placeId);
+    }
+    return noTicket.length || noVerify.length ? { noTicket, noVerify } : null;
+  }, [plans, planIndex, dayIndex]);
+
+  useEffect(() => {
+    if (!gap) return;
+    track('data_gap_view', {
+      tripId: tripId ?? '',
+      day: dayIndex,
+      noTicket: gap.noTicket.join(','),
+      noVerify: gap.noVerify.join(',')
+    });
+  }, [gap, tripId, dayIndex]);
 
   if (plans.length === 0) {
     return (
@@ -320,9 +350,10 @@ function placeNote(placeId?: string): string {
   // 规划时段是从 openText 收紧算出来的（多档取交集、关灯时刻封顶），把原文带上，
   // 用户才能判断「周一闭馆」「16:00 停止检票」这类约束有没有被吃掉
   const span = `开放 ${clock(place.open[0])}-${clock(place.open[1])}`;
-  return place.openText
-    ? `${span}（${place.openText}）· ${trustLabel[place.trust]} · ${when}`
-    : `${span} · ${trustLabel[place.trust]} · ${when}`;
+  const body = place.openText ? `${span}（${place.openText}）` : span;
+  // 来源必须露出来：只说「核验 11-11」而不说谁核验的，等于让用户自己相信一个无名出处
+  const from = place.source ? `来源${place.source} · ` : '';
+  return `${body} · ${trustLabel[place.trust]} · ${from}${when}`;
 }
 
 /**

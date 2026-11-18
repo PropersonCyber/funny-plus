@@ -9,6 +9,7 @@ import { CHAT_STORAGE_KEY, followTrip, parseChatBook, readLog, writeLog } from '
 import { readLocal, writeLocal } from '../../storage.js';
 import { svgIcon } from '../../icons.js';
 import type { ChangeImpact, Demand, Plan } from '../../data.js';
+import { track } from '../../track.js';
 import type { RevisePreview, TripContext } from '../../../../shared/types/index.js';
 import {
   beginPreview,
@@ -269,6 +270,14 @@ export function AssistantPage({
       if (!nextId) return;
       const book = parseChatBook(readLocal(CHAT_STORAGE_KEY));
       writeLocal(CHAT_STORAGE_KEY, JSON.stringify(followTrip(book, tripId, nextId)));
+      // 建议采纳：对话里选定哪一版是「咕噜的建议有没有用」的唯一证据。
+      // 放在 nextId 之后，落行程失败的不算采纳。
+      track('plan_adopted', {
+        picked: turn.picked ?? 0,
+        options: turn.plans.length,
+        dayCount: turn.planDemand.dayCount,
+        isNewTrip: !tripId
+      });
     },
     [onApplyPlans, tripId]
   );
