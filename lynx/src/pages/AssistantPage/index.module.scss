@@ -170,6 +170,13 @@
   line-height: 17px;
 }
 
+/* 未核实项：比正文更浅一档，不抢方案内容的注意力，但必须读得到 */
+.plan-caveat {
+  font-size: 10px;
+  color: #8a97ab;
+  line-height: 15px;
+}
+
 /* 选中的那套方案：白底 + 主色描边，靠边界区分而不是大面积换色 */
 .plan-box-on {
   background-color: #ffffff;

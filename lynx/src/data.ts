@@ -1,6 +1,6 @@
 // 一切业务计算都复用 shared/engine 的确定性引擎，这里只做适配，不复制规则
 import { generatePlans, revisePlan } from '../../shared/engine/planner.js';
-import { facts } from './facts.js';
+import { facts } from './factsData.js';
 import { places } from './places.js';
 import { distanceKm, placeById, setPlaces } from '../../shared/engine/placeIndex.js';
 import { splitByFreshness, trustLabel } from '../../shared/engine/facts.js';
@@ -17,6 +17,7 @@ import type {
   Place,
   PlaceNote,
   Plan,
+  TravelFact,
   TripMemory,
 } from '../../shared/types/index.js';
 
@@ -57,10 +58,13 @@ export function applyPlaces(list: Place[]): void {
 // 只做转发：视图层不该直接依赖 engine 路径，换生成方式时只动这一处
 export { revisePlan };
 
-/** 避坑条目：原生壳读本地副本（./facts.ts），H5 读 GET /api/facts。A2 规则：过期条目不展示 */
-export function factsOf(city: string, today = new Date()): typeof facts {
+/**
+ * 避坑条目。数据来自 ./facts.ts：服务端优先，随包副本兜底（见那里的注释）。
+ * A2 规则：过期条目不展示。
+ */
+export function factsOf(city: string, today = new Date()): TravelFact[] {
   return splitByFreshness(
-    facts.filter((f) => f.city === city),
+    facts().filter((f) => f.city === city),
     today
   ).fresh;
 }
@@ -71,12 +75,14 @@ export function factsOf(city: string, today = new Date()): typeof facts {
  */
 export function factsExpiredCount(city: string, today = new Date()): number {
   return splitByFreshness(
-    facts.filter((f) => f.city === city),
+    facts().filter((f) => f.city === city),
     today
   ).expired.length;
 }
 
-export { distanceKm, placeById, facts, trustLabel };
+export { distanceKm, placeById, trustLabel };
+// 数据来源与时点要能被界面读到：用的是随包快照还是服务端最新，必须说得出
+export { facts, factsSource, factsStamp } from './factsData.js';
 
 export const DEFAULT_DEMAND: Demand = {
   destination: '成都',

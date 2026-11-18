@@ -512,3 +512,20 @@ describe('线路注入决定班次校验是否发生（G2）', () => {
     setLines([])
   })
 })
+
+// G3：「有 N 个景点票价未核实」这条告知以前会被住宿假设挤掉——界面只渲染
+// uncertain[0]，而住宿永远排在前面。顺序是引擎定的，所以这里钉住这条契约：
+// 两条都得在数组里，展示层才有东西可全量渲染。
+describe('未核实项不能被挤掉（G3）', () => {
+  it('同时有住宿与未核实票价时，两条都在 uncertain 里', () => {
+    const days = generatePlans(demand({ dayCount: 2 }))[0].days
+    // 把第一个景点票价置空，模拟「查不到票价」
+    const patched = days.map((d) => ({
+      ...d,
+      items: d.items.map((i, idx) => (i.kind === 'place' && idx === 0 ? { ...i, cost: null } : i)),
+    }))
+    const budget = estimateBudget(demand({ dayCount: 2 }), patched)
+    expect(budget.uncertain.some((u) => u.includes('住宿'))).toBe(true)
+    expect(budget.uncertain.some((u) => u.includes('票价未核实'))).toBe(true)
+  })
+})

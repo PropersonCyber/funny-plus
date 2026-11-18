@@ -269,10 +269,19 @@ export function ItineraryPage({
                 <text className={cls('budget-amount')}>¥{b.amount}</text>
               </view>
             ))}
-            <text className={cls('card-note')}>人均 ¥{plan.budget.perPerson}。{plan.budget.uncertain[0] ?? ''}</text>
+            <text className={cls('card-note')}>人均 ¥{plan.budget.perPerson}</text>
+            {/* 全量列出：只取 uncertain[0] 会让排在前面的住宿假设把
+                「有 N 个景点票价未核实」挤掉，总额看着完整、实际少算了景点 */}
+            {plan.budget.uncertain.map((u) => (
+              <text key={u} className={cls('budget-caveat')}>
+                {u}
+              </text>
+            ))}
           </view>
 
-          <text className={cls('mock-note')}>门票与开放时间来自地点收录（{trustLabel.pending}），出发前请自行核验；天气与日期未接入数据源</text>
+          {/* 页脚原先把所有门票硬写成「待核实」，与上面逐条的 trust 标签互相矛盾：
+              有的点是官方核验过的，页脚一句话把它们全否了。改成只说页脚真能保证的事 */}
+          <text className={cls('mock-note')}>门票与开放时间以逐条标注的核验时间为准；天气与具体日期未接入数据源</text>
         </scroll-view>
       </view>
 

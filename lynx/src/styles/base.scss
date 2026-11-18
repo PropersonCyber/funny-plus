@@ -229,6 +229,15 @@
   color: #172b4d;
 }
 
+/* 预算里的未核实项：与金额同区但更浅，保证「有 N 个景点票价未核实」这类告知读得到 */
+.budget-caveat {
+  display: flex;
+  margin-top: 4px;
+  font-size: 10px;
+  line-height: 15px;
+  color: #8a97ab;
+}
+
 .day-tab-card {
   display: flex;
   flex-direction: column;

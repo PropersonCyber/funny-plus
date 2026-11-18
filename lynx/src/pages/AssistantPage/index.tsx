@@ -8,6 +8,7 @@ import type { ChatMessage, ChatSlots } from '../../aiChat.js';
 import { CHAT_STORAGE_KEY, followTrip, parseChatBook, readLog, writeLog } from '../../chatSession.js';
 import { readLocal, writeLocal } from '../../storage.js';
 import { svgIcon } from '../../icons.js';
+import { placeById } from '../../data.js';
 import type { ChangeImpact, Demand, Plan } from '../../data.js';
 import { track } from '../../track.js';
 import type { RevisePreview, TripContext } from '../../../../shared/types/index.js';
@@ -445,11 +446,20 @@ export function AssistantPage({
                             .join(' · ')}
                         </text>
                       ))}
-                      {/* 预算来自引擎，模型不参与计算；未核实的票价在这里也照实标 */}
-                      <text className={cls('plan-day')}>
-                        人均约 ¥{p.budget.perPerson}
-                        {p.budget.uncertain.length ? ` · ${p.budget.uncertain[0]}` : ''}
-                      </text>
+                      {/* 对话里提到的地点要能看出信不信得过。原来只给名字和人均，
+                          用户没法判断「这家几点关门」是官方核验过的还是随口一猜。
+                          这里只标未核验的数量，不逐条堆来源——来源在景点页可查 */}
+                      <text className={cls('plan-caveat')}>{trustSummary(p)}</text>
+                      {/* 预算来自引擎，模型不参与计算。未核实项必须整段列出：
+                          原来只取 uncertain[0]，而住宿假设排在未核实票价前面，
+                          于是「有 N 个景点票价未核实」永远看不见，用户看到的
+                          总额像完整的、实际少算了几个景点 */}
+                      <text className={cls('plan-day')}>人均约 ¥{p.budget.perPerson}</text>
+                      {p.budget.uncertain.map((u) => (
+                        <text key={u} className={cls('plan-caveat')}>
+                          {u}
+                        </text>
+                      ))}
                     </view>
                   ))}
                   {t.plans?.length ? (
@@ -524,4 +534,18 @@ function fmtDelta(n: number, unit: string): string {
 function fmtMoney(n: number): string {
   if (n === 0) return '没变';
   return `${n > 0 ? '+' : ''}¥${n}`;
+}
+
+/**
+ * 方案里的地点有多少条记过核验。
+ *
+ * 气泡原来只给地点名和人均，用户没法判断「这家几点关门」是官方核验过的
+ * 还是随口一猜。这里给一句能判断真假的话，逐条来源在景点页/行程页可查。
+ */
+function trustSummary(plan: Plan): string {
+  const places = plan.days.flatMap((d) => d.items).filter((i) => i.kind === 'place' && i.placeId)
+  if (places.length === 0) return ''
+  const unverified = places.filter((i) => !placeById(i.placeId!)?.verifiedAt).length
+  if (unverified === 0) return '以上地点的营业时间都记有核验时间'
+  return `以上地点有 ${unverified} 个未记录核验时间，营业与票价请出发前确认`
 }

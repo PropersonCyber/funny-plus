@@ -14,7 +14,8 @@ import { myVerdict, saveVerdict, VERDICT_LABEL, fetchSummaries, submitVerdict } 
 import type { Verdict, Summary } from '../../feedback.js';
 import { track } from '../../track.js';
 import { toast } from '../../toast.js';
-import { factsOf, placeById, factsExpiredCount } from '../../data.js';
+import { factsOf, placeById, factsExpiredCount, factsStamp } from '../../data.js';
+import { loadFacts } from '../../facts.js';
 import type { Plan } from '../../data.js';
 import styles from './index.module.scss';
 import { makeCls } from '../../styles/cls.js';
@@ -89,12 +90,31 @@ export function GuidePage({ city, plans }: Props) {
   const [verdicts, setVerdicts] = useState<Record<string, Verdict>>({});
   // 跨设备聚合计数：服务端才算得出来，拿不到就空着，不编数字
   const [counts, setCounts] = useState<Record<string, Summary>>({});
+  // 服务端避坑版本号：拉到新数据后 +1，让下面的 useMemo 重算。
+  // 不这样做的话，服务端换了 trust，页面还显示随包快照那一份。
+  const [factsRev, setFactsRev] = useState(0);
+  const [factsFrom, setFactsFrom] = useState(factsStamp());
 
   useEffect(() => {
     let alive = true;
     fetchSummaries()
       .then((next) => {
         if (alive) setCounts(next);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  // 避坑数据优先服务端（G4）：失败就继续用随包快照，界面上标出用的是哪一份
+  useEffect(() => {
+    let alive = true;
+    loadFacts()
+      .then((ok) => {
+        if (!alive || !ok) return;
+        setFactsFrom(factsStamp());
+        setFactsRev((n) => n + 1);
       })
       .catch(() => {});
     return () => {
@@ -113,11 +133,11 @@ export function GuidePage({ city, plans }: Props) {
         toast(e instanceof Error && e.message ? e.message : '反馈没提交上去，稍后再试');
       });
   }, []);
-
-  const facts = useMemo(() => factsOf(city), [city]);
+  // factsRev 进依赖：服务端数据到了要重算，否则页面还停在随包快照那一份
+  const facts = useMemo(() => factsOf(city), [city, factsRev]);
 
   // A2：过期条目默认不展示，但必须告知还有几条，否则用户以为这座城市没有这类信息
-  const expired = useMemo(() => factsExpiredCount(city), [city]);
+  const expired = useMemo(() => factsExpiredCount(city), [city, factsRev]);
 
   // 默认行程里排到的景点，按出现顺序去重；换天/换方案时会重算
   const spots = useMemo(() => {
@@ -181,6 +201,9 @@ export function GuidePage({ city, plans }: Props) {
             ))}
           </view>
         </scroll-view>
+
+        {/* 数据时点必须说出来：用的是随包快照还是服务端最新，决定用户该不该信这条 */}
+        <text className={cls('mock-note')}>避坑数据来源：{factsFrom}</text>
 
         {expired > 0 ? (
           <text className={cls('mock-note')}>另有 {expired} 条已过期信息，按 A2 默认不展示</text>
