@@ -102,7 +102,7 @@ Tier: 2 · 代码冻结点：`git diff | shasum -a 256` = `6809abb3825df0fd`
 1. **微信内动态分享卡片做不到**：微信只吃 JS-SDK 签名，本期只做了 `og:` 标签。微信里把链接发出去，卡片标题是 `og:title` 的内容标题这一点在微信里**不生效**，需要独立立项做 `jsapi_ticket` + 域名白名单。
 2. **SEO 不收录**：CSR 页面，抓取器只见空壳。这是刻意不为它付成本，不是缺陷。
 3. **抓取器行为未一手取证**：WhatsApp / Twitter / Facebook 的文档域名在本环境不可达，`og:` 是否被消费是〔推断〕。
-4. **`WEB_ASSET_DIR` 依赖 web-core 运行时**：`lynx/dist` 里只有两个 bundle，没有 `static/`（client.js / css / wasm）。实测时指向了 `ios/FunnyPlus/FunnyPlus/web/` 的预构建快照拷到 `/tmp/fp-web`。**部署前必须确认这个目录有 `static/`，否则分享页是白屏**。这是最容易在线上复现的坑。
+4. **`WEB_ASSET_DIR` 必须含 web-core 运行时**：`lynx/dist` 里只有两个 bundle，没有 `static/`（client.js / css / wasm）；那套运行时在 `ios/FunnyPlus/FunnyPlus/web/static/`（壳工程的预构建快照）。本次已把 `server/.env` 的 `WEB_ASSET_DIR` 定到 `../ios/FunnyPlus/FunnyPlus/web`（仓库内稳定路径，重启不失效），并同步了最新 `main.web.bundle`。**部署时若用别的目录，必须确认它下面有 `static/`，否则分享页白屏** —— 这是最容易在线上复现的坑。
 5. **真机未验**：Android 未跑；iOS 由用户自行验证。分享页是浏览器页面，真机上的表现取决于壳层 WebView 版本。
 6. **照片上限 5MB 未做压缩**：大于 5MB 的图直接 413，前端只提示，不做等比压缩。手机拍照原图常在 3~8MB，实际会命中这条。
 7. **草稿照片仍是 `dataUri` 的情况未端到端验**：`uploadPhoto` 的 `dataUri` 分支有单测（`photoData.test.ts` 9 例），但从「回忆页选图 → 上传成功 → 变成 remote」这条完整链路没在浏览器里跑过，因为原生壳还没有选图能力（`photo.ts` 注释已记录）。web 预览下 `pickFromBrowser` 能产出 `dataUri`，但没有自动化覆盖。
