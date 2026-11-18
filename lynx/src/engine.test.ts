@@ -459,3 +459,56 @@ describe('演示班次不参与硬约束（R4）', () => {
     expect(lineSegmentFor(items, 1)?.line.id).toBe('real');
   });
 });
+
+// G2：客户端不注入线路时，validate 里「末班之后没车」永远拿不到 lineById 的结果，
+// 表单生成会静默跳过这一类校验，只有对话路径会报。注入同一份数据后两端才一致。
+describe('线路注入决定班次校验是否发生（G2）', () => {
+  const item: ItineraryItem = {
+    id: 'g2-item',
+    kind: 'place',
+    title: '坐索道',
+    placeId: 'a-4',
+    startMin: 23 * 60,
+    endMin: 23 * 60 + 30,
+    stayMin: 30,
+    transportMin: 0,
+    transportMode: 'public',
+    cost: 0,
+    lineId: 'g2-line',
+  }
+
+  const officialLine: TransitLine = {
+    id: 'g2-line',
+    city: '测试城',
+    name: '测试索道',
+    mode: 'cableway',
+    stops: [
+      { name: 'A', lng: 106.5, lat: 29.5, placeId: 'a-1' },
+      { name: 'B', lng: 106.6, lat: 29.6, placeId: 'a-2' },
+    ],
+    firstBus: 480,
+    lastBus: 1020,
+    intervalMin: 15,
+    tickets: [{ kind: '单程', price: 20 }],
+    needAdvance: null,
+    capacity: null,
+    rideMin: 5,
+    rideAtPlaceId: 'a-1',
+    source: '测试数据',
+    trust: 'official',
+  }
+
+  it('未注入线路：这条段没有班次问题（校验被静默跳过）', () => {
+    setLines([])
+    const issues = validatePlan(emptyPlan([item]), demand())
+    expect(issues.some((i) => i.code === 'after-lastbus' || i.code === 'no-lastbus')).toBe(false)
+  })
+
+  it('注入官方线路后：晚于末班判 error', () => {
+    setLines([officialLine])
+    const issues = validatePlan(emptyPlan([item]), demand())
+    expect(issues.find((i) => i.code === 'after-lastbus')?.level).toBe('error')
+    // 复位，避免影响后续用例
+    setLines([])
+  })
+})

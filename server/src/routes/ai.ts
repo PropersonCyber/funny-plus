@@ -7,6 +7,7 @@ import { facts, lines, places } from '../db/schema.ts'
 import { aiConfigured, chatModel } from '../ai/model.ts'
 import { proposeReviseOp } from '../ai/revise.ts'
 import { placeById, placesOf, placesLoaded, setPlaces } from '@/engine/placeIndex.ts'
+import { warmRoutes } from '../ai/routeWarm.ts'
 import { linesOf, setLines } from '@/engine/lines.ts'
 import { budgetView, factsView, linesView, placeDetailView, validateView } from '@/engine/aiGround.ts'
 import { NO_KEYWORD_HINT, generatePlans, keywordReviseOp } from '@/engine/planner.ts'
@@ -290,7 +291,12 @@ aiRoute.post('/chat', async (c) => {
           const demand = toDemand(slots)
           let plans
           try {
-            plans = generatePlans(demand)
+            // 第一遍只用来知道「会用到哪些相邻段」：planner 排序看直线距离，
+            // 所以这一遍的顺序就是最终顺序，第二遍只有路上时间变准。
+            const firstPass = generatePlans(demand)
+            const warm = await warmRoutes(demand, firstPass)
+            // 一段都没取到（未配高德 / 断网 / 限流）：不必重跑，第一遍已经是直线估算
+            plans = warm.hit > 0 ? generatePlans(demand) : firstPass
           } catch (err) {
             return { ok: false, error: err instanceof Error ? err.message : '生成方案失败' }
           }
@@ -299,7 +305,6 @@ aiRoute.post('/chat', async (c) => {
           const ready = picked.length ? picked : plans
           // 返回完整 Plan：工作台渲染的就是它。checks 把硬冲突喂回模型，让它决定要不要再松一版
           return {
-            ok: true,
             demand,
             plans: ready,
             attempt: planAttempts,

@@ -4,6 +4,8 @@ import { facts } from './facts.js';
 import { places } from './places.js';
 import { distanceKm, placeById, setPlaces } from '../../shared/engine/placeIndex.js';
 import { splitByFreshness, trustLabel } from '../../shared/engine/facts.js';
+import { setLines } from '../../shared/engine/lines.js';
+import { lines } from './lines.js';
 import type {
   ChangeImpact,
   Demand,
@@ -23,6 +25,14 @@ try {
   setPlaces(places);
 } catch (e) {
   console.error('[places] 初始化失败', e);
+}
+
+// 线路也要在这里注入。不注入的话 validate 里「末班之后没车」「核载不够」两条硬约束
+// 永远拿不到 lineById 的结果，表单生成会静默跳过这两类校验，只会在对话路径上报出来。
+try {
+  setLines(lines);
+} catch (e) {
+  console.error('[lines] 初始化失败', e);
 }
 
 type BudgetLevel = Demand['budgetLevel'];
