@@ -5,6 +5,7 @@ import type { GuideBook } from '../storage.js';
 import { track } from '../track.js';
 import { toast } from '../toast.js';
 import { pushGuide, publishGuide, unpublishGuide } from '../sync.js';
+import { mergeGuides } from '../syncMerge.js';
 import type { Demand, GuideDraft, GuideSection, Plan, TripMemory } from '../data.js';
 
 /**
@@ -201,5 +202,41 @@ export function useGuides(booted: boolean) {
     [book]
   );
 
-  return { drafts: book, draftOf, generate, patch, togglePlace, drop, published, publishing, publish, unpublish };
+  /**
+   * 把云端草稿并进本机（G5 跨设备找回）。
+   *
+   * 服务端的列表接口把当前有效的分享一起回了，所以并进来的同时「已发布」状态也回来 ——
+   * 不回的话换设备后会以为没发过，又点一次发布；虽然服务端是幂等的（同一条链接），
+   * 但界面上那句「已发布，链接可以发出去了」会变成误导。
+   */
+  const mergeRemote = useCallback(
+    (remote: { tripId: string; payload: GuideDraft; share: { token: string; url: string } | null }[]) => {
+      if (!remote.length) return;
+      setBook((prev) => mergeGuides(prev, remote));
+      setPublished((prev) => {
+        const next = { ...prev };
+        for (const r of remote) {
+          const key = r.tripId || r.payload.tripId;
+          if (key && r.share) next[key] = r.share;
+        }
+        return next;
+      });
+    },
+    []
+  );
+  return {
+    drafts: book,
+    draftOf,
+    generate,
+    patch,
+    togglePlace,
+    drop,
+    published,
+    publishing,
+    publish,
+    unpublish,
+    mergeRemote,
+    /** 给 App 用：读档没完成前不能做登录补推，否则推上去的是空草稿 */
+    loaded
+  };
 }

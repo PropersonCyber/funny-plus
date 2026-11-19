@@ -22,6 +22,39 @@ function shareUrl(token: string): string {
   return media.publicBase ? `${media.publicBase}/s/${token}` : `/s/${token}`
 }
 
+/**
+ * 列出本账号全部草稿（G5 跨设备拉取），连当前有效的分享一起回。
+ *
+ * 为什么连 share 一起回：不回的化换设备后「已发布」这个状态就丢了，
+ * 用户会以为链接没发出去又点一次发布 —— 而服务端是幂等的，点几次都拿同一条链接，
+ * 但界面上的误导是真实的。一次 join 比让前端 N 次往返便宜。
+ */
+guideRoute.get('/', async (c) => {
+  const actor = c.get('actor')
+  if (!actor) return c.json({ error: '请先登录', code: 'unauthorized' }, 401)
+  const rows = await db
+    .select()
+    .from(guideDrafts)
+    .where(eq(guideDrafts.userId, actor.userId))
+    .orderBy(guideDrafts.updatedAt)
+  const shares = rows.length
+    ? await db
+        .select({ draftId: guideShares.draftId, token: guideShares.token })
+        .from(guideShares)
+        .where(and(eq(guideShares.userId, actor.userId), isNull(guideShares.revokedAt)))
+    : []
+  const byDraft = new Map(shares.map((s) => [s.draftId, s.token]))
+  return c.json({
+    items: rows.map((r) => ({
+      id: r.id,
+      tripId: r.tripId,
+      payload: r.payload,
+      updatedAt: r.updatedAt.toISOString(),
+      share: byDraft.has(r.id) ? { token: byDraft.get(r.id)!, url: shareUrl(byDraft.get(r.id)!) } : null
+    }))
+  })
+})
+
 guideRoute.get('/:id', async (c) => {
   const actor = c.get('actor')
   if (!actor) return c.json({ error: '请先登录', code: 'unauthorized' }, 401)

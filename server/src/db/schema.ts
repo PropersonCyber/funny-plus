@@ -15,7 +15,19 @@ export const trips = pgTable(
     /** 登录后的归属账号；null = 匿名写入或历史数据，靠 client_id 兜底 */
     userId: text('user_id'),
     demand: jsonb('demand').$type<Demand>().notNull(),
+    /**
+     * 用户当前选中的那一套。
+     *
+     * 与 plans 并存是为了读旧行：0015 之前的行只有这一列。新写会同时更新两处，
+     * 读的时候 plans 优先 —— 两处都存看起来冗余，但比让旧行程读不出来强。
+     */
     plan: jsonb('plan').$type<Plan>().notNull(),
+    /** 全部方案（G5）。null = 0015 之前的旧行，读的时候用 [plan] 兜 */
+    plans: jsonb('plans').$type<Plan[]>(),
+    /** 选中的是第几套；null = 旧行，按 0 处理 */
+    planIndex: integer('plan_index'),
+    /** 用户主动结束旅行的时刻；null = 还在进行中 */
+    endedAt: timestamp('ended_at', { withTimezone: true }),
     savedAt: timestamp('saved_at', { withTimezone: true }).notNull().defaultNow()
   },
   (t) => [index('trips_client_idx').on(t.clientId), index('trips_user_idx').on(t.userId)]

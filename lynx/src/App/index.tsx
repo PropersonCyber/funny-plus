@@ -15,6 +15,7 @@ import { useLocationChannel } from './useLocationChannel.js';
 import { useRoute } from './useRoute.js';
 import { useTrips } from './useTrips.js';
 import { useAuth } from './useAuth.js';
+import { pullCloud, pushAllTrips, pushGuide, pushMemory } from '../sync.js';
 import { hostShareToken } from '../hostBridge.js';
 import { countUnshareable } from '../photoData.js';
 import { toast } from '../toast.js';
@@ -45,6 +46,43 @@ export function App() {
   const auth = useAuth();
   const [tab, setTab] = useState<TabId>('home');
   const [sheetOpen, setSheetOpen] = useState(false);
+
+  /**
+   * 登录后补推本机数据 + 拉回云端（G5）。
+   *
+   * 两件事都必须在登录时自动做，不能要求用户「再编辑一次」：
+   * 登录前攒下的行程 / 回忆 / 草稿云端没有，不补推就永远上不去；
+   * 另一台设备上产生的数据只在云端，不拉就找不回来。
+   *
+   * 用 ref 按 userId 挡重复：登录态续期、页面重渲染都会让这个 effect 重跑，
+   * 每跑一次就是三轮写 + 三个 GET，不能让它变成每次渲染都同步。
+   */
+  const syncedFor = useRef<string>('');
+  useEffect(() => {
+    const uid = auth.user?.id ?? '';
+    if (!uid || syncedFor.current === uid) return;
+    // 读档没完成就补推，推上去的是初始默认行程 —— 等于用空数据盖掉云端
+    if (!trips.loaded || !trips.memoriesLoaded || !guides.loaded) return;
+    syncedFor.current = uid;
+    void (async () => {
+      await pushAllTrips(trips.store.trips);
+      for (const [tripId, mem] of Object.entries(trips.memories)) await pushMemory(tripId, mem);
+      for (const [tripId, draft] of Object.entries(guides.drafts)) await pushGuide(draft.id, tripId, draft);
+
+      const cloud = await pullCloud();
+      if (!cloud) {
+        // 拉不到就保持本机现状：说一句，但绝不动本机数据
+        toast('云端数据没拉回来，本机数据不受影响');
+        return;
+      }
+      trips.mergeRemoteTrips(cloud.trips);
+      trips.mergeRemoteMemories(cloud.memories);
+      guides.mergeRemote(cloud.guides);
+      const added = cloud.trips.length + cloud.memories.length + cloud.guides.length;
+      // 只在真的带回了东西时提示：每次登录都弹一句「已同步」是噪音
+      if (added) toast(`已从云端找回 ${added} 条记录`);
+    })();
+  }, [auth.user?.id, trips.loaded, trips.memoriesLoaded, guides.loaded]);
 
   const openSheet = useCallback(() => setSheetOpen(true), []);
   const openTab = useCallback((id: TabId) => setTab(id), []);

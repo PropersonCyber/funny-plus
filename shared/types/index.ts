@@ -327,12 +327,27 @@ export interface FactFeedbackSummary {
   mine: FeedbackVerdict | null
 }
 
+/**
+ * 云端一条行程的完整形态。
+ *
+ * 为什么把 `plans` / `planIndex` / `endedAt` 都带上（G5）：
+ * 早先只推 `demand + plan`（用户当前选中的那一套），于是「保存了 3 份行程、结束了其中 1 份」
+ * 换设备登录后只剩 1 份且状态全丢 —— 这种「承诺了能找回、实际找不回」比不做更伤。
+ *
+ * 刻意不再有 `plan` 字段：选中的那一套由 `plans[planIndex]` 算出来，
+ * 两处都存迟早对不上。服务端库里仍保留 plan 列，那是为了读旧行，不出现在协议里。
+ */
 export interface SavedTrip {
   id: string
   demand: Demand
-  plan: Plan
+  /** 全部方案，至少一套 */
+  plans: Plan[]
+  /** 选中的是第几套；越界由服务端钳到合法范围 */
+  planIndex: number
   savedAt: string
   versions: { at: string; note: string; impact?: ChangeImpact }[]
+  /** 用户主动结束旅行的时刻；不传 = 还在进行中 */
+  endedAt?: string
 }
 
 /** 城市：首页热门推荐 / 城市选择器 */

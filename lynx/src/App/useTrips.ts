@@ -6,7 +6,9 @@ import { loadMemory, loadStore, newTripId, saveMemory, saveStore } from '../stor
 import type { MemoryBook, SavedTrip } from '../storage.js';
 import { track } from '../track.js';
 import { toast } from '../toast.js';
-import { pushMemory, pushTrip } from '../sync.js';
+import { pushAllTrips, pushMemory } from '../sync.js';
+import { mergeMemories, mergeTrips } from '../syncMerge.js';
+import type { RemoteMemory } from '../syncMerge.js';
 
 export type Store = { trips: SavedTrip[]; activeId: string };
 
@@ -79,9 +81,9 @@ export function useTrips(booted: boolean) {
     if (!loaded) return;
     if (saveStore(store)) {
       warned.current = false;
-      // 本机已落盘，再尽力推云端：未登录时 pushTrip 直接返回 false，不产生任何请求
-      const active = store.trips.find((t) => t.id === store.activeId);
-      if (active) void pushTrip(active);
+      // 本机已落盘，再尽力推云端：未登录时 pushAllTrips 内部直接跳过，不产生任何请求。
+      // 全部行程都推而不是只推当前这一条：只推一条的话「存了 3 份、换设备只回来 1 份」
+      void pushAllTrips(store.trips);
       return;
     }
     if (!warned.current) {
@@ -203,6 +205,26 @@ export function useTrips(booted: boolean) {
     }
   }, [memLoaded, memories]);
 
+  /**
+   * 把云端行程并进本机（G5 跨设备找回）。
+   *
+   * 只在这里做一次合并，之后照常走 saveStore —— 合并结果要落本机，
+   * 否则下次冷启动又只剩本机原来那几份。
+   *
+   * activeId 不动：用户此刻在看哪一份是他自己的选择，
+   * 云端多回来几份不该把他手上这份换掉。
+   */
+  const mergeRemoteTrips = useCallback((remote: SavedTrip[]) => {
+    if (!remote.length) return;
+    setStore((prev) => ({ ...prev, trips: mergeTrips(prev.trips, remote) }));
+  }, []);
+
+  /** 把云端回忆并进本机；照片里的 local / dataUri 已在服务端剥离，回来的都是可跨设备的 */
+  const mergeRemoteMemories = useCallback((remote: RemoteMemory[]) => {
+    if (!remote.length) return;
+    setMemories((prev) => mergeMemories(prev, remote));
+  }, []);
+
   /** 取某趟旅行的回忆；没有就返回一份空壳，不写回存储（避免只读浏览也产生写入） */
   const memoryOf = useCallback(
     (tripId: string): TripMemory => {
@@ -323,5 +345,10 @@ export function useTrips(booted: boolean) {
     saveOverview,
     setOverviewPhotos,
     savePlaceNote,
+    mergeRemoteTrips,
+    mergeRemoteMemories,
+    /** 给 App 用：读档没完成前不能做登录补推，否则推上去的是默认空行程 */
+    loaded,
+    memoriesLoaded: memLoaded
   };
 }

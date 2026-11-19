@@ -18,6 +18,30 @@ export const memoryRoute = new Hono()
 
 memoryRoute.use('*', requireUser)
 
+/**
+ * 列出本账号全部回忆（G5 跨设备拉取）。
+ *
+ * 一次性回全量而不分页：回忆条数上限是「趟数 × 地点数」，分页要维护游标，
+ * 换设备后还得重建游标状态，复杂度换来的收益不成比例。真到量大那天再加，
+ * 届时接口形状必须一起改（加 nextCursor），不能悄悄在旧参数上叠语义。
+ */
+memoryRoute.get('/', async (c) => {
+  const actor = c.get('actor')
+  if (!actor) return c.json({ error: '请先登录', code: 'unauthorized' }, 401)
+  const rows = await db
+    .select({ tripId: tripMemories.tripId, payload: tripMemories.payload, updatedAt: tripMemories.updatedAt })
+    .from(tripMemories)
+    .where(eq(tripMemories.userId, actor.userId))
+    .orderBy(tripMemories.tripId)
+  return c.json({
+    items: rows.map((r) => ({
+      tripId: r.tripId,
+      payload: r.payload,
+      updatedAt: r.updatedAt.toISOString()
+    }))
+  })
+})
+
 memoryRoute.get('/:tripId', async (c) => {
   const actor = c.get('actor')
   if (!actor) return c.json({ error: '请先登录', code: 'unauthorized' }, 401)
