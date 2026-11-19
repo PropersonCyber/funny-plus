@@ -5,7 +5,6 @@ import type { NodesRef } from '@lynx-js/types';
 import { cover } from '../../assets/city-covers.js';
 import listHero from '../../assets/gen/list-hero.jpg';
 import mascotHero from '../../assets/ip/mascot-hero.png';
-import { openLocationSettings } from '../../geo.js';
 import { refreshLocation } from '../../locationFace.js';
 import { useLocationFace } from '../../useLocationFace.js';
 import { QICON, svgIcon } from '../../icons.js';
@@ -130,8 +129,9 @@ export function CityPage({ current, cities, onPick, onBack, onMore }: Props) {
 
   const onLocate = useCallback(() => {
     if (loc.status === 'denied') {
-      // 设置页打不开（浏览器预览等）时给回落文案，别让按钮看起来没反应
-      if (!openLocationSettings()) toast('请到系统设置里开启定位权限');
+      // 壳没有实现「拉起系统设置」的通道，这里只能给一句可执行的说明。
+      // 之前调 openLocationSettings() 恒返 false，等于点了只看到同一句提示，白绕一层
+      toast('请到系统设置 → 应用权限里开启定位，再回来重试');
       return;
     }
     refreshLocation();

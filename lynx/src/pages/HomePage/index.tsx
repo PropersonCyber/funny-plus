@@ -1,5 +1,5 @@
 import { IconSvg } from '../../IconSvg.js';
-import { useCallback, useState } from '@lynx-js/react';
+import { useCallback, useEffect, useState } from '@lynx-js/react';
 
 import heroBanner from '../../assets/gen/hero-banner.jpg';
 import aiBanner from '../../assets/gen/ai-banner.jpg';
@@ -17,6 +17,7 @@ import { filledIcon } from '../../icons-filled.js';
 import type { City, Guide, Play } from '../../../../shared/types/index.js';
 import { toast } from '../../toast.js';
 import { useLocationFace } from '../../useLocationFace.js';
+import { aiStatus } from '../../aiChat.js';
 import styles from './index.module.scss';
 import { makeCls } from '../../styles/cls.js';
 
@@ -82,6 +83,18 @@ export function HomePage({ city, onPickCity, onAllCities, onOpenCity, onPlan, on
   const onScroll = useCallback((e: any) => {
     const y = (e && e.detail && e.detail.scrollTop) || 0;
     setStuck(y > 8);
+  }, []);
+
+  // AI 服务配没配只决定入口显不显示，所以问一次就够，不重试也不影响其它内容
+  const [aiOn, setAiOn] = useState<boolean | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void aiStatus().then((r) => {
+      if (alive) setAiOn(r.enabled);
+    });
+    return () => {
+      alive = false;
+    };
   }, []);
 
   // 「动漫地图」原本占这一格，但底部 tab 已有地图；把死页面「智能建议」接在这
@@ -272,9 +285,13 @@ export function HomePage({ city, onPickCity, onAllCities, onOpenCity, onPlan, on
           </view>
         </view>
 
-        <view className={cls('ai-fab')} bindtap={onAssistant}>
-          <image src={mascotAi} mode="aspectFit" style={{ width: '50px', height: '50px' }} />
-        </view>
+        {/* AI 没配时把入口藏掉：点进去才报 503 是最差的一种「不知道自己撞了什么」。
+            首屏还没问到状态（null）时照常显示，宁可晚一步也不闪一下再消失 */}
+        {aiOn === false ? null : (
+          <view className={cls('ai-fab')} bindtap={onAssistant}>
+            <image src={mascotAi} mode="aspectFit" style={{ width: '50px', height: '50px' }} />
+          </view>
+        )}
 
         </view>
       </scroll-view>

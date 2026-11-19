@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { eq, isNull } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { db } from '../db/client.ts'
 import { guideShares, photos } from '../db/schema.ts'
 import { requireUser, resolveActorQuietly } from '../auth/middleware.ts'
@@ -60,15 +60,25 @@ photoRoute.post('/', requireUser, async (c) => {
     )
   }
 
-  const id = newPhotoId()
   const digest = sha256(bytes)
+
+  // 同图不重复落盘：同一个用户重新上传一张已有的图（换设备、重试、同一张图配两条回忆）
+  // 不该再占一份磁盘。只按本人去重，别人的同一张图不能返回——那是跨账号泄漏 id。
+  const [dup] = await db
+    .select({ id: photos.id })
+    .from(photos)
+    .where(and(eq(photos.sha256, digest), eq(photos.userId, actor.userId)))
+    .limit(1)
+  if (dup) return c.json({ id: dup.id, url: photoUrl(dup.id), reused: true })
+
+  const id = newPhotoId()
   const written = await storePhoto(id, bytes, mime)
   if (!written) {
     return c.json({ error: '照片存储尚未配置', code: 'storage_unavailable' }, 503)
   }
 
   // 落库失败时文件已经写下了。这里不回头删文件：一个只有文件没有行的孤儿，
-  // 比「写了一半行、文件却不在」好处理得多，且下次同图上传会得到新 id、不受影响。
+  // 比「写了一半行、文件却不在」好处理得多，下次同图上传会命中上面的去重分支。
   await db.insert(photos).values({ id, userId: actor.userId, mime, bytes: bytes.byteLength, sha256: digest })
 
   return c.json({ id, url: photoUrl(id) })

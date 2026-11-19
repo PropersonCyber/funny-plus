@@ -105,12 +105,6 @@ function ensureEngine(): Promise<void> {
 
 aiRoute.get('/status', (c) => c.json({ enabled: aiConfigured() }))
 
-/**
- * 当前行程上下文。
- *
- * 对话必须看着「工作台上那份行程」说话，否则会出现「咕噜描述的和实际排的不是一回事」。
- * ownerId 留给接账号后填：设备 id 只做本机去重，不是用户身份，所以这里既不读也不写 clientId。
- */
 /** 对话里要改的是用户刚说的那句，不是模型转述后的说法 */
 function lastUserText(messages: { role: string; content: string }[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {

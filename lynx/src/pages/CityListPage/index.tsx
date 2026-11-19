@@ -90,7 +90,9 @@ export function CityListPage({ onBack, onOpen }: Props) {
           <view className={cls('hc-round')} bindtap={onBack}>
             <IconSvg content={svgIcon('chevronLeft', '#2A3A57')} style={{ width: '18px', height: '18px' }} />
           </view>
-          <view className={cls('hc-round')} catchtap={() => toast('搜索即将上线')}>
+          {/* 这页只有十来座精选城市，四个筛选已经覆盖「找某类目的地」；
+              搜索框要新增输入控件，先不在这版加，图标指到现有筛选而不是许一个「即将上线」 */}
+          <view className={cls('hc-round')} catchtap={() => toast('用下面的按天数 / 人群 / 月份筛更快')}>
             <IconSvg content={svgIcon('search', '#2A3A57')} style={{ width: '17px', height: '17px' }} />
           </view>
         </view>

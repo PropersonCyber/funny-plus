@@ -1,6 +1,6 @@
 # AI Native MVP 差距闭合规格
 
-- 状态：R 组、G1–G7、X4 已完成（见 §0.1）；§1 四项决策未定，其中 D1 决定 §5 是否成立；N 组（N1–N11）全部阻塞在 D1
+- 状态：R 组、G1–G7、X1–X6 已完成（见 §0.1）；剩 §1 四项决策与 DOC1–DOC5；其中 D1 决定 §5 是否成立，N 组（N1–N11）全部阻塞在 D1
 - 范围：把当前实现与 AI Native MVP 口径的差距，转成可判定、可分期、可验收的工作项
 - 使用方：Funny+ 全栈（`lynx/` 客户端、`server/` 服务端、`shared/` 引擎、`data/` 数据）
 - 日期：2026-11-18
@@ -32,10 +32,13 @@
 | G6 | 会话上云 | `ai_sessions`/`ai_messages`；chat 只传 `sessionId + input`；历史只回文本，预览卡不复活 | `aiHistory.test.ts` 10 例 + 真实模型冒烟 |
 | G7 | AI 侧度量与漏斗 | `ai_calls` 表 + `ai/observe.ts` + `ai/metrics.ts` + `npm run metrics`；`PROMPT_VERSION` | `metrics.test.ts` 13 例 + 真实对话冒烟 |
 | X1 | 提示词版本化 | 抽 `ai/prompt.ts` + `PROMPT_VERSION`，随 `ai_calls.prompt_version` 落库 | `metrics.test.ts` 13 例 |
-| X2 | 重复路由与过期注释 | 部分：删掉重复的 `GET /status`；`:112` 的 `ownerId` 过期注释仍在 | 门禁 |
+| X2 | 重复路由与过期注释 | 删掉重复的 `GET /status`；`:112` 那条挂在 `lastUserText` 上的 `ownerId` 注释整段移除 | 门禁 |
+| X3 | 死代码 | 删 `lynx/src/auth.ts`（仓内零 import、两端原生零引用）；`openLocationSettings()` 连同 `__fpOpenSettings` 契约一起删，`CityPage` 直接给可执行的权限提示；`trackSessionId` 已被 G7 调用 | 门禁 |
 | X4 | 草稿 id 漂移 | `loadGuides` 原样恢复 `draft.id` | `guides.test.ts` 4 例 |
+| X5 | 失败提示与占位文案 | 对话失败带「重新发送」+ `chatError.ts` 把英文运行时错误翻成中文；本地兜底预览改用 `applyReviseOp` 已算出的 `affected`（`revisePlan` 不再丢弃）；攻略页旧文案换成已支持发布的口径；城市列表搜索图标指向现有筛选；麦克风不再假装「聆听中」；`runSend` 依赖补齐 `planIndex`；AI 未配置时首页浮标隐藏 | `chatError.test.ts` 4 例 |
+| X6 | 有表字段无写入 | `photos.sha256` 做同人同图去重（命中复用 id，不落第二份）；`factFeedbacks` 落 `userId` 并按 userId 补判重；`trip_versions` 已由 G5 写入 | `photos.test.ts` 9 例（含去重用例） |
 
-门禁现状（最新）：server typecheck 0 / server test **112** / lynx typecheck 0 / lynx test **185** / lynx build 0（`check:css` 827 class）。
+门禁现状（最新）：server typecheck 0 / server test **113** / lynx typecheck 0 / lynx test **189** / lynx build 0（`check:css` 826 class）。
 
 **技术栈未定的地方只留了接口位，没有擅自选型**：G7 的聚合口径集中在 `ai/metrics.ts`，命令行只负责打印，将来接看板不改编排；G5/G6 的会话与行程存储都走既有的 drizzle + Postgres，没有引入新组件；N5 的三项外部依赖（短信服务商 / 微信开放平台 / Sign in with Apple）仍等 D3 定责任人后才落实现。
 
@@ -411,6 +414,8 @@ J1 证据链：`lynx/src/pages/AssistantPage/index.tsx:265` → `lynx/src/App/su
 
 ### X3 死代码
 
+**已完成（2026-11-19）**：`grep` 确认仓内零 import、`ios/` 与 `android/` 原生层零引用 `__fpAuthCallback` / `__fpOpenSettings` 后，删掉整个 `lynx/src/auth.ts` 与 `openLocationSettings()`；`CityPage` 不再调一个恒返 false 的函数，直接给「到系统设置开启定位」的提示。`trackSessionId` 在 G7 被 `aiChat.ts` 调用，不再是死代码。
+
 - `lynx/src/auth.ts` 整文件无 import 者，`LOGGED_IN=null`、`login()` 必抛；其约定的 `__fpAuthCallback` 与壳注入的 `__fpAuth` 名字对不上。
 - `lynx/src/geo.ts:119-129` `openLocationSettings()` 读 `globalThis.lynx.__fpOpenSettings`，两端原生均未实现该键，永远返回 false。
 - `lynx/src/track.ts:36` `trackSessionId()` 导出后无调用者。
@@ -429,6 +434,8 @@ J1 证据链：`lynx/src/pages/AssistantPage/index.tsx:265` → `lynx/src/App/su
 
 ### X5 失败提示与占位文案
 
+**已完成（2026-11-19）**：失败气泡带「重新发送」，重试走 `runSend(text, false)` 不重复回显用户那句话；新增 `lynx/src/chatError.ts`，含中文的错误原样透出，`AbortError` / `Failed to fetch` 之类的运行时英文翻成中文口径。`revisePlan` 不再丢弃 `applyReviseOp` 算好的 `affected`，本地兜底预览也逐条列出受影响项。攻略页文案改为「发布后生成公开链接、撤回即刻失效」；城市列表搜索图标改为指向现有筛选（真搜索框要新增输入控件，属排版改动，未在本轮做）；麦克风不再切「聆听中」假态；`send` 拆成 `runSend(text, echo)`，依赖补齐 `planIndex`；首页浮标按 `/api/ai/status` 隐藏。
+
 - 对话失败无重试入口（`lynx/src/pages/AssistantPage/index.tsx:239-245` 只追加错误气泡），abort 后 `err.message` 直出，可能是英文原文。
 - `lynx/src/pages/ReviseSheet/index.tsx:53-59` 本地兜底预览 `affected: []`，只剩总差额，无逐条受影响项。
 - `lynx/src/pages/GuideDraftPage/index.tsx:175` 仍留「这一期先只存本机」旧文案。
@@ -438,6 +445,8 @@ J1 证据链：`lynx/src/pages/AssistantPage/index.tsx:265` → `lynx/src/App/su
 - AI 未配置时首页入口不隐藏（`lynx/src/pages/HomePage/index.tsx:275`），与 `server/src/routes/ai.ts:168` 注释「前端据此隐藏入口」不符。
 
 ### X6 有表字段无写入
+
+**已完成（2026-11-19）**：`photos.sha256` 用于**同人同图去重** —— 命中已有行时直接复用 id 并回 `reused: true`，不落第二份；只按 `userId` 比对，别人的同一张图不会返回 id。`factFeedbacks` 落 `userId`，判重同时按 `userId` 与 `clientId`（后者只在 `userId is null` 时参与），换设备不再重复投票。仍**未做**：`users.wechatUnionid` / `appleSub` 零写入（等 D3 定微信与 Apple 登录责任人）；`tripMemories` / `guideDrafts` / `photos` 仍无 `clientId` 列，结构上不可被匿名并账认领。
 
 `trip_versions` 只有 seed 写；`photos.sha256` 写而不读（`server/src/routes/photos.ts:60,68`），`server/src/db/schema.ts:507` 承诺的「同图不重复落盘」无实现；`users.wechatUnionid` / `appleSub` 无写入；`factFeedbacks.userId` 无写入（`server/src/routes/facts.ts:109-115`）却在合并名单里（`server/src/auth/merge.ts:40`）。
 

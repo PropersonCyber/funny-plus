@@ -53,7 +53,7 @@ export function ReviseSheet({ plan, demand, dayIndex, tripId, onClose, onApplied
       setPreview({
         plan: result.plan,
         impact: result.impact,
-        affected: [],
+        affected: result.affected,
         reason: result.impact.note,
         by: 'engine',
       });

@@ -1,5 +1,6 @@
 import type {
   ChangeImpact,
+  AffectedChange,
   Demand,
   ItineraryItem,
   Pace,
@@ -234,14 +235,16 @@ export function revisePlan(
   instruction: string,
   /** 当前正在看的天；指令里没写天数时改这一天，不猜第 1 天 */
   currentDay?: number
-): { plan: Plan; impact: ChangeImpact } | { supported: false; reason: string } {
+): { plan: Plan; impact: ChangeImpact; affected: AffectedChange[] } | { supported: false; reason: string } {
   const guess = keywordReviseOp(plan, demand, instruction, currentDay)
   if (!guess) return { supported: false, reason: NO_KEYWORD_HINT }
   // 认出了意图但执行不了（点池排满 / 没有更便宜的）：原因要说具体，不能说「没听懂」
   if ('unsupported' in guess) return { supported: false, reason: guess.unsupported }
   const result = applyReviseOp(plan, demand, guess, 'engine')
   if (!result.ok) return { supported: false, reason: result.reason }
-  return { plan: result.preview.plan, impact: result.preview.impact }
+  // affected 一并带出：本地兜底同样知道「哪条变了」，丢掉它只剩一个总差额，
+  // 用户没法判断这次改的是不是他想改的那一条
+  return { plan: result.preview.plan, impact: result.preview.impact, affected: result.preview.affected }
 }
 
 /** 关键词认得出来、但当前数据执行不了的情形，带一句能直接给用户看的原因 */

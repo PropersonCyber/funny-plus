@@ -11,6 +11,8 @@ import { svgIcon } from '../../icons.js';
 import { placeById } from '../../data.js';
 import type { ChangeImpact, Demand, Plan } from '../../data.js';
 import { setJourney, track } from '../../track.js';
+import { errorText } from '../../chatError.js';
+import { toast } from '../../toast.js';
 import type { RevisePreview, TripContext } from '../../../../shared/types/index.js';
 import {
   beginPreview,
@@ -71,6 +73,10 @@ type Turn = {
    * 一轮只保留最后一份预览，覆盖即作废旧 previewId，天然满足「旧动作忽略」。
    */
   revision?: RevisionState;
+  /** 这一轮失败了：气泡上要给重试入口，否则用户只能把刚才那句话重打一遍 */
+  failed?: boolean;
+  /** 失败时重发用的原始输入。不与 text 混用：text 是要显示的错误文案 */
+  retry?: string;
 };
 
 /**
@@ -93,9 +99,9 @@ export function AssistantPage({
   onApplyPlans,
   onApplyRevise,
 }: Props) {
-  // 只切视觉态：录音没有接，别让按钮看起来像真的在收音
-  const [listening, setListening] = useState(false);
-  const toggleListening = useCallback(() => setListening((v) => !v), []);
+  // 录音通道两端都没实现，所以这里不做「聆听中」的假视觉态：按一下只说明一句实话。
+  // 等壳层接上语音识别，再把 listening 的状态机加回来
+  const onMic = useCallback(() => toast('语音输入还没接通，先打字告诉我吧'), []);
 
   const [enabled, setEnabled] = useState<boolean | null>(null);
   // 按当前行程把上次的对话从本机读回来。方案卡片不存：行程以工作台那份为准
@@ -217,84 +223,110 @@ export function AssistantPage({
     });
   }, []);
 
-  const send = useCallback(async () => {
+  /**
+   * 发一轮对话。echo=false 只用于重试：用户那句话已经在上一条气泡里，
+   * 再追加一遍会让 history 里同一句出现两次，模型会当成「你说了两遍」。
+   */
+  const runSend = useCallback(
+    async (text: string, echo: boolean) => {
+      if (!text || sending) return;
+
+      const said: ChatMessage[] = turnsRef.current.map((t) => ({ role: t.role, content: t.text }));
+      const history: ChatMessage[] = echo ? [...said, { role: 'user', content: text }] : said;
+      if (echo) {
+        const nextTurns: Turn[] = [...turnsRef.current, { role: 'user', text }];
+        turnsRef.current = nextTurns;
+        setTurns(nextTurns);
+      }
+      setSending(true);
+      setHint('');
+
+      try {
+        const res = await chat(
+          history,
+          slotsRef.current,
+          {
+            onDelta: appendDelta,
+            onTool: (name) => setHint(TOOL_HINT[name] ?? ''),
+            onPlans: (plans, planDemand) => {
+              setTurns((prev) => {
+                const last = prev[prev.length - 1];
+                const next =
+                  last && last.role === 'assistant'
+                    ? [...prev.slice(0, -1), { ...last, plans, planDemand, picked: 0 }]
+                    : [...prev, { role: 'assistant' as const, text: '', plans, planDemand, picked: 0 }];
+                // ref 必须在函数式更新里同步：下一轮 history 从这里取，
+                // 而 setTurns 是异步的，在外部赋值会拿到旧数组
+                turnsRef.current = next;
+                return next;
+              });
+            },
+            onRevise: (preview) => {
+              // 基准取「此刻这一份行程」：确认时再比一次，行程动过就判过期
+              const baseline: RevisionBase = {
+                tripId,
+                planIndex,
+                planRef: tripRef.current?.plan as Plan,
+              };
+              const revision = beginPreview(baseline);
+              setTurns((prev) => {
+                const last = prev[prev.length - 1];
+                // 一轮只留最后一份预览：覆盖时旧 revision 一起换掉，旧 previewId 的动作自然失效
+                const next =
+                  last && last.role === 'assistant'
+                    ? [...prev.slice(0, -1), { ...last, preview, revision }]
+                    : [...prev, { role: 'assistant' as const, text: '', preview, revision }];
+                turnsRef.current = next;
+                return next;
+              });
+            },
+          },
+          tripRef.current,
+          // G6：有 token 时只发 sessionId + 本轮输入，整段历史由服务端拼
+          { sessionId: sessionIdRef.current, input: text }
+        );
+        if (res.sessionId) {
+          sessionIdRef.current = res.sessionId;
+        }
+        slotsRef.current = res.slots;
+        persist(tripId, turnsRef.current, res.slots);
+      } catch (err) {
+        // 失败也留一条气泡，但带上原始输入：没有重试入口时用户只能重打一遍
+        const next: Turn[] = [
+          ...turnsRef.current,
+          { role: 'assistant' as const, text: errorText(err), failed: true, retry: text },
+        ];
+        turnsRef.current = next;
+        setTurns(next);
+      } finally {
+        setSending(false);
+        setHint('');
+        // 清空输入框：Lynx 的 input 无受控 value，换 key 重挂载
+        setInputKey((k) => k + 1);
+      }
+    },
+    [sending, appendDelta, persist, tripId, planIndex]
+  );
+
+  const send = useCallback(() => {
     const text = draft.trim();
     if (!text || sending) return;
-
-    const history: ChatMessage[] = [
-      ...turnsRef.current.map((t) => ({ role: t.role, content: t.text })),
-      { role: 'user', content: text },
-    ];
-    const nextTurns: Turn[] = [...turnsRef.current, { role: 'user', text }];
-    turnsRef.current = nextTurns;
-    setTurns(nextTurns);
     setDraft('');
-    setSending(true);
-    setHint('');
+    void runSend(text, true);
+  }, [draft, sending, runSend]);
 
-    try {
-      const res = await chat(
-        history,
-        slotsRef.current,
-        {
-          onDelta: appendDelta,
-          onTool: (name) => setHint(TOOL_HINT[name] ?? ''),
-          onPlans: (plans, planDemand) => {
-            setTurns((prev) => {
-              const last = prev[prev.length - 1];
-              const next =
-                last && last.role === 'assistant'
-                  ? [...prev.slice(0, -1), { ...last, plans, planDemand, picked: 0 }]
-                  : [...prev, { role: 'assistant' as const, text: '', plans, planDemand, picked: 0 }];
-              // ref 必须在函数式更新里同步：下一轮 history 从这里取，
-              // 而 setTurns 是异步的，在外部赋值会拿到旧数组
-              turnsRef.current = next;
-              return next;
-            });
-          },
-          onRevise: (preview) => {
-            // 基准取「此刻这一份行程」：确认时再比一次，行程动过就判过期
-            const baseline: RevisionBase = {
-              tripId,
-              planIndex,
-              planRef: tripRef.current?.plan as Plan,
-            };
-            const revision = beginPreview(baseline);
-            setTurns((prev) => {
-              const last = prev[prev.length - 1];
-              // 一轮只留最后一份预览：覆盖时旧 revision 一起换掉，旧 previewId 的动作自然失效
-              const next =
-                last && last.role === 'assistant'
-                  ? [...prev.slice(0, -1), { ...last, preview, revision }]
-                  : [...prev, { role: 'assistant' as const, text: '', preview, revision }];
-              turnsRef.current = next;
-              return next;
-            });
-          },
-        },
-        tripRef.current,
-        // G6：有 token 时只发 sessionId + 本轮输入，整段历史由服务端拼
-        { sessionId: sessionIdRef.current, input: text }
-      );
-      if (res.sessionId) {
-        sessionIdRef.current = res.sessionId;
-      }
-      slotsRef.current = res.slots;
-      persist(tripId, turnsRef.current, res.slots);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : '网络异常，请重试';
-      setTurns((prev) => {
-        const next: Turn[] = [...prev, { role: 'assistant' as const, text: msg }];
-        turnsRef.current = next;
-        return next;
-      });
-    } finally {
-      setSending(false);
-      setHint('');
-      // 清空输入框：Lynx 的 input 无受控 value，换 key 重挂载
-      setInputKey((k) => k + 1);
-    }
-  }, [draft, sending, appendDelta, persist, tripId]);
+  /** 重试：先删掉失败那条气泡再重发，成功后不留一份「失败」挂在对话里 */
+  const retry = useCallback(
+    (index: number) => {
+      const said = turnsRef.current[index]?.retry;
+      if (!said || sending) return;
+      const next = turnsRef.current.filter((_, i) => i !== index);
+      turnsRef.current = next;
+      setTurns(next);
+      void runSend(said, false);
+    },
+    [sending, runSend]
+  );
 
   const onInput = useCallback((e: { detail: { value: string } }) => setDraft(e.detail.value), []);
 
@@ -470,6 +502,12 @@ export function AssistantPage({
                   {/* 只有方案才给标题，普通回复直接出正文，避免每条都挂一个重复的「咕噜」 */}
                   {t.plans?.length ? <text className={cls('bubble-title')}>为你排好了 {t.plans.length} 套方案</text> : null}
                   {t.text ? <text className={cls('bubble-text')}>{t.text}</text> : null}
+                  {/* 失败要给出口：只报错不给重发，用户只能把刚才那句话重打一遍 */}
+                  {t.failed ? (
+                    <view className={cls('bubble-action')} bindtap={() => retry(i)}>
+                      <text className={cls('bubble-action-text')}>重新发送</text>
+                    </view>
+                  ) : null}
 
                   {t.plans?.map((p, pi) => (
                     <view
@@ -548,13 +586,13 @@ export function AssistantPage({
           <input
             key={inputKey}
             className={cls('chat-input-field')}
-            placeholder={listening ? '聆听中… 说完再点一下麦克风' : '告诉我你想去哪儿、玩几天'}
+            placeholder="告诉我你想去哪儿、玩几天"
             placeholder-class={cls('chat-placeholder')}
             bindinput={onInput}
           />
         </view>
-        <view className={listening ? cls('chat-mic chat-mic-on') : cls('chat-mic')} bindtap={toggleListening}>
-          <IconSvg content={micSvg(listening ? '#FFFFFF' : '#2478F2')} style={{ width: '17px', height: '17px' }} />
+        <view className={cls('chat-mic')} bindtap={onMic}>
+          <IconSvg content={micSvg('#2478F2')} style={{ width: '17px', height: '17px' }} />
         </view>
         <view className={sending ? cls('chat-send chat-send-busy') : cls('chat-send')} bindtap={send}>
           <IconSvg content={svgIcon('route', '#FFFFFF')} style={{ width: '16px', height: '16px' }} />

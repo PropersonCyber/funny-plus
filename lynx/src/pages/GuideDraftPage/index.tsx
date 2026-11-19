@@ -172,7 +172,7 @@ export function GuideDraftPage({
               </view>
               <view className={cls('gp-hint')}>
                 <text className={cls('gp-hint-text')}>
-                  发布成可分享的链接还需要账号与云端存储，这一期先只存本机。
+                  发布后会生成一个公开链接，撤回即刻失效。草稿本身只存在本机。
                 </text>
               </view>
             </>

@@ -169,6 +169,24 @@ describe('照片上传', () => {
     const res = await app.request('/api/photos/NOT_A_REAL_ID_000')
     expect(res.status).toBe(404)
   })
+
+  it('同一张图重复上传复用同一个 id，不再落第二份', async () => {
+    const token = await login(P1)
+    const up = async () => {
+      const res = await app.request('/api/photos', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}` },
+        body: form(PNG_1PX, 'image/png')
+      })
+      expect(res.status).toBe(200)
+      return (await res.json()) as { id: string; reused?: boolean }
+    }
+    const first = await up()
+    const second = await up()
+    expect(second.id).toBe(first.id)
+    expect(first.reused).toBeUndefined()
+    expect(second.reused).toBe(true)
+  })
 })
 
 

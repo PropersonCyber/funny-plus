@@ -112,22 +112,6 @@ export async function locate(): Promise<LocateResult> {
   }
 }
 
-/**
- * 拉起系统权限设置页：用户点了「拒绝」之后唯一的自救路径。
- * Worker 里拿不到 window.open，只能让壳去做；壳没提供就返回 false，界面不显示这个入口。
- */
-export function openLocationSettings(): boolean {
-  const g = (globalThis as any)?.lynx?.__globalProps;
-  const open = g?.__fpOpenSettings;
-  if (typeof open !== 'function') return false;
-  try {
-    open();
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export type Regeo = { city: string; province: string; district: string; coord: 'gcj02' };
 
 export const CITY_CACHE = 'funny-plus.located-city.v1';

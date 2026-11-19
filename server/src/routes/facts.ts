@@ -101,6 +101,10 @@ factsRoute.post('/feedback', async (c) => {
   if (!body || typeof body !== 'object') return c.json({ error: '请求体不是合法 JSON' }, 400)
 
   const { factId, verdict, note, clientId } = body as Record<string, unknown>
+
+  // 登录用户必须按 userId 落库：GET /facts 的「我投过哪些」是按 userId 查的，
+  // 只写 clientId 等于登录用户换台设备就找不到自己投过的反馈
+  const actor = await resolveActorQuietly(c.req.header('authorization'))
   if (typeof factId !== 'string') return c.json({ error: '没有这条避坑信息' }, 400)
   const [known] = await db.select({ id: facts.id }).from(facts).where(eq(facts.id, factId)).limit(1)
   if (!known) return c.json({ error: '没有这条避坑信息' }, 400)
@@ -112,10 +116,22 @@ factsRoute.post('/feedback', async (c) => {
   }
 
   const trimmed = typeof note === 'string' ? note.trim().slice(0, NOTE_MAX) : ''
+  // 同一条只投一次：clientId 兜未登录，userId 兜「换设备还登着同一个号」
   const existing = await db
     .select({ id: factFeedbacks.id })
     .from(factFeedbacks)
-    .where(and(eq(factFeedbacks.factId, factId), eq(factFeedbacks.clientId, clientId)))
+    .where(
+      and(
+        eq(factFeedbacks.factId, factId),
+        // 登录用户按 userId 判重：换设备 clientId 变了，只按 clientId 会让他再投一次
+        actor
+          ? or(
+              eq(factFeedbacks.userId, actor.userId),
+              and(isNull(factFeedbacks.userId), eq(factFeedbacks.clientId, clientId))
+            )
+          : eq(factFeedbacks.clientId, clientId)
+      )
+    )
     .limit(1)
   if (existing.length) return c.json({ error: '这条你已经反馈过了' }, 409)
 
@@ -124,7 +140,9 @@ factsRoute.post('/feedback', async (c) => {
     factId,
     verdict: verdict as Verdict,
     note: trimmed || null,
-    clientId
+    // 两条都写：clientId 留着做匿名并账的认领条件，userId 让登录用户换设备也认得出自己投过
+    clientId,
+    userId: actor?.userId ?? null
   })
 
   const grouped = await db
