@@ -31,6 +31,8 @@
 | G5 | 云端拉取与补推 | trips 扩 `plans`/`plan_index`/`ended_at`；新增两个列表接口；`syncMerge.ts`；登录自动补推+拉取 | `syncPull.test.ts` 11 例、`syncMerge.test.ts` 11 例 |
 | G6 | 会话上云 | `ai_sessions`/`ai_messages`；chat 只传 `sessionId + input`；历史只回文本，预览卡不复活 | `aiHistory.test.ts` 10 例 + 真实模型冒烟 |
 | G7 | AI 侧度量与漏斗 | `ai_calls` 表 + `ai/observe.ts` + `ai/metrics.ts` + `npm run metrics`；`PROMPT_VERSION` | `metrics.test.ts` 13 例 + 真实对话冒烟 |
+| X1 | 提示词版本化 | 抽 `ai/prompt.ts` + `PROMPT_VERSION`，随 `ai_calls.prompt_version` 落库 | `metrics.test.ts` 13 例 |
+| X2 | 重复路由与过期注释 | 部分：删掉重复的 `GET /status`；`:112` 的 `ownerId` 过期注释仍在 | 门禁 |
 | X4 | 草稿 id 漂移 | `loadGuides` 原样恢复 `draft.id` | `guides.test.ts` 4 例 |
 
 门禁现状（最新）：server typecheck 0 / server test **112** / lynx typecheck 0 / lynx test **185** / lynx build 0（`check:css` 827 class）。
