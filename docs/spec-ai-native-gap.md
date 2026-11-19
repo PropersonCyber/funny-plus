@@ -1,6 +1,6 @@
 # AI Native MVP 差距闭合规格
 
-- 状态：待裁决（§1 四项决策未定，其中 D1 决定 §5 是否成立）
+- 状态：R 组、G1–G7、X4 已完成（见 §0.1）；§1 四项决策未定，其中 D1 决定 §5 是否成立；N 组（N1–N11）全部阻塞在 D1
 - 范围：把当前实现与 AI Native MVP 口径的差距，转成可判定、可分期、可验收的工作项
 - 使用方：Funny+ 全栈（`lynx/` 客户端、`server/` 服务端、`shared/` 引擎、`data/` 数据）
 - 日期：2026-11-18
@@ -14,6 +14,28 @@
 `R` / `G` 不依赖任何裁决，可直接开工；`N` 全部挂在 D1 之下。
 
 口径三方对账来源：`docs/ai-native-mvp.md`（产品 F01–F10）、`docs/ai-native-plan.md`（AI Native 判据 J1–J4 与工作项 A/B/C）、`docs/product-plan.md` + `PRODUCT.md`（A 版）。**三方当前互相冲突，见 D1。**
+
+### 0.1 已完成的工作项
+
+| 编号 | 主题 | 关键改动 | 验证 |
+|---|---|---|---|
+| R1/R2 | 开发码开关 | `isDev()` 读 `AUTH_DEV_CODE`，关闭时 `/api/auth/dev-code` 返 404，启动打告警 | 门禁 + 手工核对 |
+| R3 | 照片归属 | `GET /api/photos/:id` 加归属校验，私有对匿名 404；新增 `DELETE`；按 id 判公开引用 | `photos.test.ts` 8 例 |
+| R4 | 演示班次 | `canJudgeHard` 加 `!isDemo`，`rankLine` 让 demo 沉底 | 门禁 |
+| R5 | 收藏删除越权 | 已登录只认 `userId`；`mine` 查询补 `userId` 分支 | `me.test.ts` 3 例 |
+| R6 | 同步失败可见 | 新增 `syncStatus.ts` 状态机，界面按真实状态改文案 | `syncState.test.ts` |
+| G1 | 服务端取真实路段耗时 | 新增 `ai/routeWarm.ts`；`generatePlans` 两遍生成 | `routeWarm.test.ts` |
+| G2 | 客户端注入线路 | 新增 `lines.ts`；表单路径的末班/核载硬约束不再静默跳过 | `engine.test.ts` 33 例 |
+| G3 | 未知项全量上屏 | 未核实项从 `uncertain[0]` 改为全量；行程页页脚不再硬写「待核实」 | 门禁 |
+| G4 | 避坑同源 | `facts.ts` 服务端优先 + 随包兜底；新增 `factsData.ts` | `factsData.test.ts` 3 例 |
+| G5 | 云端拉取与补推 | trips 扩 `plans`/`plan_index`/`ended_at`；新增两个列表接口；`syncMerge.ts`；登录自动补推+拉取 | `syncPull.test.ts` 11 例、`syncMerge.test.ts` 11 例 |
+| G6 | 会话上云 | `ai_sessions`/`ai_messages`；chat 只传 `sessionId + input`；历史只回文本，预览卡不复活 | `aiHistory.test.ts` 10 例 + 真实模型冒烟 |
+| G7 | AI 侧度量与漏斗 | `ai_calls` 表 + `ai/observe.ts` + `ai/metrics.ts` + `npm run metrics`；`PROMPT_VERSION` | `metrics.test.ts` 13 例 + 真实对话冒烟 |
+| X4 | 草稿 id 漂移 | `loadGuides` 原样恢复 `draft.id` | `guides.test.ts` 4 例 |
+
+门禁现状（最新）：server typecheck 0 / server test **112** / lynx typecheck 0 / lynx test **185** / lynx build 0（`check:css` 827 class）。
+
+**技术栈未定的地方只留了接口位，没有擅自选型**：G7 的聚合口径集中在 `ai/metrics.ts`，命令行只负责打印，将来接看板不改编排；G5/G6 的会话与行程存储都走既有的 drizzle + Postgres，没有引入新组件；N5 的三项外部依赖（短信服务商 / 微信开放平台 / Sign in with Apple）仍等 D3 定责任人后才落实现。
 
 ## 1. 待裁决策（阻塞项，先答再动 §5）
 
