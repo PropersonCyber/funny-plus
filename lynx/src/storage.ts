@@ -395,7 +395,11 @@ export function loadGuides(): GuideBook {
         if (items.length) sections.push({ dayIndex: Number(s.dayIndex) || 1, items });
       }
       out[id] = {
-        id,
+        // 草稿自己的 id 必须原样恢复。这里曾经用 book 的键（tripId）当 id，
+        // 于是重启后 draft.id 从 gd-xxx 变成 tripId：推送换了个云端 id，
+        // 云端多一份草稿，而旧分享链接再也撤不回来（撤回要按 draft.id 找行）。
+        // 老存档里 id 缺失才退回用键——那时确实无从得知原 id。
+        id: typeof g.id === 'string' && g.id ? g.id : id,
         tripId: g.tripId,
         title: typeof g.title === 'string' ? g.title : '',
         summary: typeof g.summary === 'string' ? g.summary : '',
