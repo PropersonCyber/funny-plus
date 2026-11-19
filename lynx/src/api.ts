@@ -91,19 +91,6 @@ export const api = {
     request<T>(path, { method: 'POST', body: form }, UPLOAD_TIMEOUT_MS),
 };
 
-const CLIENT_KEY = 'funny-plus.client-id.v1';
-
-/**
- * 设备标识：只用于「同一台设备同一条只记一次」。
- * 本机存储拿不到时退回会话内随机 id —— 这会让重启后又被算成新设备，
- * 所以界面上要照实说「只在本次会话有效」，不能假装已长期去重。
- */
-let sessionId = '';
-
-export function deviceId(): string {
-  const saved = readLocal(CLIENT_KEY);
-  if (saved) return saved;
-  if (!sessionId) sessionId = `s-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
-  writeLocal(CLIENT_KEY, sessionId);
-  return sessionId;
-}
+// 设备标识搬去 device.ts 了：track.ts 要用它，而 track 的测试不能把 api.ts 拉进来
+// （泛型箭头会被 rstest 当 JSX）。这里保留 re-export，老调用点不用改。
+export { deviceId } from './device.js';

@@ -1,4 +1,5 @@
 import { hostApiBase } from './hostBridge.js';
+import { trackJourney, trackSessionId } from './track.js';
 import { authToken } from './api.js';
 import { readToolResult } from './chatPayload.js';
 import type { ChatPayload } from './chatPayload.js';
@@ -72,7 +73,7 @@ type Pending = { res: Response; done: () => void };
  * 定时器只能由调用方在「读完之后」清掉：AbortController 管的是整个请求，
  * 包括读响应体。在这里 finally 里清，等于把流式长连接当短请求，读到一半就被 abort。
  */
-async function postAi(path: 'chat' | 'revise', body: unknown): Promise<Pending> {
+async function postAi(path: 'chat' | 'revise', body: Record<string, unknown>): Promise<Pending> {
   const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
   const timer = ctl ? setTimeout(() => ctl.abort(), CHAT_TIMEOUT_MS) : null;
   const done = () => {
@@ -82,7 +83,9 @@ async function postAi(path: 'chat' | 'revise', body: unknown): Promise<Pending> 
     const res = await fetch(`${base()}/api/ai/${path}`, {
       method: 'POST',
       headers: headers(),
-      body: JSON.stringify(body),
+      // sessionId 与 journey 由这里统一注入，不让每个调用点自己拼：
+      // 漏一个就少一条可归因的度量，而漏了不会报错，只会让漏斗莫名其妙缺一截
+      body: JSON.stringify({ ...body, sessionId: trackSessionId(), journey: trackJourney() }),
       ...(ctl ? { signal: ctl.signal } : {}),
     });
     return { res, done };

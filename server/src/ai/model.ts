@@ -19,4 +19,14 @@ export function chatModel() {
   return provider.chat(aiGateway.model)
 }
 
+/**
+ * 当前模型标识，用于度量。
+ *
+ * 单独导出而不是让调用点自己拼字符串：换模型只改 env，
+ * 而历史数据里的 model 必须和当时的真实值一致，不能靠调用点记性。
+ */
+export function modelName(): string {
+  return aiGateway.model
+}
+
 export const aiConfigured = aiGateway.configured

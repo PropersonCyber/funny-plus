@@ -4,8 +4,10 @@ import { streamText, tool, stepCountIs } from 'ai'
 import { z } from 'zod'
 import { db } from '../db/client.ts'
 import { facts, lines, places } from '../db/schema.ts'
-import { aiConfigured, chatModel } from '../ai/model.ts'
+import { aiConfigured, chatModel, modelName } from '../ai/model.ts'
 import { proposeReviseOp } from '../ai/revise.ts'
+import { recordAiCall, startedAt, elapsedMs } from '../ai/observe.ts'
+import { resolveActorQuietly } from '../auth/middleware.ts'
 import { placeById, placesOf, placesLoaded, setPlaces } from '@/engine/placeIndex.ts'
 import { warmRoutes } from '../ai/routeWarm.ts'
 import { linesOf, setLines } from '@/engine/lines.ts'
@@ -15,6 +17,7 @@ import { applyReviseOp, dayBrief } from '@/engine/planEdit.ts'
 import { toApi as dbPlaceToApi } from './places.ts'
 import { factToApi } from './facts.ts'
 import { lineToApi } from './lines.ts'
+import { CHAT_SYSTEM_PROMPT } from '../ai/prompt.ts'
 import type { Demand, Place, RevisePreview, TravelFact, TripContext } from '@/types/index.ts'
 /**
  * 对话式旅行助手。
@@ -25,24 +28,6 @@ import type { Demand, Place, RevisePreview, TravelFact, TripContext } from '@/ty
  * 它会给你一个自洽但错误的价格，而用户没有能力分辨。
  */
 export const aiRoute = new Hono()
-
-const SYSTEM_PROMPT = `你是「咕噜」，趣哪玩儿的旅行助手。用中文口语对话，简短具体，不要客服腔。
-
-硬性约束（违反会被系统拒绝）：
-1. 价格、时刻、时长只能复述工具返回里的字段。没有对应结果就说「需要查」，不要自己做加减。
-   ticket 为 null，或 ticketStatus 为「未核实」时，禁止说免费或 0 元。
-2. 只能提到 queryPlaces 或 getPlaceDetail 返回的地点名。不要编造景点。
-3. 信息不足时先追问，一次最多问两件事。目的地、天数、人数、预算档位四项齐了才调用 generatePlans。
-4. 用户说「随便」「都行」时，给出具体建议并说明理由，不要把问题原样丢回去。
-5. 当前只开放重庆、成都、北京三个目的地。用户提到其他城市要如实说明暂未开放。
-6. 用户要改已经排好的行程时，调用 proposeRevise，instruction 填用户这一句原话，不要改写。
-   不要自己决定删哪个、换哪个，也不要为此重新 generatePlans。
-   预览由程序计算。你只用一句话说明提了一版修改，不要写价格或时刻。
-   工具返回 error 时，把那句原因告诉用户，不要另编一个改法。
-   没有当前行程时不要调用 proposeRevise。
-7. 用户问营业、票价、避坑、为什么贵、末班时，先调 getPlaceDetail、getFacts、getBudget、listLines，再开口。
-   isDemo 为 true 的班次必须说是演示数据，不能当成真实末班。
-8. generatePlans 返回的 checks 里，按 hint 做：允许再生成时最多再来一版更松的；hint 要求停止时说明排不下，不要再调。`
 
 /** 生成方案所需的最小槽位；不齐就不允许调 generatePlans */
 const REQUIRED = ['destination', 'dayCount', 'party', 'budgetLevel'] as const
@@ -171,7 +156,7 @@ aiRoute.post('/chat', async (c) => {
   }
 
   const body = (await c.req.json().catch(() => null)) as
-    | { messages?: { role: 'user' | 'assistant'; content: string }[]; slots?: Slots; stream?: boolean; trip?: TripContext }
+    | { messages?: { role: 'user' | 'assistant'; content: string }[]; slots?: Slots; stream?: boolean; trip?: TripContext; sessionId?: string; journey?: string }
     | null
   const messages = (body?.messages ?? []).filter((m) => typeof m?.content === 'string' && m.content.trim())
   if (!messages.length) return c.json({ error: '缺少对话内容', code: 'bad_param' }, 400)
@@ -182,7 +167,33 @@ aiRoute.post('/chat', async (c) => {
   let planAttempts = 0
   // 有当前行程时按「改这份行程」聊；没有时按「从零规划」聊
   const trip = tripContextOf(body?.trip)
-  const system = trip ? `${SYSTEM_PROMPT}\n${tripPrompt(trip)}` : SYSTEM_PROMPT
+  const system = trip ? `${CHAT_SYSTEM_PROMPT}\n${tripPrompt(trip)}` : CHAT_SYSTEM_PROMPT
+
+  // ---- G7 服务端度量：本轮对话的服务端侧账 ----
+  // journey 由客户端标注（plan = 从零规划，revise = 改已有行程），空表示日常使用。
+  // sessionId 用来把同一轮对话里的多次调用串起来 —— 「降级次数」要能落回某一轮对话，
+  // 只有时间戳是做不到的（同一秒可以有多轮）。
+  const journey = typeof body?.journey === 'string' && body.journey ? body.journey.slice(0, 32) : null
+  const sessionId = typeof body?.sessionId === 'string' && body.sessionId ? body.sessionId.slice(0, 64) : null
+  const started = startedAt()
+  const counters = { toolCalls: 0, toolFailures: 0, plans: 0 }
+  // 静默解析：token 坏了只是 userId 记不上，不该让整轮对话失败
+  const actor = await resolveActorQuietly(c.req.header('authorization'))
+  const record = (extra: { durationMs: number; error?: string | null }) =>
+    recordAiCall({
+      kind: 'chat',
+      sessionId,
+      userId: actor?.userId ?? null,
+      model: modelName(),
+      journey,
+      stream: body?.stream !== false,
+      toolCalls: counters.toolCalls,
+      toolFailures: counters.toolFailures,
+      planGenerated: counters.plans > 0,
+      planAttempts,
+      durationMs: extra.durationMs,
+      error: extra.error ?? null
+    })
 
   const result = streamText({
     model: chatModel(),
@@ -352,14 +363,25 @@ aiRoute.post('/chat', async (c) => {
     try {
       for await (const part of result.fullStream) {
         if (part.type === 'text-delta') chunks.push(part.text)
-        else if (part.type === 'tool-result' && part.toolName === 'generatePlans') plans = part.output
-        else if (part.type === 'tool-result' && part.toolName === 'proposeRevise') revise = part.output
-        else if (part.type === 'tool-error') console.error('[ai] tool failed:', part.toolName, part.error)
+        else if (part.type === 'tool-call') counters.toolCalls += 1
+        else if (part.type === 'tool-result' && part.toolName === 'generatePlans') {
+          // 调用次数只在 tool-call 那一支记：同一次调用先发 tool-call 再发 tool-result，
+          // 两支都加会把「调了 1 次工具」记成 2 次，成功率永远算不对
+          counters.plans += 1
+          plans = part.output
+        } else if (part.type === 'tool-result' && part.toolName === 'proposeRevise') {
+          revise = part.output
+        } else if (part.type === 'tool-error') {
+          counters.toolFailures += 1
+          console.error('[ai] tool failed:', part.toolName, part.error)
+        }
       }
     } catch (err) {
       console.error('[ai] non-stream failed:', err)
+      await record({ durationMs: elapsedMs(started), error: err instanceof Error ? err.message : String(err) })
       return c.json({ error: '生成回答失败', code: 'upstream_error' }, 502)
     }
+    await record({ durationMs: elapsedMs(started) })
     // revise 必须跟 plans 一起回：Lynx 读不了流时走这条，漏了的话对话里永远出不了确认卡
     return c.json({ text: chunks.join(''), slots, plans, revise })
   }
@@ -367,18 +389,22 @@ aiRoute.post('/chat', async (c) => {
   return streamSSE(c, async (stream) => {
     // 消费 fullStream 而不是 textStream：只取文本的话前端看不到
     // 「正在查询地点」这类中间态，几秒钟没有输出会像卡死
+    let failed: string | null = null
     try {
       for await (const part of result.fullStream) {
         if (part.type === 'text-delta') {
           await stream.writeSSE({ event: 'delta', data: JSON.stringify({ text: part.text }) })
         } else if (part.type === 'tool-call') {
+          counters.toolCalls += 1
           await stream.writeSSE({ event: 'tool', data: JSON.stringify({ name: part.toolName }) })
         } else if (part.type === 'tool-result') {
+          if (part.toolName === 'generatePlans') counters.plans += 1
           await stream.writeSSE({
             event: 'tool_result',
             data: JSON.stringify({ name: part.toolName, output: part.output })
           })
         } else if (part.type === 'tool-error') {
+          counters.toolFailures += 1
           // 工具执行抛异常时 SDK 只发这个事件，不会有 tool-result。
           // 不处理的话前端看到「工具已调用」却永远等不到结果，表现为静默卡住
           console.error('[ai] tool failed:', part.toolName, part.error)
@@ -387,15 +413,19 @@ aiRoute.post('/chat', async (c) => {
             data: JSON.stringify({ name: part.toolName, output: { ok: false, error: String(part.error) } })
           })
         } else if (part.type === 'error') {
+          failed = String(part.error)
           console.error('[ai] stream error:', part.error)
-          await stream.writeSSE({ event: 'error', data: JSON.stringify({ message: String(part.error) }) })
+          await stream.writeSSE({ event: 'error', data: JSON.stringify({ message: failed }) })
         }
       }
     } catch (err) {
       // 已经进流了就没法再改状态码，只能推一条 error 事件让前端收尾
-      await stream.writeSSE({ event: 'error', data: JSON.stringify({ message: String(err) }) })
+      failed = err instanceof Error ? err.message : String(err)
+      await stream.writeSSE({ event: 'error', data: JSON.stringify({ message: failed }) })
     }
-    // 没有账号体系，服务端不存会话：历史由客户端持有，槽位每轮回传
+    // 先记度量再发 done：done 之后前端就收流了，这次写库不该占用用户的时间
+    void record({ durationMs: elapsedMs(started), error: failed })
+    // 历史由客户端持有；服务端只回槽位，下一轮原样带回来（会话上云见 G6）
     await stream.writeSSE({ event: 'done', data: JSON.stringify({ slots }) })
   })
 })
@@ -409,17 +439,35 @@ aiRoute.post('/chat', async (c) => {
  */
 aiRoute.post('/revise', async (c) => {
   const body = (await c.req.json().catch(() => null)) as
-    | { trip?: TripContext; instruction?: string; currentDay?: number }
+    | { trip?: TripContext; instruction?: string; currentDay?: number; sessionId?: string; journey?: string }
     | null
   const trip = tripContextOf(body?.trip)
   const instruction = (body?.instruction ?? '').trim()
   if (!trip) return c.json({ error: '缺少当前行程，先在工作台生成一份行程', code: 'bad_param' }, 400)
   if (!instruction) return c.json({ error: '缺少修改要求', code: 'bad_param' }, 400)
 
+  const started = startedAt()
+  const actor = await resolveActorQuietly(c.req.header('authorization'))
+  const sessionId = typeof body?.sessionId === 'string' && body.sessionId ? body.sessionId.slice(0, 64) : null
+  const journey = typeof body?.journey === 'string' && body.journey ? body.journey.slice(0, 32) : null
+
   await ensureEngine()
   if (!placesLoaded()) return c.json({ error: '地点数据未载入', code: 'not_ready' }, 503)
 
   const { preview, reason, by } = await resolveRevision(trip, instruction, body?.currentDay)
+  // by === 'engine' 就是降级：模型没配置 / 挂了 / 输出不可解析，改走本地关键词兜底。
+  // 这一条要单独能查 —— 「模型不可用触发降级」是 G7 的验收项之一。
+  await recordAiCall({
+    kind: 'revise',
+    sessionId,
+    userId: actor?.userId ?? null,
+    model: modelName(),
+    journey,
+    toolCalls: by === 'model' ? 1 : 0,
+    degraded: by !== 'model',
+    degradeReason: by === 'model' ? null : 'model_unavailable_or_unparsable',
+    durationMs: elapsedMs(started)
+  })
   if (!preview) {
     return c.json({ supported: false as const, reason, by })
   }

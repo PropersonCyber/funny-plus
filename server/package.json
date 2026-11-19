@@ -9,6 +9,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx --env-file=.env src/db/seed.ts",
+    "metrics": "tsx --env-file=.env scripts/ai-metrics.ts",
     "test": "vitest run"
   },
   "dependencies": {

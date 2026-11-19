@@ -21,6 +21,8 @@ export type HostLocation = {
 
 let location: HostLocation | null = null;
 let apiBase = '';
+/** 宿主自报的端标识；没自报就按「有没有原生同步桥」推断，见 hostPlatform() */
+let platform = '';
 
 /**
  * 分享页 token。
@@ -41,8 +43,10 @@ export function setHostProps(props: unknown): void {
 
   const base = p.__fpApiBase;
   const st = p.__fpShareToken;
+  const pf = p.__fpPlatform;
   if (typeof st === 'string' && st) shareToken = st;
 
+  if (typeof pf === 'string' && pf) platform = pf;
   if (typeof base === 'string' && base) apiBase = base;
 }
 
@@ -71,4 +75,20 @@ export function hostApiBase(): string {
 /** 分享页 token；不是分享页时为空串，调用方据此保持在正常首页 */
 export function hostShareToken(): string {
   return shareToken;
+}
+
+/**
+ * 端标识，用于埋点与 AI 度量的 platform 字段。
+ *
+ * 优先级：宿主显式下发 `__fpPlatform` → 有没有原生同步桥 `__fpStorage` → 当作 web。
+ *
+ * 为什么不用 UA：Lynx 不是浏览器，`navigator.userAgent` 在原生运行时里要么不存在、
+ * 要么是各厂商自己拼的字符串，「只有 iOS 中断」这类问题根本切不开。
+ * 用「有没有原生桥」判定的理由是：那个桥只有原生壳会注入（storage.ts:8），
+ * web 预览一律没有 —— 它比 UA 稳定，也比 UA 诚实。
+ */
+export function hostPlatform(): string {
+  if (platform) return platform;
+  const g = globalThis as { __fpStorage?: unknown };
+  return g.__fpStorage ? 'native' : 'web';
 }

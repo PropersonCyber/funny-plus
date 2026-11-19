@@ -25,6 +25,8 @@ type Incoming = {
   sessionId: string
   clientId: string
   platform?: string
+  /** 本轮归属的验收旅程（plan / revise / share）；用来按旅程出漏斗 */
+  journey?: string
   event: string
   props: Record<string, string | number | boolean>
   /** 客户端时间，ISO 串 */
@@ -76,6 +78,7 @@ function parseOne(raw: unknown): Incoming | null {
     sessionId,
     clientId,
     platform: str(b.platform, 16) ?? undefined,
+    journey: str(b.journey, 32) ?? undefined,
     event,
     props,
     at: at.toISOString()
@@ -104,6 +107,7 @@ eventsRoute.post('/', async (c) => {
       clientId: e.clientId,
       userId: actor?.userId ?? null,
       platform: e.platform ?? null,
+      journey: e.journey ?? null,
       event: e.event,
       props: e.props,
       at: new Date(e.at)

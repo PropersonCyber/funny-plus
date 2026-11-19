@@ -8,12 +8,20 @@
  *
  * 事件名与 PRD 第八章对齐，参数只放能定位问题的字段，不放全量行程。
  */
-import { deviceId } from './api.js';
-import { hostApiBase } from './hostBridge.js';
+import { deviceId } from './device.js';
+import { hostApiBase, hostPlatform } from './hostBridge.js';
 
 type Props = Record<string, string | number | boolean | undefined>;
 
-type Entry = { event: string; props: Props; at: string };
+type Entry = {
+  event: string;
+  props: Props;
+  at: string;
+  /** 打点时所属的验收旅程；见 setJourney */
+  journey: string | null;
+  /** 端标识；见 hostBridge.hostPlatform */
+  platform: string;
+};
 
 /** 攒够这么多条就发一批。太小会让首屏多发请求，太大会让崩溃前的数据全丢 */
 const BUFFER_MAX = 20;
@@ -22,7 +30,9 @@ const FLUSH_INTERVAL_MS = 15000;
 
 const buffer: Entry[] = [];
 let inflight = false;
-let lastFlush = 0;
+// 从模块加载时刻起算，不从 0 起算：0 会让「距上次上报 > 15s」在冷启动后的第一条事件上
+// 立刻成立，于是每次冷启动都白发一个只有一条事件的请求
+let lastFlush = Date.now();
 
 /**
  * 会话标识：一次冷启动一个。
@@ -37,8 +47,27 @@ export function trackSessionId(): string {
   return sessionId;
 }
 
+/**
+ * 本轮工作属于哪条验收旅程。
+ *
+ * 事件里只有 sessionId 是不够的：sessionId 只区分「冷启动了几次」，
+ * 回答不了「任务 A 和任务 B 各自的漏斗」—— 同一次冷启动里可能既规划又改行程。
+ * 所以 journey 由页面在进入时标注，随每条事件一起上报。
+ */
+let journey: string | null = null;
+
+/** 页面进入时标注（plan / revise / share）；传 null 回到「日常使用」 */
+export function setJourney(next: string | null): void {
+  journey = next;
+}
+
+/** 当前旅程；AI 请求体里也要带，服务端度量按它分组 */
+export function trackJourney(): string | null {
+  return journey;
+}
+
 export function track(event: string, props: Props = {}): void {
-  buffer.push({ event, props, at: new Date().toISOString() });
+  buffer.push({ event, props, at: new Date().toISOString(), journey, platform: hostPlatform() });
   // 溢出时丢最旧的：最近的上下文更能解释「用户最后做了什么」
   if (buffer.length > 100) buffer.shift();
   console.log('[track]', event, JSON.stringify(props));
@@ -57,7 +86,9 @@ export function flush(): void {
   if (inflight || !buffer.length) return;
 
   const batch = buffer.splice(0, buffer.length);
-  const body = { events: batch.map((e) => ({ ...e, sessionId, clientId: deviceId() })) };
+  const body = {
+    events: batch.map((e) => ({ ...e, sessionId, clientId: deviceId() }))
+  };
   inflight = true;
   lastFlush = Date.now();
 
@@ -65,7 +96,7 @@ export function flush(): void {
     void fetch(`${hostApiBase()}/api/events`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify(body)
     })
       .catch(() => {
         // 网络失败就丢掉这一批。不塞回缓冲：塞回去会在断网时无限堆积并反复重发

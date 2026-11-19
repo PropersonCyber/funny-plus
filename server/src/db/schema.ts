@@ -363,8 +363,10 @@ export const trackEvents = pgTable(
     clientId: text('client_id').notNull(),
     /** 登录后的归属账号；null = 匿名写入或历史数据，靠 client_id 兜底 */
     userId: text('user_id'),
-    /** 端标识：排查「只有 iOS 中断」这类问题时第一刀就切它 */
+    /** 端标识：排查「只有 iOS 中断」这类问题时第一刀就切它。列一直在，但客户端此前不上报，恒为 null */
     platform: text('platform'),
+    /** 本轮归属的验收旅程（plan / revise / share）；null = 日常使用 */
+    journey: text('journey'),
     event: text('event').notNull(),
     props: jsonb('props').$type<Record<string, string | number | boolean>>().notNull().default({}),
     /** 客户端记录时间 */
@@ -546,5 +548,53 @@ export const guideShares = pgTable(
     index('guide_shares_draft_idx').on(t.draftId),
     // 查「该草稿当前有效的分享」走这条；revokedAt 为 null 的行极少，索引很小
     index('guide_shares_draft_active_idx').on(t.draftId, t.revokedAt)
+  ]
+)
+
+/**
+ * 一次 AI 调用 = 一行（G7 服务端度量）。
+ *
+ * 为什么不并进 track_events：track_events 是「用户做了什么」，一行一个客户端动作，
+ * 由客户端批量上报；ai_calls 是「服务端这次干了什么」，一行一次模型调用，只可能由服务端写。
+ * 混成一张表后「对话次数」既能数客户端事件又能数服务端行，两个口径对不上时没人说得清哪个对。
+ *
+ * sessionId 是客户端会话 id：同一个 sessionId 下的多行 ai_calls 就是同一轮对话 ——
+ * 这是「降级次数能与该轮对话关联」的唯一依据，不能省。
+ */
+export const aiCalls = pgTable(
+  'ai_calls',
+  {
+    id: text('id').primaryKey(),
+    /** 客户端一次会话一个；跨设备续聊（G6）后它同时是会话主键 */
+    sessionId: text('session_id'),
+    /** 登录后的归属账号；null = 匿名调用 */
+    userId: text('user_id'),
+    /** chat = /api/ai/chat；revise = /api/ai/revise */
+    kind: text('kind').notNull(),
+    /** 提示词版本，见 ai/prompt.ts。不改提示词就不改号，否则历史数据没法对比 */
+    promptVersion: text('prompt_version').notNull(),
+    model: text('model'),
+    durationMs: integer('duration_ms').notNull(),
+    toolCalls: integer('tool_calls').notNull().default(0),
+    toolFailures: integer('tool_failures').notNull().default(0),
+    /** 这一轮是否真的产出了方案 */
+    planGenerated: boolean('plan_generated').notNull().default(false),
+    /** generatePlans 调了几次；>1 说明模型没按 hint 停，是提示词要改的信号 */
+    planAttempts: integer('plan_attempts').notNull().default(0),
+    /** 模型不可用 / 输出不可解析，落回本地关键词兜底 */
+    degraded: boolean('degraded').notNull().default(false),
+    degradeReason: text('degrade_reason'),
+    /** 本轮归属的验收旅程（plan / revise）；null = 日常使用 */
+    journey: text('journey'),
+    stream: boolean('stream').notNull().default(false),
+    /** 失败时的一句原因；成功为 null */
+    error: text('error'),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow()
+  },
+  (t) => [
+    index('ai_calls_at_idx').on(t.at),
+    index('ai_calls_session_idx').on(t.sessionId),
+    // 按旅程出漏斗走这条：journey 基数极小，和 at 组索引比单独建更省
+    index('ai_calls_journey_at_idx').on(t.journey, t.at)
   ]
 )

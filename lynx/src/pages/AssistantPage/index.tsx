@@ -10,7 +10,7 @@ import { readLocal, writeLocal } from '../../storage.js';
 import { svgIcon } from '../../icons.js';
 import { placeById } from '../../data.js';
 import type { ChangeImpact, Demand, Plan } from '../../data.js';
-import { track } from '../../track.js';
+import { setJourney, track } from '../../track.js';
 import type { RevisePreview, TripContext } from '../../../../shared/types/index.js';
 import {
   beginPreview,
@@ -151,6 +151,14 @@ export function AssistantPage({
   );
   const tripRef = useRef<TripContext | undefined>(trip);
   tripRef.current = trip;
+
+  // 这一轮工作属于哪条验收旅程：带行程进来是「改已有行程」，没带是「从零规划」。
+  // 它只影响埋点与 AI 度量的分组，不改变任何界面行为 —— 所以放在 effect 里标一次，
+  // 不塞进 render 路径。离开页面时清掉，避免下一页的事件被算进上一段旅程。
+  useEffect(() => {
+    setJourney(trip ? 'revise' : 'plan');
+    return () => setJourney(null);
+  }, [trip]);
 
   // input 没有受控 value，靠换 key 重挂载来清空，发完一轮 +1
   const [inputKey, setInputKey] = useState(0);

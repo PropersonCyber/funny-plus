@@ -1,6 +1,7 @@
 import { generateText, stepCountIs, tool } from 'ai'
 import { z } from 'zod'
 import { chatModel } from './model.ts'
+import { REVISE_SYSTEM_PROMPT } from './prompt.ts'
 import { dayBrief } from '@/engine/planEdit.ts'
 import { placesOf } from '@/engine/placeIndex.ts'
 import type { Demand, Plan, ReviseOp } from '@/types/index.ts'
@@ -29,21 +30,6 @@ const opSchema = z.object({
   reason: z.string().describe('一句话告诉用户这么改的理由，不超过 40 字，**不要出现任何数字或时刻**')
 })
 
-const SYSTEM_PROMPT = `你是「咕噜」，正在帮用户改一份已经排好的行程。你这一轮只做一件事：
-把用户这一句自然语言，翻译成一个结构化修改动作，交给 proposeRevise 工具。
-
-硬性约束（违反会被程序拒绝）：
-1. 只能引用输入里给出的 item id 与 place id。不要自造地点、不要提输入以外的地名。
-2. 绝对不要输出价格、时长、时刻、营业时间这些数字。写进 reason 也不行。
-   改完之后几点、花多少钱、省多少，程序会算好给用户看。
-3. 改哪一天：用户点名了就用那一天；没点名就用 currentDay；两者都无从判断时用 op=none，
-   并在 reason 里问清是哪一天。
-4. 用户的要求在当前行程上做不到（这一天只剩一个景点、候选里没有更合适的、超出现有数据），
-   用 op=none，reason 里如实说做不到的原因。不要为了「有反应」而硬改。
-5. 「轻松一点 / 太赶了」这类意思是少排点、让节奏放缓：选一天里可以去掉的那个景点用 drop。
-6. 「省点钱」挑这一天收费最高的景点，换成 candidates 里更便宜的一个用 replace；
-   candidates 里 ticket 为 null 表示票价未核实，**不能当成免费**，不要拿它当省钱方案。
-7. reason 是给用户看的一句话，说清「要改什么」，用人话，不要客服腔。`
 
 /** 给模型看的一天：id、地名、时刻、票价（null = 未核实，不许当 0） */
 const brief = (plan: Plan, demand: Demand) => ({
@@ -76,7 +62,7 @@ export async function proposeReviseOp(
   try {
     const result = await generateText({
       model: chatModel(),
-      system: SYSTEM_PROMPT,
+      system: REVISE_SYSTEM_PROMPT,
       prompt: JSON.stringify({
         instruction,
         currentDay: currentDay ?? null,
