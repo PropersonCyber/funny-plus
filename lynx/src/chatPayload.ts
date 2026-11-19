@@ -1,11 +1,12 @@
 import type { Demand, Plan, RevisePreview } from '../../shared/types/index.js';
 
-/** 非流式响应体。流式的 tool_result 和它是同一份结构，解析必须走同一个函数 */
 export type ChatPayload = {
   text?: string;
   slots?: unknown;
   plans?: { ok?: boolean; plans?: Plan[]; demand?: Demand };
   revise?: { ok?: boolean; preview?: RevisePreview };
+  /** G6：服务端发的会话 id，客户端下次带上它才能接着同一段聊 */
+  sessionId?: string | null;
   error?: string;
 };
 

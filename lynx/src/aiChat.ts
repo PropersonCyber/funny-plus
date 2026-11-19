@@ -1,6 +1,6 @@
 import { hostApiBase } from './hostBridge.js';
 import { trackJourney, trackSessionId } from './track.js';
-import { authToken } from './api.js';
+import { api, authToken } from './api.js';
 import { readToolResult } from './chatPayload.js';
 import type { ChatPayload } from './chatPayload.js';
 import type { Demand, Plan, RevisePreview, TripContext } from '../../shared/types/index.js';
@@ -47,7 +47,13 @@ export type ChatHandlers = {
   onRevise?: (preview: RevisePreview) => void;
 };
 
-export type ChatResult = { slots: ChatSlots; streamed: boolean };
+/**
+ * 一轮对话的结果。
+ *
+ * `sessionId` 是服务端发的（G6）：客户端下次带上它，服务端才知道接着哪一段聊。
+ * 匿名时为 null —— 服务端没有归属，存了也找不回来。
+ */
+export type ChatResult = { slots: ChatSlots; streamed: boolean; sessionId?: string | null };
 
 /** 修改接口的结果：degraded 表示这次没拿到服务端判断，调用方走本地兜底 */
 export type ReviseResult =
@@ -85,7 +91,8 @@ async function postAi(path: 'chat' | 'revise', body: Record<string, unknown>): P
       headers: headers(),
       // sessionId 与 journey 由这里统一注入，不让每个调用点自己拼：
       // 漏一个就少一条可归因的度量，而漏了不会报错，只会让漏斗莫名其妙缺一截
-      body: JSON.stringify({ ...body, sessionId: trackSessionId(), journey: trackJourney() }),
+      // 后面的 ...body 覆盖前面：G6 的会话 id 由服务端发，不能被 trackSessionId 顶掉
+      body: JSON.stringify({ sessionId: trackSessionId(), journey: trackJourney(), ...body }),
       ...(ctl ? { signal: ctl.signal } : {}),
     });
     return { res, done };
@@ -115,22 +122,47 @@ export function canStream(): boolean {
   }
 }
 
-/** 兜底通道：一次拿全文，方案和修改预览都要交出去 */
-async function chatNonStream(
+/** 请求体只拼一次：流式与兜底两条分支必须发同一份 */
+type ChatBody = {
+  messages?: ChatMessage[];
+  slots: ChatSlots;
+  trip?: TripContext;
+  sessionId?: string;
+  input?: string;
+};
+
+/**
+ * 组装请求体。
+ *
+ * 有 token 且调用方给了本轮输入时只带 `sessionId + input`：整段对话由服务端从库里拼，
+ * 这是「换设备能接着聊」的前提。匿名时仍整段带 —— 服务端没有归属，存了也找不回来。
+ */
+function chatBodyOf(
   messages: ChatMessage[],
   slots: ChatSlots,
-  handlers: ChatHandlers,
-  trip?: TripContext
-): Promise<ChatResult> {
-  const { res, done } = await postAi('chat', { messages, slots, trip, stream: false });
-  try {
-    const body = (await res.json().catch(() => null)) as ChatPayload | null;
-    if (!res.ok || !body) throw new Error(body?.error || `请求失败（${res.status}）`);
+  trip?: TripContext,
+  opts?: { sessionId?: string; input?: string }
+): ChatBody {
+  const input = typeof opts?.input === 'string' ? opts.input.trim() : '';
+  if (input && authToken()) return { sessionId: opts?.sessionId ?? '', input, slots, trip };
+  return { messages, slots, trip };
+}
 
-    if (body.text) handlers.onDelta(body.text);
-    readToolResult('generatePlans', body.plans, handlers);
-    readToolResult('proposeRevise', body.revise, handlers);
-    return { slots: body.slots ?? slots, streamed: false };
+/** 兜底通道：一次拿全文，方案和修改预览都要交出去 */
+async function chatNonStream(
+  body: ChatBody,
+  slots: ChatSlots,
+  handlers: ChatHandlers
+): Promise<ChatResult> {
+  const { res, done } = await postAi('chat', { ...body, stream: false });
+  try {
+    const payload = (await res.json().catch(() => null)) as ChatPayload | null;
+    if (!res.ok || !payload) throw new Error(payload?.error || `请求失败（${res.status}）`);
+
+    if (payload.text) handlers.onDelta(payload.text);
+    readToolResult('generatePlans', payload.plans, handlers);
+    readToolResult('proposeRevise', payload.revise, handlers);
+    return { slots: payload.slots ?? slots, streamed: false, sessionId: payload.sessionId ?? null };
   } finally {
     done();
   }
@@ -146,16 +178,23 @@ export async function chat(
   messages: ChatMessage[],
   slots: ChatSlots,
   handlers: ChatHandlers,
-  trip?: TripContext
+  trip?: TripContext,
+  /**
+   * G6 会话上云。传了 `input` 且本机有 token 时走「服务端持有历史」：
+   * 请求体里只带 sessionId + 本轮输入，整段对话由服务端拼 —— 换设备才能接着聊。
+   * 匿名时仍整段带：服务端没有归属，存了也找不回来。
+   */
+  opts?: { sessionId?: string; input?: string }
 ): Promise<ChatResult> {
-  if (!canStream()) return chatNonStream(messages, slots, handlers, trip);
+  const body = chatBodyOf(messages, slots, trip, opts);
+  if (!canStream()) return chatNonStream(body, slots, handlers);
 
-  const { res, done } = await postAi('chat', { messages, slots, trip, stream: true });
+  const { res, done } = await postAi('chat', { ...body, stream: true });
   if (!res.ok) {
     // 未配置 / 参数错这类问题降级也没用，直接抛给界面显示
-    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    const err = (await res.json().catch(() => null)) as { error?: string } | null;
     done();
-    throw new Error(body?.error || `请求失败（${res.status}）`);
+    throw new Error(err?.error || `请求失败（${res.status}）`);
   }
 
   const reader = res.body?.getReader();
@@ -163,13 +202,15 @@ export async function chat(
   // 退回非流式重来一次，比让用户盯着空白强
   if (!reader) {
     done();
-    return chatNonStream(messages, slots, handlers, trip);
+    return chatNonStream(body, slots, handlers);
   }
 
   const decoder = new TextDecoder();
   let buf = '';
   let received = false;
   let next: ChatSlots = slots;
+  // 服务端发的会话 id：客户端下次带上它，服务端才知道接着哪一段聊
+  let session: string | null = opts?.sessionId || null;
 
   try {
     for (;;) {
@@ -207,8 +248,9 @@ export async function chat(
             handlers.onTool?.(parsed.name);
           } else if (event === 'tool_result' && typeof parsed.name === 'string') {
             readToolResult(parsed.name, parsed.output, handlers);
-          } else if (event === 'done' && parsed.slots) {
-            next = parsed.slots as ChatSlots;
+          } else if (event === 'done') {
+            if (parsed.slots) next = parsed.slots as ChatSlots;
+            if (typeof parsed.sessionId === 'string' && parsed.sessionId) session = parsed.sessionId;
           } else if (event === 'error') {
             throw new Error(typeof parsed.message === 'string' ? parsed.message : '模型返回出错');
           }
@@ -221,10 +263,9 @@ export async function chat(
   }
 
   // 探测说能读流、实际一条事件都没来：这条路在这个运行时上不可用，走兜底
-  if (!received) return chatNonStream(messages, slots, handlers, trip);
-  return { slots: next, streamed: true };
+  if (!received) return chatNonStream(body, slots, handlers);
+  return { slots: next, streamed: true, sessionId: session };
 }
-
 /**
  * 请服务端解析一次修改，拿回「待确认」的预览。
  *
@@ -266,5 +307,34 @@ export async function aiStatus(): Promise<{ enabled: boolean }> {
     return (await res.json()) as { enabled: boolean };
   } catch {
     return { enabled: false };
+  }
+}
+
+/**
+ * 某趟旅程最近一次对话（G6 换设备续聊）。
+ *
+ * 只取文本：服务端不存方案卡与预览卡，所以这里也拿不到 —— 历史里的「待确认」
+ * 必须停在历史里，不能被渲染成一个还能点的确认按钮。
+ *
+ * 未登录 / 没行程 / 服务端没有这段对话时一律返回 null，调用方按「没有历史」渲染，
+ * 不弹错误：换设备后没有历史是正常的，不是故障。
+ */
+export async function fetchHistory(
+  tripId: string
+): Promise<{ sessionId: string; turns: ChatMessage[] } | null> {
+  if (!tripId || !authToken()) return null;
+  try {
+    const res = await api.get<{
+      sessionId?: string | null;
+      turns?: { role?: string; content?: string }[];
+    }>(`/api/ai/history?tripId=${encodeURIComponent(tripId)}`);
+    if (!res?.sessionId) return null;
+    const turns = (res.turns ?? [])
+      .filter((t) => (t.role === 'user' || t.role === 'assistant') && typeof t.content === 'string' && t.content)
+      .map((t) => ({ role: t.role as ChatRole, content: t.content as string }));
+    if (!turns.length) return null;
+    return { sessionId: res.sessionId, turns };
+  } catch {
+    return null;
   }
 }

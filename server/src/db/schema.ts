@@ -610,3 +610,51 @@ export const aiCalls = pgTable(
     index('ai_calls_journey_at_idx').on(t.journey, t.at)
   ]
 )
+
+/**
+ * 一次对话会话（G6 会话上云）。
+ *
+ * 为什么要按账号存：对话历史只在本机的话，换设备就等于「没聊过」，
+ * 而 F06 已经承诺了跨设备找回，对话是其中最容易丢、也最影响继续聊的一块。
+ *
+ * 只存 role + 文本，**不存方案卡与预览卡**：
+ * 方案卡是可重算的（行程本身已经上云，见 G5），预览卡更是必须消失的 ——
+ * 跨设备把「待确认」复活成「可确认」，用户会在不知情的情况下确认一个自己没看过的改动。
+ * 这条不是省事，是安全要求（见 G6 验收第二条）。
+ */
+export const aiSessions = pgTable(
+  'ai_sessions',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull(),
+    /** 属于哪趟旅程；从零规划时还没有行程，为 null */
+    tripId: text('trip_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+  },
+  (t) => [
+    index('ai_sessions_user_idx').on(t.userId),
+    // 找「这趟旅程最近一次对话」走这条
+    index('ai_sessions_user_trip_idx').on(t.userId, t.tripId, t.updatedAt)
+  ]
+)
+
+/**
+ * 会话里的一条消息。
+ *
+ * 没有 onDelete cascade：删账号是极少发生的操作，为它加一层级联
+ * 会让「删一个用户」变成「删六张表」，出错时没法只回滚一张。
+ * 清理走单独的定时任务，届时再定策略。
+ */
+export const aiMessages = pgTable(
+  'ai_messages',
+  {
+    id: text('id').primaryKey(),
+    sessionId: text('session_id').notNull(),
+    /** user / assistant，与客户端聊天气泡一一对应 */
+    role: text('role').notNull(),
+    content: text('content').notNull(),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow()
+  },
+  (t) => [index('ai_messages_session_idx').on(t.sessionId, t.at)]
+)

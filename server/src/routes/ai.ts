@@ -7,6 +7,7 @@ import { facts, lines, places } from '../db/schema.ts'
 import { aiConfigured, chatModel, modelName } from '../ai/model.ts'
 import { proposeReviseOp } from '../ai/revise.ts'
 import { recordAiCall, startedAt, elapsedMs } from '../ai/observe.ts'
+import { appendTurn, latestTurnsOf, loadTurns, resolveSession } from '../ai/history.ts'
 import { resolveActorQuietly } from '../auth/middleware.ts'
 import { placeById, placesOf, placesLoaded, setPlaces } from '@/engine/placeIndex.ts'
 import { warmRoutes } from '../ai/routeWarm.ts'
@@ -147,7 +148,21 @@ function tripPrompt(trip: TripContext): string {
   ].join('\n')
 }
 
-aiRoute.get('/status', (c) => c.json({ enabled: aiConfigured() }))
+/**
+ * 某趟旅程最近一次对话（G6 换设备续聊）。
+ *
+ * 只回文本：方案与预览由客户端按当前行程重新渲染，历史卡片不复活 ——
+ * 跨设备把「待确认」变成「可确认」是最危险的一种复活。
+ */
+aiRoute.get('/history', async (c) => {
+  const actor = await resolveActorQuietly(c.req.header('authorization'))
+  if (!actor) return c.json({ error: '请先登录', code: 'unauthorized' }, 401)
+  const tripId = (c.req.query('tripId') ?? '').trim()
+  // 没有 tripId 时不报错：从零规划的场景本来就没有历史可续
+  if (!tripId) return c.json({ sessionId: null, turns: [], updatedAt: null })
+  const found = await latestTurnsOf(actor.userId, tripId)
+  return c.json(found ?? { sessionId: null, turns: [], updatedAt: null })
+})
 
 aiRoute.post('/chat', async (c) => {
   if (!aiConfigured()) {
@@ -156,9 +171,36 @@ aiRoute.post('/chat', async (c) => {
   }
 
   const body = (await c.req.json().catch(() => null)) as
-    | { messages?: { role: 'user' | 'assistant'; content: string }[]; slots?: Slots; stream?: boolean; trip?: TripContext; sessionId?: string; journey?: string }
+    | {
+        messages?: { role: 'user' | 'assistant'; content: string }[]
+        slots?: Slots
+        stream?: boolean
+        trip?: TripContext
+        sessionId?: string
+        journey?: string
+        /** G6：登录时只传本轮输入，历史由服务端持有 */
+        input?: string
+      }
     | null
-  const messages = (body?.messages ?? []).filter((m) => typeof m?.content === 'string' && m.content.trim())
+
+  // 静默解析：token 坏了只是 userId 记不上，不该让整轮对话失败
+  const actor = await resolveActorQuietly(c.req.header('authorization'))
+
+  // ---- G6 会话上云 ----
+  // 登录且只给了 input 时走「服务端持有历史」：客户端不再把整段对话带上来，
+  // 换设备才不会「没聊过」。匿名仍然整段带（服务端没有归属，存了也找不回来）。
+  const input = typeof body?.input === 'string' ? body.input.trim() : ''
+  const trip = tripContextOf(body?.trip)
+  const session = actor?.userId && input
+    ? await resolveSession(actor.userId, typeof body?.sessionId === 'string' ? body.sessionId : '', trip?.tripId ?? null)
+    : null
+  const history: { role: 'user' | 'assistant'; content: string }[] = session
+    ? await loadTurns(session.userId, session.id)
+    : []
+
+  const messages = session
+    ? [...history, { role: 'user' as const, content: input }]
+    : (body?.messages ?? []).filter((m) => typeof m?.content === 'string' && m.content.trim())
   if (!messages.length) return c.json({ error: '缺少对话内容', code: 'bad_param' }, 400)
 
   // 槽位跟着整轮对话走：工具里写入，结束时回传给前端，下一轮原样带回来
@@ -166,7 +208,6 @@ aiRoute.post('/chat', async (c) => {
   // 同一轮里 generatePlans 调了几次。第二次仍有硬冲突就停，不能让模型一直重排
   let planAttempts = 0
   // 有当前行程时按「改这份行程」聊；没有时按「从零规划」聊
-  const trip = tripContextOf(body?.trip)
   const system = trip ? `${CHAT_SYSTEM_PROMPT}\n${tripPrompt(trip)}` : CHAT_SYSTEM_PROMPT
 
   // ---- G7 服务端度量：本轮对话的服务端侧账 ----
@@ -174,11 +215,9 @@ aiRoute.post('/chat', async (c) => {
   // sessionId 用来把同一轮对话里的多次调用串起来 —— 「降级次数」要能落回某一轮对话，
   // 只有时间戳是做不到的（同一秒可以有多轮）。
   const journey = typeof body?.journey === 'string' && body.journey ? body.journey.slice(0, 32) : null
-  const sessionId = typeof body?.sessionId === 'string' && body.sessionId ? body.sessionId.slice(0, 64) : null
+  const sessionId = session?.id ?? (typeof body?.sessionId === 'string' && body.sessionId ? body.sessionId.slice(0, 64) : null)
   const started = startedAt()
   const counters = { toolCalls: 0, toolFailures: 0, plans: 0 }
-  // 静默解析：token 坏了只是 userId 记不上，不该让整轮对话失败
-  const actor = await resolveActorQuietly(c.req.header('authorization'))
   const record = (extra: { durationMs: number; error?: string | null }) =>
     recordAiCall({
       kind: 'chat',
@@ -381,18 +420,29 @@ aiRoute.post('/chat', async (c) => {
       await record({ durationMs: elapsedMs(started), error: err instanceof Error ? err.message : String(err) })
       return c.json({ error: '生成回答失败', code: 'upstream_error' }, 502)
     }
+    const text = chunks.join('')
+    // 会话上云：落库放在返回之前，否则用户切后台这条就永远补不回来。
+    // 失败只记日志：历史没存上不该让这次回答变成报错
+    if (session) {
+      await appendTurn(session.userId, session.id, trip?.tripId ?? null, input, text).catch((err) =>
+        console.error('[ai] history append failed:', err)
+      )
+    }
     await record({ durationMs: elapsedMs(started) })
     // revise 必须跟 plans 一起回：Lynx 读不了流时走这条，漏了的话对话里永远出不了确认卡
-    return c.json({ text: chunks.join(''), slots, plans, revise })
+    return c.json({ text, slots, plans, revise, sessionId: session?.id ?? null })
   }
 
   return streamSSE(c, async (stream) => {
     // 消费 fullStream 而不是 textStream：只取文本的话前端看不到
     // 「正在查询地点」这类中间态，几秒钟没有输出会像卡死
     let failed: string | null = null
+    // 全文攒一份：会话上云要落库，而流式没有「一次性拿到全文」的时机
+    const text: string[] = []
     try {
       for await (const part of result.fullStream) {
         if (part.type === 'text-delta') {
+          text.push(part.text)
           await stream.writeSSE({ event: 'delta', data: JSON.stringify({ text: part.text }) })
         } else if (part.type === 'tool-call') {
           counters.toolCalls += 1
@@ -423,10 +473,20 @@ aiRoute.post('/chat', async (c) => {
       failed = err instanceof Error ? err.message : String(err)
       await stream.writeSSE({ event: 'error', data: JSON.stringify({ message: failed }) })
     }
+    // 会话上云：在发 done 之前落库。done 之后前端就收流了，
+    // 用户很可能立刻切后台，那时这次写入就没机会了
+    const full = text.join('')
+    if (session && input && full) {
+      await appendTurn(session.userId, session.id, trip?.tripId ?? null, input, full).catch((err) =>
+        console.error('[ai] history append failed:', err)
+      )
+    }
     // 先记度量再发 done：done 之后前端就收流了，这次写库不该占用用户的时间
     void record({ durationMs: elapsedMs(started), error: failed })
-    // 历史由客户端持有；服务端只回槽位，下一轮原样带回来（会话上云见 G6）
-    await stream.writeSSE({ event: 'done', data: JSON.stringify({ slots }) })
+    await stream.writeSSE({
+      event: 'done',
+      data: JSON.stringify({ slots, sessionId: session?.id ?? null })
+    })
   })
 })
 

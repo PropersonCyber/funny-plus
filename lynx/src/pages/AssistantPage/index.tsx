@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from '@lynx-js/reac
 
 import mascotAi from '../../assets/ip/mascot-ai.png';
 import { MOCK } from '../../mock.js';
-import { chat, aiStatus } from '../../aiChat.js';
+import { chat, aiStatus, fetchHistory } from '../../aiChat.js';
 import type { ChatMessage, ChatSlots } from '../../aiChat.js';
 import { CHAT_STORAGE_KEY, followTrip, parseChatBook, readLog, writeLog } from '../../chatSession.js';
 import { readLocal, writeLocal } from '../../storage.js';
@@ -108,6 +108,13 @@ export function AssistantPage({
   // 槽位与历史用 ref：流式回调里要读到最新值，state 的快照会读到旧的
   const slotsRef = useRef<ChatSlots>(stored.current.slots);
   const turnsRef = useRef<Turn[]>(stored.current.turns);
+  /**
+   * 服务端发的会话 id（G6）。
+   *
+   * 用 ref 而不是 state：它只在发请求时读一次，改它不该触发重渲染 ——
+   * 重渲染会让整段对话重新走一遍渲染，长对话下能明显感觉到卡。
+   */
+  const sessionIdRef = useRef('');
 
   const persist = useCallback((id: string, nextTurns: Turn[], slots: ChatSlots) => {
     const book = parseChatBook(readLocal(CHAT_STORAGE_KEY));
@@ -172,6 +179,30 @@ export function AssistantPage({
       alive = false;
     };
   }, []);
+
+  /**
+   * 换设备进助手时把上次对话拉回来（G6）。
+   *
+   * 只在本机这段对话为空时拉：本机有记录说明用户在这台设备上聊过，
+   * 拿云端覆盖等于把他刚聊的冲掉。
+   *
+   * 拉回来的只有文本（服务端不存方案卡与预览卡），所以历史里的「待确认」
+   * 只会是一段文字，不会被渲染成还能点的确认按钮 —— 这是 G6 验收的第二条。
+   */
+  useEffect(() => {
+    let alive = true;
+    void fetchHistory(tripId).then((res) => {
+      if (!alive || !res) return;
+      if (turnsRef.current.length) return;
+      const restored: Turn[] = res.turns.map((t) => ({ role: t.role, text: t.content }));
+      sessionIdRef.current = res.sessionId;
+      turnsRef.current = restored;
+      setTurns(restored);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [tripId]);
 
   const appendDelta = useCallback((text: string) => {
     setTurns((prev) => {
@@ -241,8 +272,13 @@ export function AssistantPage({
             });
           },
         },
-        tripRef.current
+        tripRef.current,
+        // G6：有 token 时只发 sessionId + 本轮输入，整段历史由服务端拼
+        { sessionId: sessionIdRef.current, input: text }
       );
+      if (res.sessionId) {
+        sessionIdRef.current = res.sessionId;
+      }
       slotsRef.current = res.slots;
       persist(tripId, turnsRef.current, res.slots);
     } catch (err) {
