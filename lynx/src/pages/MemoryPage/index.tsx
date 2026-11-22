@@ -275,7 +275,7 @@ export function MemoryPage({
             className={cls(endedAt ? 'mem-end mem-end-ghost' : 'mem-end')}
             bindtap={() => {
               onEnd();
-              toast(endedAt ? '已重新标记为进行中' : '已结束这次旅行');
+              toast(endedAt ? '已重新标记为进行中' : '已结束这次旅行，可以开始补充记录了');
             }}
           >
             <text className={cls(endedAt ? 'mem-end-text ghost' : 'mem-end-text')}>

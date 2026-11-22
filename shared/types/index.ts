@@ -215,6 +215,18 @@ export interface TransportOption {
   basis: string
 }
 
+/**
+ * 一条事实的三种来路，决定它能不能被写成「已核验」。
+ *
+ * canonical = 从库里读到的那份（种子 / 已核验数据 / 后来改过的）；bundled = 随包
+ * data/*.json 的构建期快照；server = 本次会话从接口拉回来的。
+ *
+ * 为什么要带在数据上而不是查全局标记：客户端会先用随包副本渲染、接口回来再覆盖，
+ * 中间那段时间里界面上就是一份「构建期快照」。把它标成已核验，等于拿旧数据冒充新核验。
+ * 这个字段只走内存与本机缓存，不入库、不进接口。
+ */
+export type FactOrigin = 'canonical' | 'bundled' | 'server'
+
 export interface TravelFact {
   id: string
   city: string
@@ -233,6 +245,8 @@ export interface TravelFact {
   placeId?: string
   /** POI 详情页的分组；缺省时按 category 推导，避免历史数据全要补一遍 */
   poiGroup?: 'pitfall' | 'access' | 'eat' | 'stay'
+  /** 这条是从哪来的（见 FactOrigin）；缺省视为 canonical，保持旧数据与测试不用改 */
+  origin?: FactOrigin
 }
 
 /** 局部修改的变更影响，PRD 5.3 要求改完展示影响 */

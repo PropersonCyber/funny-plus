@@ -241,6 +241,10 @@ export function useTrips(booted: boolean) {
    *
    * 只记时刻，不清任何数据：结束后行程仍然是用户的，只是归类到「已结束」。
    * 之后要重开（endedAt 置空）也走这里，所以不做成单向动作。
+   *
+   * 结束这一刻顺手建一份空的回忆记录：回忆页的每条安排都从 `memory.places` 取，
+   * 没有记录时整页只能显示「还没记录」。建一条空记录不写入任何「去过」——
+   * visited 仍由用户自己点，未确认的到访不会被写成实际经历。
    */
   const endTrip = useCallback((id: string, ended: boolean) => {
     const at = new Date().toISOString();
@@ -250,6 +254,16 @@ export function useTrips(booted: boolean) {
         t.id === id ? { ...t, endedAt: ended ? at : undefined } : t
       ),
     }));
+    if (ended && id) {
+      setMemories((prev) => {
+        // 已写过内容就不动：重开再结束不能把用户的文字冲掉
+        if (prev[id]) return { ...prev, [id]: { ...prev[id], updatedAt: at } };
+        return {
+          ...prev,
+          [id]: { tripId: id, overview: '', photos: [], places: {}, createdAt: at, updatedAt: at },
+        };
+      });
+    }
     track(ended ? 'trip_end' : 'trip_reopen', { tripId: id });
   }, []);
 

@@ -7,7 +7,7 @@ import bundled from '../../data/facts.json';
 import type { TravelFact } from '../../shared/types/index.js';
 
 /** 随包快照。仓库根 data/facts.json，server seed 也读它，但那是构建时的那一份 */
-const bundledFacts = bundled as TravelFact[];
+const bundledFacts = (bundled as TravelFact[]).map((f): TravelFact => ({ ...f, origin: 'bundled' }));
 
 export type FactsSource = 'bundled' | 'server';
 
@@ -31,7 +31,8 @@ export function factsStamp(): string {
 /** 服务端拉回来的那份替换进去。空数组当作无效：不能把用户手里的兜底副本清空 */
 export function adoptServerFacts(items: TravelFact[]): boolean {
   if (!Array.isArray(items) || items.length === 0) return false;
-  current = items;
+  // 打上 server 来路：界面据此说「本次从服务端拉取」，与随包快照区分开
+  current = items.map((f) => ({ ...f, origin: 'server' as const }));
   source = 'server';
   const now = new Date();
   const hh = String(now.getHours()).padStart(2, '0');

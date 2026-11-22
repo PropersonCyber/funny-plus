@@ -16,6 +16,7 @@ import { svgIcon, QICON } from '../../icons.js';
 import { filledIcon } from '../../icons-filled.js';
 import { spotImg } from '../../spot-img.js';
 import { factsOf, placeById, planFor } from '../../data.js';
+import { displayTrust } from '../../../../shared/engine/facts.js';
 import type { Demand, Plan } from '../../data.js';
 import type { Place } from '../../../../shared/types/index.js';
 import { toast } from '../../toast.js';
@@ -451,7 +452,7 @@ function WarnCard({ city }: { city: string }) {
       </view>
       {facts.map((f, i) => (
         <view key={f.id} className={cls(i === facts.length - 1 ? 'gd-warn-row gd-warn-row-last' : 'gd-warn-row')}>
-          <view className={cls('gd-warn-badge')} style={{ backgroundColor: TRUST_TINT[f.trust] ?? TRUST_TINT.pending }}>
+          <view className={cls('gd-warn-badge')} style={{ backgroundColor: TRUST_TINT[displayTrust(f)] ?? TRUST_TINT.pending }}>
             <text className={cls('gd-warn-badge-text')}>{f.category}</text>
           </view>
           <text className={cls('gd-warn-text')}>{f.content}</text>

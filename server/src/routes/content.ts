@@ -11,6 +11,11 @@ const toPlace = (r: typeof places.$inferSelect): Place => ({
   lng: r.lng,
   lat: r.lat,
   open: [r.openStart, r.openEnd],
+  /**
+   * 高德的原始营业时间文本。少了它，界面只剩一个被收紧过的时段：
+   * 「16:00 停止检票」「周一闭馆」这些约束是怎么被吃掉的，用户无从复核。
+   */
+  openText: r.openText ?? undefined,
   ticket: r.ticket,
   stayMin: r.stayMin,
   walk: r.walk as Place['walk'],
@@ -33,7 +38,11 @@ const toFact = (r: typeof facts.$inferSelect): TravelFact => ({
   sourceUrl: r.sourceUrl ?? undefined,
   verifiedAt: r.verifiedAt,
   validUntil: r.validUntil ?? undefined,
-  trust: r.trust
+  trust: r.trust,
+  // 与 GET /api/facts 保持同形：少了这两个字段，客户端从 /api/content 拿到的避坑
+  // 挂不上具体地点、分不了组，AI 的「这条适用哪个点」就答不了
+  placeId: r.placeId ?? undefined,
+  poiGroup: r.poiGroup ?? undefined
 })
 
 export const contentRoute = new Hono()

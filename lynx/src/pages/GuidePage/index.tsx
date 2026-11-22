@@ -16,6 +16,7 @@ import { track } from '../../track.js';
 import { toast } from '../../toast.js';
 import { factsOf, placeById, factsExpiredCount, factsStamp } from '../../data.js';
 import { loadFacts } from '../../facts.js';
+import { displayTrust, originNote } from '../../../../shared/engine/facts.js';
 import type { Plan } from '../../data.js';
 import styles from './index.module.scss';
 import { makeCls } from '../../styles/cls.js';
@@ -236,7 +237,9 @@ export function GuidePage({ city, plans }: Props) {
               </view>
               <view className={cls('gd-foot')}>
                 <text className={cls('fact-meta')}>
-                  {f.scope} · {TRUST_LABEL[f.trust] ?? f.trust}
+                  {/* 随包快照不能显示成「官方信息」：库里改过档之后，打进包里的旧副本还在按老样子说 */}
+                  {f.scope} · {TRUST_LABEL[displayTrust(f)] ?? f.trust}
+                  {originNote(f) ? ` · ${originNote(f)}` : ''}
                 </text>
                 <text className={cls('fact-meta')}>
                   {f.validUntil ? `有效期至 ${f.validUntil}` : `核验 ${f.verifiedAt}`}

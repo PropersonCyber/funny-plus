@@ -1,7 +1,6 @@
 # AI Native MVP 差距闭合规格
 
-- 状态：R 组、G1–G7、X1–X6 已完成（见 §0.1）；剩 §1 四项决策与 DOC1–DOC5；其中 D1 决定 §5 是否成立，N 组（N1–N11）全部阻塞在 D1
-- 范围：把当前实现与 AI Native MVP 口径的差距，转成可判定、可分期、可验收的工作项
+- 状态：R 组、G1–G7、X1–X6 已完成（见 §0.1）；剩 §1 四项决策与 DOC1–DOC5；其中 D1 决定 §5 是否成立，N 组（N1–N11）全部阻塞在 D1- 范围：把当前实现与 AI Native MVP 口径的差距，转成可判定、可分期、可验收的工作项
 - 使用方：Funny+ 全栈（`lynx/` 客户端、`server/` 服务端、`shared/` 引擎、`data/` 数据）
 - 日期：2026-11-18
 - 取证基线：HEAD `faad1b9`，`git diff` 为空（`e3b0c442`）。本文全部结论为**静态代码与数据取证**，未跑 App、未调外部接口，运行时行为见 §9。
@@ -38,7 +37,19 @@
 | X5 | 失败提示与占位文案 | 对话失败带「重新发送」+ `chatError.ts` 把英文运行时错误翻成中文；本地兜底预览改用 `applyReviseOp` 已算出的 `affected`（`revisePlan` 不再丢弃）；攻略页旧文案换成已支持发布的口径；城市列表搜索图标指向现有筛选；麦克风不再假装「聆听中」；`runSend` 依赖补齐 `planIndex`；AI 未配置时首页浮标隐藏 | `chatError.test.ts` 4 例 |
 | X6 | 有表字段无写入 | `photos.sha256` 做同人同图去重（命中复用 id，不落第二份）；`factFeedbacks` 落 `userId` 并按 userId 补判重；`trip_versions` 已由 G5 写入 | `photos.test.ts` 9 例（含去重用例） |
 
-门禁现状（最新）：server typecheck 0 / server test **113** / lynx typecheck 0 / lynx test **189** / lynx build 0（`check:css` 826 class）。
+门禁现状（2026-11-22 本机复跑）：lynx typecheck 0 / lynx test **192** / `check:css` 826 class 通过 / server typecheck 0。server 测试 13 个文件里 6 个不连库的通过（35 例），7 个连库的**本机无 Postgres 未跑**，不能算已验证。
+
+### 0.2 2026-11-22 补的三项（不依赖任何裁决）
+
+上一轮取证后单独补的几处，都属于「代码与数据自相矛盾」而不是新能力：
+
+| 项 | 问题 | 改动 | 验证 |
+|---|---|---|---|
+| 快照冒充已核验 | 客户端先用随包 `data/*.json` 渲染、接口回来再覆盖（`lynx/src/factsData.ts`），而避坑页直接读 `f.trust` 上屏（`GuidePage/index.tsx`、`GuideDetailPage/index.tsx`）。库里把某条降档后，打进包的旧副本仍显示「官方信息」/「官方已核验」——正是 G3 要收的口径，只是漏在避坑条目上 | `TravelFact.origin`（`canonical`/`bundled`/`server`，只走内存不入库）+ `displayTrust()`：非 canonical 的 `official` 一律降一档显示；`originNote()` 额外说清来路 | `factsData.test.ts` 新增 3 例（共 192） |
+| 接口裁剪字段 | `GET /api/content` 的 `toPlace` 少 `openText`、`toFact` 少 `placeId`/`poiGroup`，与 `GET /api/places`、`GET /api/facts` 不同形。客户端 `applyPlaces` 用 content 覆盖随包副本后，行程页的营业时间原文（`ItineraryPage:362`）静默变空 | 两处补齐；`poiGroup` 类型本就允许可选 | lynx typecheck 0 / server typecheck 0 |
+| 结束旅行无回忆记录 | `endTrip` 只写 `endedAt`，回忆页每条安排读 `memory.places`，没有记录时整页只剩「还没记录」，等于「归属于某趟旅行的记录」没有起点 | `useTrips.endTrip` 结束时建一份空回忆记录；已有内容只更新 `updatedAt`，不覆盖用户的文字；`visited` 仍默认 `unknown`，不替用户写「去过」 | 同上（纯状态构造，无外网依赖） |
+
+未做（仍需裁决）：首页咕噜迎接与主卡入口权重（N1/N2，与 `docs/ai-native-plan.md:26` 的「不动入口权重」冲突，属 D1）；固定安排与时段粒度修改（N3/N4，D1 口径）；现场推荐与下一站（N6/N7，D4 数据供给为零）；登录三通道（N5，D3）；攻略照片勾选「不默认带出」（N9，`useGuides.ts:72` 仍自动带前 3 张，改它要同时定「重生成时是否保留用户已选」）；DOC1–DOC5。
 
 **技术栈未定的地方只留了接口位，没有擅自选型**：G7 的聚合口径集中在 `ai/metrics.ts`，命令行只负责打印，将来接看板不改编排；G5/G6 的会话与行程存储都走既有的 drizzle + Postgres，没有引入新组件；N5 的三项外部依赖（短信服务商 / 微信开放平台 / Sign in with Apple）仍等 D3 定责任人后才落实现。
 
