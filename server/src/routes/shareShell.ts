@@ -1,3 +1,4 @@
+import { escapeToBuffer } from 'hono/utils/html'
 import { webAssets } from '../env.ts'
 
 /**
@@ -14,14 +15,15 @@ import { webAssets } from '../env.ts'
  * 失效链接也出这一页：显示引导文案，不带任何原文内容，HTTP 仍是 200。
  */
 
-/** HTML 属性与文本都要转义：标题是用户输入，直接拼进标签会被注入 */
+/**
+ * HTML 属性与文本都要转义：标题是用户输入，直接拼进标签会被注入。
+ * 用 Hono 自带的 escapeToBuffer（hono/utils/html，hono/html 的底层）而不是手写：
+ * 转义集与原来逐字相同（& < > " '），但漏一个字符就是 XSS，没有理由自己维护。
+ */
 function esc(raw: string): string {
-  return raw
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
+  const buf: (string | Promise<string>)[] = []
+  escapeToBuffer(raw, buf)
+  return buf.join('')
 }
 
 type ShellInput = {

@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "photos_user_sha_uq" ON "photos" USING btree ("user_id","sha256");

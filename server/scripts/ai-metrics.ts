@@ -11,7 +11,7 @@
  * 改字段等于破坏兼容；命令行改完自己看，没有这个负担。
  * 将来要做看板，从 `ai/metrics.ts` 取同一套口径，不在这里加接口。
  */
-import { loadAiCalls, loadTrackEvents, journeyFunnels, pct, summarize } from '../src/ai/metrics.ts'
+import { byPromptVersion, loadAiCalls, loadTrackEvents, journeyFunnels, pct, summarize } from '../src/ai/metrics.ts'
 
 function argDays(): number {
   const i = process.argv.indexOf('--days')
@@ -38,6 +38,19 @@ async function main(): Promise<void> {
   line('降级', `${s.degraded} 次 = ${pct(s.degradeRate)}`)
   line('工具调用', `${s.toolCalls} 次，失败 ${s.toolFailures} 次，成功率 ${pct(s.toolSuccessRate)}`)
   line('延迟', `平均 ${s.avgDurationMs}ms / p95 ${s.p95DurationMs}ms`)
+
+  // 按提示词版本分组：改完话术要能对比新版与旧版，回滚才有依据
+  const versions = byPromptVersion(calls)
+  if (versions.length > 1) {
+    console.log('\n[按提示词版本]')
+    for (const v of versions) {
+      const x = v.summary
+      line(
+        v.version,
+        `${x.calls} 次 · 方案 ${pct(x.planRate)} · 降级 ${pct(x.degradeRate)} · 工具 ${pct(x.toolSuccessRate)} · p95 ${x.p95DurationMs}ms`
+      )
+    }
+  }
 
   const journeys = new Map<string, number>()
   for (const r of calls) {

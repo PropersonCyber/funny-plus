@@ -12,6 +12,7 @@ const row = (over: Partial<AiCallRow> = {}): AiCallRow => ({
   planGenerated: false,
   planAttempts: 0,
   degraded: false,
+  promptVersion: '2026-11-22.1',
   ...over
 })
 

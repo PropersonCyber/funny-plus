@@ -120,6 +120,13 @@
       "when": 1795059225264,
       "tag": "0016_ai_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1795332792889,
+      "tag": "0017_hot_oracle",
+      "breakpoints": true
     }
   ]
 }

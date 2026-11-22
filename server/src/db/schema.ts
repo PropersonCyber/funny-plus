@@ -530,7 +530,14 @@ export const photos = pgTable(
     sha256: text('sha256').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
   },
-  (t) => [index('photos_user_idx').on(t.userId), index('photos_sha_idx').on(t.sha256)]
+  (t) => [
+    index('photos_user_idx').on(t.userId),
+    index('photos_sha_idx').on(t.sha256),
+    // 同人同图只能有一行。路由是先 select 再 insert，中间有窗口期：
+    // 同一张图并发上传会各查一次「没有」然后各插一行，去重形同虚设。
+    // 唯一索引是最后一道闸，配合 onConflictDoNothing 把并发收成一行。
+    uniqueIndex('photos_user_sha_uq').on(t.userId, t.sha256)
+  ]
 )
 
 /**

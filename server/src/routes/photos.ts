@@ -1,4 +1,6 @@
 import { Hono } from 'hono'
+// eslint-disable-next-line import/no-unresolved -- hono 的 exports 里有这条子路径
+import { bodyLimit } from 'hono/body-limit'
 import { and, eq, isNull } from 'drizzle-orm'
 import { db } from '../db/client.ts'
 import { guideShares, photos } from '../db/schema.ts'
@@ -22,66 +24,96 @@ import { referencesPhoto } from '../sync/photos.ts'
  */
 export const photoRoute = new Hono()
 
-photoRoute.post('/', requireUser, async (c) => {
-  const actor = c.get('actor')
-  if (!actor) return c.json({ error: '请先登录', code: 'unauthorized' }, 401)
+photoRoute.post(
+  '/',
+  requireUser,
+  /**
+   * 先按 Content-Length 挡一道再解析表单。
+   *
+   * 原来直接 `c.req.formData()`：整个 body 会先被读进内存，之后才检查 bytes.byteLength，
+   * 一个超大的请求等于先把内存吃掉再被拒。bodyLimit 在解析前读 content-length 就返回 413。
+   * 兜底仍是后面的按实际字节数检查：content-length 由客户端提供，可以骗人。
+   */
+  bodyLimit({
+    maxSize: media.maxBytes,
+    onError: (c) => c.json({ error: '图片超过上限', code: 'too_large' }, 413)
+  }),
+  async (c) => {
+    const actor = c.get('actor')
+    if (!actor) return c.json({ error: '请先登录', code: 'unauthorized' }, 401)
 
-  // 未配置存储时先返回：别让用户等完成上传才发现无处可写
-  if (!media.configured()) {
-    return c.json({ error: '照片存储尚未配置', code: 'storage_unavailable' }, 503)
-  }
+    // 未配置存储时先返回：别让用户等完成上传才发现无处可写
+    if (!media.configured()) {
+      return c.json({ error: '照片存储尚未配置', code: 'storage_unavailable' }, 503)
+    }
 
-  let form: FormData
-  try {
-    form = await c.req.formData()
-  } catch {
-    return c.json({ error: '请求体不是合法的表单', code: 'bad_param' }, 400)
-  }
+    let form: FormData
+    try {
+      form = await c.req.formData()
+    } catch {
+      return c.json({ error: '请求体不是合法的表单', code: 'bad_param' }, 400)
+    }
 
-  const file = form.get('file')
-  if (!file || typeof file === 'string') {
-    return c.json({ error: '缺少文件字段 file', code: 'bad_param' }, 400)
-  }
+    const file = form.get('file')
+    if (!file || typeof file === 'string') {
+      return c.json({ error: '缺少文件字段 file', code: 'bad_param' }, 400)
+    }
 
-  const mime = file.type
-  if (!isAllowedMime(mime)) {
-    return c.json({ error: '只支持 JPEG / PNG / WebP / GIF', code: 'unsupported_type' }, 415)
-  }
+    const mime = file.type
+    if (!isAllowedMime(mime)) {
+      return c.json({ error: '只支持 JPEG / PNG / WebP / GIF', code: 'unsupported_type' }, 415)
+    }
 
-  const bytes = new Uint8Array(await file.arrayBuffer())
-  // 先看实际字节数再写盘：File.size 由客户端提供，可能骗人
-  if (bytes.byteLength === 0) {
-    return c.json({ error: '文件是空的', code: 'bad_param' }, 400)
-  }
-  if (bytes.byteLength > media.maxBytes) {
-    return c.json(
-      { error: `图片超过 ${Math.round(media.maxBytes / 1024 / 1024)}MB 上限`, code: 'too_large' },
-      413
-    )
-  }
+    const bytes = new Uint8Array(await file.arrayBuffer())
+    // 先看实际字节数再写盘：File.size 由客户端提供，可能骗人
+    if (bytes.byteLength === 0) {
+      return c.json({ error: '文件是空的', code: 'bad_param' }, 400)
+    }
+    if (bytes.byteLength > media.maxBytes) {
+      return c.json(
+        { error: `图片超过 ${Math.round(media.maxBytes / 1024 / 1024)}MB 上限`, code: 'too_large' },
+        413
+      )
+    }
 
-  const digest = sha256(bytes)
+    const digest = sha256(bytes)
 
-  // 同图不重复落盘：同一个用户重新上传一张已有的图（换设备、重试、同一张图配两条回忆）
-  // 不该再占一份磁盘。只按本人去重，别人的同一张图不能返回——那是跨账号泄漏 id。
-  const [dup] = await db
-    .select({ id: photos.id })
-    .from(photos)
-    .where(and(eq(photos.sha256, digest), eq(photos.userId, actor.userId)))
-    .limit(1)
-  if (dup) return c.json({ id: dup.id, url: photoUrl(dup.id), reused: true })
+    // 同图不重复落盘：同一个用户重新上传一张已有的图（换设备、重试、同一张图配两条回忆）
+    // 不该再占一份磁盘。只按本人去重，别人的同一张图不能返回——那是跨账号泄漏 id。
+    const [dup] = await db
+      .select({ id: photos.id })
+      .from(photos)
+      .where(and(eq(photos.sha256, digest), eq(photos.userId, actor.userId)))
+      .limit(1)
+    if (dup) return c.json({ id: dup.id, url: photoUrl(dup.id), reused: true })
 
-  const id = newPhotoId()
-  const written = await storePhoto(id, bytes, mime)
-  if (!written) {
-    return c.json({ error: '照片存储尚未配置', code: 'storage_unavailable' }, 503)
-  }
+    const id = newPhotoId()
+    const written = await storePhoto(id, bytes, mime)
+    if (!written) {
+      return c.json({ error: '照片存储尚未配置', code: 'storage_unavailable' }, 503)
+    }
 
-  // 落库失败时文件已经写下了。这里不回头删文件：一个只有文件没有行的孤儿，
-  // 比「写了一半行、文件却不在」好处理得多，下次同图上传会命中上面的去重分支。
-  await db.insert(photos).values({ id, userId: actor.userId, mime, bytes: bytes.byteLength, sha256: digest })
+    // 落库失败时文件已经写下了。这里不回头删文件：一个只有文件没有行的孤儿，
+    // 比「写了一半行、文件却不在」好处理得多，下次同图上传会命中上面的去重分支。
+    //
+    // onConflictDoNothing + 回查：上面的 select 与这次 insert 之间有窗口期，
+    // 同一张图并发上传时两个请求都会查不到、都要插。并发下让唯一索引挡住第二个，
+    // 然后回查那一行，两个请求拿到同一个 id —— 否则会落两份文件、两行指向不同 id。
+    const inserted = await db
+      .insert(photos)
+      .values({ id, userId: actor.userId, mime, bytes: bytes.byteLength, sha256: digest })
+      .onConflictDoNothing()
+      .returning({ id: photos.id })
+    if (inserted.length) return c.json({ id, url: photoUrl(id) })
 
-  return c.json({ id, url: photoUrl(id) })
+    const [winner] = await db
+      .select({ id: photos.id })
+      .from(photos)
+      .where(and(eq(photos.sha256, digest), eq(photos.userId, actor.userId)))
+      .limit(1)
+    // 赢家是别人抢先插的那一行；本次写的文件成了孤儿，不影响正确性
+    if (winner) return c.json({ id: winner.id, url: photoUrl(winner.id), reused: true })
+    return c.json({ error: '照片入库失败', code: 'server_error' }, 500)
 })
 
 /**

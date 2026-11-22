@@ -282,9 +282,27 @@ export function saveStore(store: Store): boolean {
 }
 
 let seq = 0;
+
+/**
+ * id 带上设备前缀。
+ *
+ * 原来只有「毫秒时间戳 + 进程内自增」：两台设备在同一毫秒各建一条行程，就会得到同一个 id。
+ * 而这些 id 会被推到云端当主键（`PUT /api/trips/:id`），撞了就变成互相覆盖别人的行程。
+ * 设备标识本来就在本机存着，拼上它一行就够，不需要引入 uuid 库：
+ * 换设备后 id 仍可能撞的是「同一台设备重启后同一毫秒」——那个概率可以忽略，
+ * 且 time+seq 已经能区分。shortcut: 不做全局唯一保证，真需要时换 uuid v7。
+ */
+const idPrefix = (): string => {
+  // 键名与 api.ts 的 CLIENT_KEY 同一个；不 import 它是因为 api.ts 反过来依赖本模块，
+  // 会形成循环引用
+  const dev = readLocal('funny-plus.client-id.v1') ?? '';
+  // 设备 id 形如 s-xxxx-yyyy，取后半段的随机部分就够了，不必把整个串塞进每个 id
+  return dev ? `${dev.slice(-6)}-` : '';
+};
+
 export function newTripId(): string {
   seq += 1;
-  return `trip-${Date.now().toString(36)}-${seq}`;
+  return `trip-${idPrefix()}${Date.now().toString(36)}-${seq}`;
 }
 
 /* ---------------- 旅行回忆：与行程分开存 ---------------- */
@@ -353,7 +371,7 @@ export function saveMemory(book: MemoryBook): boolean {
 let photoSeq = 0;
 export function newPhotoId(): string {
   photoSeq += 1;
-  return `ph-${Date.now().toString(36)}-${photoSeq}`;
+  return `ph-${idPrefix()}${Date.now().toString(36)}-${photoSeq}`;
 }
 
 /* ---------------- 攻略草稿：独立一份，不与回忆联动 ---------------- */
@@ -431,5 +449,5 @@ export function saveGuides(book: GuideBook): boolean {
 let guideSeq = 0;
 export function newGuideId(): string {
   guideSeq += 1;
-  return `gd-${Date.now().toString(36)}-${guideSeq}`;
+  return `gd-${idPrefix()}${Date.now().toString(36)}-${guideSeq}`;
 }

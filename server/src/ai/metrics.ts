@@ -22,6 +22,13 @@ export type AiCallRow = {
   planGenerated: boolean
   planAttempts: number
   degraded: boolean
+  /**
+   * 这一轮用的提示词版本。
+   *
+   * 以前只写不读 —— 于是「改话术能按版本回滚」只是口号：出了问题查不到是哪版、
+   * 也没法比较两版的方案采纳率与降级率。现在按版本分组统计，回滚才有依据。
+   */
+  promptVersion: string
 }
 
 export type Summary = {
@@ -77,6 +84,24 @@ export function summarize(rows: AiCallRow[]): Summary {
     avgDurationMs: durations.length ? Math.round(durations.reduce((s, d) => s + d, 0) / durations.length) : 0,
     p95DurationMs: percentile(durations, 95)
   }
+}
+
+/**
+ * 按提示词版本分组。改话术之后要能回答「新版比旧版好还是差」——
+ * 只有把同一套口径分别跑在每个版本上，回滚才有依据。
+ * 按调用数倒序：正在用的那一版排最前。
+ */
+export function byPromptVersion(rows: AiCallRow[]): { version: string; summary: Summary }[] {
+  const groups = new Map<string, AiCallRow[]>()
+  for (const r of rows) {
+    const key = r.promptVersion || '(未记录)'
+    const list = groups.get(key) ?? []
+    list.push(r)
+    groups.set(key, list)
+  }
+  return [...groups.entries()]
+    .map(([version, list]) => ({ version, summary: summarize(list) }))
+    .sort((a, b) => b.summary.calls - a.summary.calls)
 }
 
 /**
@@ -136,7 +161,8 @@ export async function loadAiCalls(days = 7): Promise<AiCallRow[]> {
       toolFailures: aiCalls.toolFailures,
       planGenerated: aiCalls.planGenerated,
       planAttempts: aiCalls.planAttempts,
-      degraded: aiCalls.degraded
+      degraded: aiCalls.degraded,
+      promptVersion: aiCalls.promptVersion
     })
     .from(aiCalls)
     .where(gte(aiCalls.at, since))
