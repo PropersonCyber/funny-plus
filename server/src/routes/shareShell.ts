@@ -21,9 +21,11 @@ import { webAssets } from '../env.ts'
  * 转义集与原来逐字相同（& < > " '），但漏一个字符就是 XSS，没有理由自己维护。
  */
 function esc(raw: string): string {
-  const buf: (string | Promise<string>)[] = []
+  // 必须给 [0] 一个初始空串：escapeToBuffer 是 `buffer[0] += ...`，
+  // 空数组时 buffer[0] 是 undefined，拼出来就是 "undefined标题"
+  const buf: (string | Promise<string>)[] = ['']
   escapeToBuffer(raw, buf)
-  return buf.join('')
+  return String(buf[0])
 }
 
 type ShellInput = {
