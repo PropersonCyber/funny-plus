@@ -205,6 +205,8 @@ export function App() {
                   route.go('login');
                 } else if (res === 'failed') {
                   toast('发布没成功，稍后再试一次');
+                } else if (res === 'updated') {
+                  toast('已更新，原链接还是同一个地址');
                 } else {
                   toast('已发布，链接可以发出去了');
                 }

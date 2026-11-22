@@ -159,6 +159,7 @@ export const SUB_PAGES: Record<RouteName, (p: SubPageProps) => ReactElement> = {
       planIndex={p.planIndex}
       // 进页面前已由 onGuide 生成；万一为空也按当前回忆补一份，不让页面崩
       draft={p.draft ?? p.onGenerateDraft()}
+      memory={p.memory}
       perPerson={p.perPerson}
       onBack={p.back}
       onPatch={p.onPatchDraft}

@@ -4,7 +4,7 @@ import { IconSvg } from '../../IconSvg.js';
 import { svgIcon } from '../../icons.js';
 import { photoSrc } from '../../photo.js';
 import { makeCls } from '../../styles/cls.js';
-import type { Demand, GuideDraft, Plan } from '../../data.js';
+import type { Demand, GuideDraft, PhotoRef, Plan, TripMemory } from '../../data.js';
 import styles from './index.module.scss';
 
 const cls = makeCls(styles);
@@ -14,6 +14,8 @@ type Props = {
   plans: Plan[];
   planIndex: number;
   draft: GuideDraft;
+  /** 这趟旅行的回忆；封面照片只能从这里挑，不接受任意图 */
+  memory: TripMemory;
   /** 整趟行程的人均费用；只在用户打开「公开费用」时才出现在预览里 */
   perPerson: number;
   onBack: () => void;
@@ -49,6 +51,7 @@ export function GuideDraftPage({
   plans,
   planIndex,
   draft,
+  memory,
   perPerson,
   onBack,
   onPatch,
@@ -78,6 +81,16 @@ export function GuideDraftPage({
 
   const isPicked = (planRef: string) => draft.picked[planRef] === true;
   const pickedCount = Object.values(draft.picked).filter(Boolean).length;
+  /** 回忆里能挑的封面照片（整趟 + 各地点），按出现顺序去重 */
+  const memoryPhotos = (() => {
+    const seen = new Set<string>();
+    const all = [...memory.photos, ...Object.values(memory.places).flatMap((n) => n.photos)];
+    return all.filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)));
+  })();
+  const inGuide = (photoId: string) => draft.photos.some((p) => p.id === photoId);
+  /** 加/移一张封面照片；移出就是真的不进 photos，而不是渲染时藏起来 */
+  const onTogglePhoto = (photo: PhotoRef) =>
+    onPatch({ photos: inGuide(photo.id) ? draft.photos.filter((p) => p.id !== photo.id) : [...draft.photos, photo] });
 
   /** 预览用：只取勾上的条目，并保留回忆里的文字与照片 */
   const previewSections = draft.sections
@@ -152,6 +165,30 @@ export function GuideDraftPage({
                 {days.length === 0 ? (
                   <text className={cls('card-note')}>这套方案还没有地点，先去行程页加。</text>
                 ) : null}
+              </view>
+
+              <view className={cls('card')}>
+                <text className={cls('card-title')}>封面照片（{draft.photos.length}）</text>
+                <text className={cls('card-note')}>
+                  默认一张都不带。点一下加入或移出，发布前想清楚哪些愿意公开。
+                </text>
+                {memoryPhotos.length === 0 ? (
+                  <text className={cls('card-note')}>这次旅行的回忆里还没有照片。</text>
+                ) : (
+                  <view className={cls('gp-photo-row')}>
+                    {memoryPhotos.map((p) => {
+                      const on = inGuide(p.id);
+                      return (
+                        <view key={p.id} className={cls('gp-check-wrap')} bindtap={() => onTogglePhoto(p)}>
+                          <image className={cls('gp-photo')} src={photoSrc(p)} mode="aspectFill" />
+                          <view className={cls(on ? 'gp-check gp-check-on' : 'gp-check')}>
+                            {on ? <text className={cls('gp-check-text')}>✓</text> : null}
+                          </view>
+                        </view>
+                      );
+                    })}
+                  </view>
+                )}
               </view>
 
               <view className={cls('card')}>
@@ -255,6 +292,13 @@ export function GuideDraftPage({
                         <text className={cls('gp-ghost-text')}>撤回</text>
                       </view>
                     </view>
+                    {/* 改了草稿要能把改动推到同一条链接上；没有这个入口，用户只能撤回重发，
+                        而撤回会让已经发出去的链接作废 */}
+                    <view className={cls('gp-primary')} bindtap={onPublish}>
+                      <text className={cls('gp-primary-text')}>
+                        {publishing ? '正在更新…' : '更新已发布内容'}
+                      </text>
+                    </view>
                   </>
                 ) : (
                   <>
@@ -269,7 +313,7 @@ export function GuideDraftPage({
                     </view>
                   </>
                 )}
-                <text className={cls('card-note')}>发出去的是一份快照，之后你再改草稿也不会影响已发布的链接。</text>
+                <text className={cls('card-note')}>发出去的是一份快照；改完草稿点「更新已发布内容」，同一个链接就会换成新内容。</text>
               </view>
               <view className={cls('gp-hint')}>
                 <text className={cls('gp-hint-text')}>以上是读者会看到的内容。</text>

@@ -222,3 +222,17 @@
   border-radius: 12px;
   margin: 0 8px 8px 0;
 }
+
+/* 照片 + 勾选角标：角标压在缩略图右上角，和「地点勾选」用同一套勾的视觉 */
+.gp-check-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.gp-check-wrap .gp-check {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  margin: 0;
+}

@@ -142,7 +142,8 @@ export async function pullCloud(): Promise<CloudSnapshot | null> {
  * 「没登录 → 引导登录」与「出错 → 提示重试」，混成一个 null 就没法给不同的界面。
  */
 export type PublishResult =
-  | { ok: true; token: string; url: string }
+  /** updated = 这条链接之前就发过，这次只是把快照刷新成当前草稿 */
+  | { ok: true; token: string; url: string; updated: boolean }
   | { ok: false; reason: 'login' | 'failed' };
 
 /**
@@ -160,12 +161,12 @@ export async function publishGuide(
 ): Promise<PublishResult> {
   if (!isLoggedIn()) return { ok: false, reason: 'login' };
   try {
-    const res = await api.post<{ token: string; url: string }>(
+    const res = await api.post<{ token: string; url: string; updated?: boolean }>(
       `/api/guides/${encodeURIComponent(draftId)}/publish`,
       typeof perPerson === 'number' ? { perPerson } : {}
     );
     if (!res?.token || !res?.url) return { ok: false, reason: 'failed' };
-    return { ok: true, token: res.token, url: res.url };
+    return { ok: true, token: res.token, url: res.url, updated: res.updated === true };
   } catch {
     return { ok: false, reason: 'failed' };
   }

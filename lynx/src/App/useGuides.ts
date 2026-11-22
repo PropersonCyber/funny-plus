@@ -69,7 +69,9 @@ export function draftFromMemory(
     tripId,
     title: `${demand.destination} ${demand.dayCount} 天：我的走法`,
     summary: memory.overview,
-    photos: memory.photos.slice(0, 3),
+    // 照片默认不带：发布是公开行为，默认值必须是「不公开」。
+    // 用户要带哪几张，在草稿页自己勾 —— 早先自动带前 3 张，等于替用户决定了公开内容。
+    photos: [],
     showCost: false,
     picked,
     sections,
@@ -167,7 +169,7 @@ export function useGuides(booted: boolean) {
   const [publishing, setPublishing] = useState(false);
 
   const publish = useCallback(
-    async (tripId: string, perPerson: number | undefined): Promise<'ok' | 'login' | 'failed'> => {
+    async (tripId: string, perPerson: number | undefined): Promise<'ok' | 'updated' | 'login' | 'failed'> => {
       const draft = book[tripId];
       if (!draft || publishing) return 'failed';
       setPublishing(true);
@@ -175,8 +177,8 @@ export function useGuides(booted: boolean) {
         const res = await publishGuide(draft.id, perPerson);
         if (!res.ok) return res.reason;
         setPublished((prev) => ({ ...prev, [tripId]: { token: res.token, url: res.url } }));
-        track('guide_publish', { tripId });
-        return 'ok';
+        track('guide_publish', { tripId, updated: res.updated });
+        return res.updated ? 'updated' : 'ok';
       } finally {
         setPublishing(false);
       }

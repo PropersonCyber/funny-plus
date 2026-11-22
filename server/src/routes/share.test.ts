@@ -82,7 +82,10 @@ async function publish(token: string, id = DRAFT_PAYLOAD.id) {
     headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
     body: JSON.stringify({ perPerson: 388 })
   })
-  return { status: res.status, body: (await res.json()) as { token?: string; url?: string; code?: string } }
+  return {
+    status: res.status,
+    body: (await res.json()) as { token?: string; url?: string; code?: string; updated?: boolean }
+  }
 }
 
 beforeEach(cleanup)
@@ -134,6 +137,38 @@ describe('发布', () => {
     expect(second.body.token).toBe(first.body.token)
     const rows = await db.select({ token: guideShares.token }).from(guideShares).where(eq(guideShares.draftId, DRAFT_PAYLOAD.id))
     expect(rows.length).toBe(1)
+  })
+
+  /**
+   * 更新发布：改了草稿再点发布，链接不变但内容要跟着变。
+   * 早先这里是「原样返回旧行」，于是界面上显示「已发布」，读者看到的却还是发布那一刻的版本。
+   */
+  it('改草稿后再发布：token 不变，公开内容更新为新快照', async () => {
+    const a = await login(P1)
+    await seedDraft(a.token)
+    const first = await publish(a.token)
+
+    await app.request(`/api/guides/${DRAFT_PAYLOAD.id}`, {
+      method: 'PUT',
+      headers: { authorization: `Bearer ${a.token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        tripId: DRAFT_PAYLOAD.tripId,
+        payload: { ...DRAFT_PAYLOAD, title: '改过的标题' },
+        updatedAt: '2026-11-03T00:00:00.000Z'
+      })
+    })
+    const second = await publish(a.token)
+
+    expect(second.body.token).toBe(first.body.token)
+    expect(second.body.updated).toBe(true)
+
+    const shared = (await (await app.request(`/api/share/${first.body.token}`)).json()) as {
+      snapshot?: { title?: string }
+      title?: string
+    }
+    // share 接口的字段名以现有实现为准，两种形状都认，避免为一条断言改接口
+    expect(JSON.stringify(shared)).toContain('改过的标题')
+    expect(JSON.stringify(shared)).not.toContain(DRAFT_PAYLOAD.title)
   })
 })
 

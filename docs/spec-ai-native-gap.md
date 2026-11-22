@@ -37,7 +37,7 @@
 | X5 | 失败提示与占位文案 | 对话失败带「重新发送」+ `chatError.ts` 把英文运行时错误翻成中文；本地兜底预览改用 `applyReviseOp` 已算出的 `affected`（`revisePlan` 不再丢弃）；攻略页旧文案换成已支持发布的口径；城市列表搜索图标指向现有筛选；麦克风不再假装「聆听中」；`runSend` 依赖补齐 `planIndex`；AI 未配置时首页浮标隐藏 | `chatError.test.ts` 4 例 |
 | X6 | 有表字段无写入 | `photos.sha256` 做同人同图去重（命中复用 id，不落第二份）；`factFeedbacks` 落 `userId` 并按 userId 补判重；`trip_versions` 已由 G5 写入 | `photos.test.ts` 9 例（含去重用例） |
 
-门禁现状（2026-11-22 本机复跑）：lynx typecheck 0 / lynx test **192** / `check:css` 826 class 通过 / server typecheck 0。server 测试 13 个文件里 6 个不连库的通过（35 例），7 个连库的**本机无 Postgres 未跑**，不能算已验证。
+门禁现状（2026-11-22 本机复跑）：lynx typecheck 0 / lynx test **192** / `check:css` 827 class 通过 / server typecheck 0。server 测试 13 个文件里 6 个不连库的通过（35 例），7 个连库的**本机无 Postgres 未跑**，不能算已验证。
 
 ### 0.2 2026-11-22 补的三项（不依赖任何裁决）
 

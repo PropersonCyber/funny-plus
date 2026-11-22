@@ -135,8 +135,10 @@ guideRoute.put('/:id', async (c) => {
 /**
  * 发布成分享链接（F08 后半）。
  *
- * 幂等：同一草稿已有未撤回的分享时原样返回，不新建。理由是「再点一次发布」在用户
- * 看来就是「拿到我的链接」，每次都换 token 会让上一次发出去的链接凭空失效。
+ * 幂等：同一草稿已有未撤回的分享时，**用当前草稿刷新它的快照**并返回同一个 token。
+ * 早先是原样返回旧行、不刷新快照 —— 用户改完草稿再点「发布」，链接里还是发布那一刻的内容，
+ * 界面上却显示「已发布」，等于骗人；想更新只能撤回再发，而那会把已经发出去的链接作废。
+ *
  * 撤回后再发布则必须换新 token —— 旧链接已经发出去了，复用等于把撤回变成摆设。
  */
 guideRoute.post('/:id/publish', async (c) => {
@@ -152,16 +154,24 @@ guideRoute.post('/:id/publish', async (c) => {
   // 别人的草稿一律 404 而不是 403：403 等于告诉对方「这个 id 确实存在」
   if (!row) return c.json({ error: '没有找到这份草稿', code: 'not_found' }, 404)
 
+  const body = (await c.req.json().catch(() => null)) as { perPerson?: unknown } | null
+  const perPerson = typeof body?.perPerson === 'number' ? body.perPerson : undefined
+  const snapshot = buildShareSnapshot(row.payload as unknown as GuideDraft, perPerson)
+
   const active = await db
     .select({ token: guideShares.token })
     .from(guideShares)
     .where(and(eq(guideShares.draftId, id), isNull(guideShares.revokedAt)))
     .limit(1)
-  if (active[0]) return c.json({ token: active[0].token, url: shareUrl(active[0].token) })
-
-  const body = (await c.req.json().catch(() => null)) as { perPerson?: unknown } | null
-  const perPerson = typeof body?.perPerson === 'number' ? body.perPerson : undefined
-  const snapshot = buildShareSnapshot(row.payload as unknown as GuideDraft, perPerson)
+  if (active[0]) {
+    // 快照是不可变的「发布结果」，不是「草稿副本」：更新发布写的是同一行的新快照，
+    // token 不变，已经发出去的链接继续有效。更新时间看 snapshot.publishedAt，不再加一列
+    await db
+      .update(guideShares)
+      .set({ snapshot: snapshot as unknown as Record<string, unknown> })
+      .where(eq(guideShares.token, active[0].token))
+    return c.json({ token: active[0].token, url: shareUrl(active[0].token), updated: true })
+  }
 
   const token = randomBytes(16).toString('base64url')
   await db.insert(guideShares).values({
@@ -170,7 +180,7 @@ guideRoute.post('/:id/publish', async (c) => {
     userId: actor.userId,
     snapshot: snapshot as unknown as Record<string, unknown>
   })
-  return c.json({ token, url: shareUrl(token) })
+  return c.json({ token, url: shareUrl(token), updated: false })
 })
 
 /**

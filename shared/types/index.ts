@@ -551,7 +551,10 @@ export interface GuideDraft {
   title: string
   /** 用户可改的开头概述 */
   summary: string
-  /** 用户勾选进攻略的封面照片（从回忆里挑） */
+  /**
+   * 用户勾选进攻略的封面照片（从回忆里挑）。默认空 —— 照片是隐私开关，
+   * 默认值必须是「不公开」，不能替用户挑好带出去。
+   */
   photos: PhotoRef[]
   /** 是否公开费用区间；默认不公开 */
   showCost: boolean
