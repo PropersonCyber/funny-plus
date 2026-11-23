@@ -36,15 +36,31 @@
 | X4 | 草稿 id 漂移 | `loadGuides` 原样恢复 `draft.id` | `guides.test.ts` 4 例 |
 | X5 | 失败提示与占位文案 | 对话失败带「重新发送」+ `chatError.ts` 把英文运行时错误翻成中文；本地兜底预览改用 `applyReviseOp` 已算出的 `affected`（`revisePlan` 不再丢弃）；攻略页旧文案换成已支持发布的口径；城市列表搜索图标指向现有筛选；麦克风不再假装「聆听中」；`runSend` 依赖补齐 `planIndex`；AI 未配置时首页浮标隐藏 | `chatError.test.ts` 4 例 |
 | X6 | 有表字段无写入 | `photos.sha256` 做同人同图去重（命中复用 id，不落第二份）；`factFeedbacks` 落 `userId` 并按 userId 补判重；`trip_versions` 已由 G5 写入 | `photos.test.ts` 9 例（含去重用例） |
-| N8 | 回忆草稿生成 | 新增 `lynx/src/memoryDraft.ts`；`endTrip` 结束时把已有记录整理进 `TripMemory.draft`，接受后召入 `overview` 或丢弃；`loadMemory` 登记 `draft` | `memoryDraft.test.ts` 9 例（共 201） |
+| N8 | 回忆草稿生成 | `lynx/src/memoryDraft.ts` 的 `buildMemoryDraft` + 纯函数 `draftFor`（已有回顾 / 已有草稿 / 刚否掉且无新记录 / 整理不出内容，四种都不生成）；`endTrip` 不再刷新 `updatedAt`、不再覆盖用户文字；`discardDraft` 记 `draftDismissedAt`；采纳前对非空回顾二次确认；**完全无记录时返回空串**，不再生成只有「还没记」的清单 | `memoryDraft.test.ts` 15 例（共 217） |
 
 | N10 | 表单走模型提案 | 新增 `POST /api/ai/plans` + `server/src/ai/propose.ts`（模型只给地点顺序）+ `generatePlans(demand,{order})` 接缝；`lynx/src/planFetch.ts` 6s 超时无损落回本地 | `engine.test.ts` 3 例（共 209）；模型路径需真机 + key 冒烟 |
-| N4 | 时段粒度修改 | `ReviseOp` 加 `ease{day,window}`；`windowOf` 边界在 types 里；关键词兜底认「上午/下午/晚上」；模型 schema 与提示词同步 | `engine.test.ts` 3 例（共 209） |
-| N3 | 固定安排 | `ItineraryItem.pinned`；行程页「固定」开关；`applyReviseOp` 遇 pinned 拒绝 drop/replace 并说明原因；关键词兜底跳过 pinned | `engine.test.ts` 2 例（共 209） |
-| N11 | 对话回归集 | 新增 `server/src/ai/eval/`（6 类用例 + 判定纯函数 + SSE runner）+ `scripts/chat-eval.ts` + `npm run eval:chat`（`--save` / `--baseline` / `--only`） | `eval/checks.test.ts` 8 例；真实模型跑批未执行（需 key + 起 `dev:api`） |
-| C1/C2/C3 | 数据飞轮 | 新增 `server/src/data/trustRules.ts`（阈值集中）；`GET /api/facts` 按反馈与有效期降一档并写 `trustNote`；`POST /api/submit` 同字段 2 个独立设备一致且原列为空时写进线上表、status→verified，**不动 trust** | `trustRules.test.ts` 9 例（server 不连库的共 61）；连库测试本机无 Postgres 未跑 |
+| N4 | 时段粒度修改 | `ReviseOp` 加 `ease{day,window}`；关键词兜底认「上午/下午/晚上」；`retime` 加 `WINDOW_FLOOR`（压缩不得把安排拖出原时段），换序用 `keepWindows:false` | `engine.test.ts` 4 例（含「晚上的安排不被拖进下午」） |
+| N3 | 固定安排 | `ItineraryItem.pinned`；行程页「固定」开关；`applyReviseOp` 遇 pinned 拒绝 drop/replace；**`reorder` 让固定项保持原位次并在 reason 里说明**；关键词兜底跳过 pinned | `engine.test.ts` 3 例 |
+| N11 | 对话回归集 | `server/src/ai/eval/`（6 类用例 + 判定纯函数 + SSE runner）+ `scripts/chat-eval.ts`；runner 保留 `tool_result`，判定新增 `noInventedPrices`（金额须在工具返回里有出处）、`engineIssues`（引擎真的判出 over-budget / empty-day）、`expectPlans`、`slotsAbsent`；every `mustMention` alternative 拆成独立「或」组 | `eval/checks.test.ts` 18 例；真实模型跑批未执行（需 key + 起 `dev:api`） |
+| C1/C2/C3 | 数据飞轮 | `server/src/data/trustRules.ts`（阈值集中）；`GET /api/facts`、`GET /api/content`、AI `getFacts` **三处共用 `factWithTrust`**（反馈 + 有效期，AI 不再用进程级缓存）；`POST /api/submit` 按**归一化后的值**凑票（`17:00` 与 `1020` 算同一票）、只在原列为空时写入、**写入同时把行压到 `experience`**（`capTrust`）、写 0 行时不再谎报 `promoted`、**凑票只认登录账号**（`isAgreed`，自报 `clientId` 不算数） | `trustRules.test.ts` 19 例 + `submit.test.ts` 5 例（真库） |
 
-门禁现状（2026-11-23 本机复跑）：lynx typecheck 0 / lynx test **209** / `check:css` 835 class 通过 / server typecheck 0。server 测试 13 个文件里 6 个不连库的通过（35 例），7 个连库的**本机无 Postgres 未跑**，不能算已验证。
+门禁现状（2026-11-23 最终复跑）：lynx typecheck 0 / lynx test **217** / `check:css` 835 class 通过 / server typecheck 0 / **server test 160 例全绿（17 个文件，含连库的 7 个）**。连库测试是本次先起 `docker compose -f server/docker-compose.yml up -d` + `db:migrate` + `db:seed` 之后真跑通的，不再是「本机无 Postgres 未跑」。
+
+### 0.1.1 2026-11-23 复核五个「已完成」项发现的缺陷
+
+上一轮把它们标成已完成，但按验收口径复跑后，有九处是「读起来对、跑起来不对」。共同点是都不会报错，只会让用户在某一刻看到自相矛盾的结论或丢字。前五条来自对报告项的复核，6–7 是修完之后做边界检查追加的，8–9 是拉起真库跑全量测试时才暴露的 —— 那两个问题一直存在，只是以前连库测试从没在本机跑过。
+
+| # | 问题 | 实际行为 | 改动 |
+|---|---|---|---|
+| 1 | 时段修改会动其他时段，固定安排也可能被移动 | 「第二天下午轻松点」只删下午那一条，随后整天重排：晚上 19:00 的夜游被算到 14:50。`reorder` 走过另一条分支，`pinned` 拦不住它 | `retime` 按**原本所属时段**设地板（`WINDOW_FLOOR`），换序显式 `keepWindows:false`；`reorder` 让固定项留在原位并在 reason 里说明 |
+| 2 | 补录可能继承「官方」可信度，且 C2 一直静默失效 | `promoteIfAgreed` 写值但不动 `trust`，官方行吸收用户填报后仍走 `canJudgeHard` 判硬冲突；同时 `Number('17:00')` 是 NaN，**带冒号的时间永远进不了线上表**，而 vote 按原字符串分组，`17:00` 与 `1020` 各算一票 | 归一化收敛到 `normalizeSubmitValue`（写库与凑票共用）；写入时 `capTrust` 把行压到 `experience`；`UPDATE ... RETURNING` 写 0 行时不再谎报生效 |
+| 3 | 回忆草稿三个问题仍在 | 采纳覆盖用户已写的回顾；删掉草稿后重开再结束会再生成同一份；完全没有记录时仍生成「还没记」 | 见 §N8（`draftFor` + `draftDismissedAt` + 采纳二次确认 + 空态返回空串） |
+| 4 | 反馈降级只覆盖了一个入口 | `GET /api/facts` 走 `resolveTrust`，但 `/api/content` 与 AI 的 `factCache` 用库里的原始 `trust`；`factCache` 还在进程生命周期内不再失效，AI 的回答永远停在服务启动时那一档。攻略页徽标同样直接读 `f.trust` | `feedbackStats()` + `factWithTrust()` 三处共用；AI 去掉进程级缓存改为每轮重查；徽标改走 `displayTrust` |
+| 5 | 回归集判不出它声称要判的东西 | `price-bait` 只禁三个字面串；`over_budget` / `time_conflict` 只看关键词、从不看引擎，且两条的前提本身就是错的（重庆两天不超预算；都江堰/青城山不在收录里）；`mustMention` 的 AND/OR 写反，诚实回答反而失败 | runner 保留 `tool_result`；新增 `noInventedPrices` / `engineIssues` / `expectPlans` / `slotsAbsent`；用例前提换成引擎确实会报出来的需求 |
+| 6 | 补录的间隔值无上界 | `intervalMin` 原来只挡 0 与负数，`1512`（25 小时一班）能写进 int 列，等车推算随之失真 | 归一化时同样按「不超过一天」挡掉，并补一条用例 |
+| 7 | 回归基线会混进提交 | `chat-eval.ts` 注释写着「基线不进版本库」，但 `.gitignore` 里没有对应条目 | 补进 `.gitignore`，`git check-ignore` 已验证 |
+| 8 | 补录凑票可以自导自演 | `clientId` 是客户端自报的，同一个人换两个字符串就是「两个独立设备」，一条未经核验的末班因此能写进线上表 —— C2 的立论（多个人独立一致）根本不成立 | 凑票只认**登录账号**：`isAgreed` 默认只数 userId，匿名票完全不参与计数（不是降权，是排除——降权仍可伪造）。`submit.test.ts` 用真库覆盖「一人两 clientId 不生效 / 两账号才生效 / 同账号换设备只算一票」 |
+| 9 | 改草稿再保存会误判冲突 | `PUT /api/guides/:id` 拿客户端自己的编辑时刻比服务端写入时刻，客户端时刻几乎必然更早，于是连续保存两次必有一次被判 `stale_write` | 冲突判定改比**两端同一量纲的值**（草稿 payload 里的 `updatedAt`），`share.test.ts` 那条一直红的用例随之转绿 |
 
 ### 0.2 2026-11-22 补的三项（不依赖任何裁决）
 
@@ -314,7 +330,7 @@ J1 证据链：`lynx/src/pages/AssistantPage/index.tsx:265` → `lynx/src/App/su
 
 **未做**：`Demand.dateFrom` / `dateTo` 只有类型与注释，表单与行程页都没接，也没有任何地方读它 —— 所以「允许未知」目前是空的。时段保留：日期一旦接上，`openText` 里的周几闭馆与季节区间要一起参与，否则日期填了也不影响规划。
 
-要求：MUST 支持日期或时间范围（允许未知）。固定安排 MUST 在后续修改中作为约束，MUST NOT 被 drop / replace 静默改掉。
+要求：MUST 支持日期或时间范围（允许未知）。固定安排 MUST 在后续修改中作为约束，MUST NOT 被 drop / replace 静默改掉，也 MUST NOT 被换序挪位次（`reorder` 现在让固定项留在原位，并在 reason 里说明「保持原位」）。
 
 验收：
 - **WHEN** 用户固定第 2 天的某个地点，随后说「第二天轻松点」
@@ -323,6 +339,8 @@ J1 证据链：`lynx/src/pages/AssistantPage/index.tsx:265` → `lynx/src/App/su
 - **THEN** 明确标为未知，不伪造具体日期
 
 ### N4 修改支持时段粒度（F03、9.2）—— **已完成（2026-11-23）**
+
+**补一轮**：「只动该时段」原来只做到「只删该时段」，时刻仍整天顺延 —— 删掉下午一站后，晚上 19:00 的夜游被重排到 14:50，用户看到的是「我说下午轻松点，结果晚上那站没了」。`retime` 现在按每个条目**原本所属时段**设地板（`WINDOW_FLOOR`），压缩只能在本时段内往前收；换序则显式 `keepWindows:false`，因为那是用户要求整体重排。
 
 原现状：`shared/types/index.ts:253-256` `ReviseOp` 只有 `drop` / `replace` / `reorder`，**无时段字段**；模型 schema 同样没有（`server/src/ai/revise.ts:21-30`），提示词把「轻松点」直接定义成 drop 一个景点（`:43`）。`shared/engine/planEdit.ts:106` 的 retime 是全天顺延重排，不是只动下午。关键词兜底恒删当天最后一个（`shared/engine/planner.ts:266`）。
 
@@ -378,20 +396,28 @@ J1 证据链：`lynx/src/pages/AssistantPage/index.tsx:265` → `lynx/src/App/su
 
 原现状：`lynx/src/App/useTrips.ts:223` `endTrip` **只写 `endedAt` 并发埋点，不生成任何草稿**（注释自述「只记时刻，不清任何数据」）；回忆初值是空壳（`:207`）。全仓无回忆相关 AI 调用。
 
-改动：新增 `lynx/src/memoryDraft.ts` 的 `buildMemoryDraft`（纯函数）。按天分块，三个桶严格按 `visited` 三态切：`yes` → 写「去了」+ 用户原文，`no` → 写「没去」，`unknown` 且有内容 → 标「未确认到访」，`unknown` 且无内容 → 只进末尾「还没记」清单。草稿存 `TripMemory.draft` 而不直接写 `overview`：`overview` 会当攻略概述带出去（`useGuides.draftFromMemory`），草稿默认不该变成用户要公开的那段话。`endTrip` 在「已有 overview」或「已有未处理草稿」时不再覆盖。
+改动：`lynx/src/memoryDraft.ts` 的 `buildMemoryDraft`（纯函数）。按天分块，三个桶严格按 `visited` 三态切：`yes` → 写「去了」+ 用户原文，`no` → 写「没去」，`unknown` 且有内容 → 标「未确认到访」，`unknown` 且无内容 → 进末尾「还没记」清单。草稿存 `TripMemory.draft` 而不直接写 `overview`：`overview` 会当攻略概述带出去（`useGuides.draftFromMemory`），草稿默认不该变成用户要公开的那段话。
 
-服务端零改动：`trip_memories.payload` 是 jsonb 透传；`stripLocalPhotos` 按结构递归，`draft` 是字符串原样过；`shareSnapshot` 只从 `GuideDraft` 取，草稿不可能外泄。
+**上一版留下的三个问题，本轮修掉**（都不是新功能，是原实现读起来像对的、跑起来会伤用户）：
+- **采纳会覆盖用户后来写的回顾**：草稿卡就在回顾框上方，用户很可能先写两句再点「用作回顾」，而 `adoptDraft` 是无条件 `overview = draft`，本机没有历史版本可退。现在已有非空回顾时按钮先变成「确认覆盖」，要再点一次。
+- **删掉草稿后重开再结束会再生成同一份**：`discardDraft` 只删字段，`buildMemoryDraft` 对同一份 `places` 是确定性的。现在 `discardDraft` 记 `draftDismissedAt`（随 `loadMemory` / 云端 payload 一起走），`draftFor` 在「否掉之后没有更新的记录」时不再生成。
+- **完全没有记录时仍生成「还没记：…」**：那份东西在页面上是一张带「用作回顾」按钮的卡，点一下就把一串地名变成公开攻略的概述。现在 `buildMemoryDraft` 在一条记录都没有时返回空串，空态交给页面邀请补充。
+
+同时 `endTrip` 不再于「已有回忆但没生成草稿」时刷新 `updatedAt` —— 刷新会让「否掉之后没再改过」这个判断永久失效。
+
+服务端零改动：`trip_memories.payload` 是 jsonb 透传；`stripLocalPhotos` 按结构递归，`draft` / `draftDismissedAt` 原样过；`shareSnapshot` 只从 `GuideDraft` 取，草稿不可能外泄。
 
 验收对应：
-- 3 已确认 + 2 未确认 → 3 条带「去了」与原文，2 条标「未确认到访」（`memoryDraft.test.ts` 第 1/3 例）
-- 无任何记录 → 只出「还没记：xxx」，Day 块里不出现该地点，不生成感受（第 4/5 例）
-- 用户否认去过 → 写「没去」，不从草稿里消失（第 2 例）
+- 3 已确认 + 2 未确认 → 3 条带「去了」与原文，2 条标「未确认到访」（`memoryDraft.test.ts`）
+- 一条记录都没有 → 返回空串，不生成草稿卡（`buildMemoryDraft` / `draftFor` 各一例）
+- 用户否认去过 → 写「没去」，不从草稿里消失
+- 否掉之后没再改 → 不再生成；之后写了新记录 → 允许再整理一次（`draftFor` 两例）
 
 未验证：真机上的文本域重挂（采纳草稿靠换 `key` 强制刷新 `default-value`）与 `bindtap` 手感。
 
 已真实现、MUST NOT 回退的部分：图文再编辑（`lynx/src/pages/MemoryPage/index.tsx:143,222`）、「未确认到访不写成实际」的多层保障（`lynx/src/App/useTrips.ts:291` 默认 unknown、`lynx/src/storage.ts:327` 只认三态、`lynx/src/App/useGuides.ts:62` 只勾 `visited==='yes'`、`lynx/src/pages/SharePage/index.tsx:106` 三态标签）。
 
-要求：结束旅行后 MUST 生成可编辑草稿，MUST 区分原计划、已确认到访与其他记录。MUST NOT 代写未发生的经历或编造感受。
+要求：结束旅行后 MUST 生成可编辑草稿，MUST 区分原计划、已确认到访与其他记录。MUST NOT 代写未发生的经历或编造感受。用户否决过的整理结果 MUST NOT 在没有任何新内容时再次出现；采纳 MUST NOT 静默覆盖用户已经写下的回顾。
 
 验收：
 - **WHEN** 用户结束一趟有 3 个已确认到访、2 个未确认的旅行
@@ -431,9 +457,19 @@ J1 证据链：`lynx/src/pages/AssistantPage/index.tsx:265` → `lynx/src/App/su
 
 要求：MUST 有固定对话集，断言「不编数字、槽位正确、issue 定性正确」，一条命令跑出通过率并可与上一版对比。MUST 覆盖缺槽位、城市未开放、超预算、时间冲突、口语方言、诱导编造价格。
 
+**补一轮：上一版的三类断言其实判不出它声称要判的东西。**
+
+- **「不编数字」只禁了三个字面串**（`门票 60` / `门票 80` / `人均 ¥`），「洪崖洞门票60元，长江索道80元，人均 680 元」一句都不命中，稳过。现在 `Turn` 保留每一轮的工具返回，`noInventedPrices` 把回复里的金额（`¥60` / `60元` / `门票 60`）逐个拿去工具返回里找出处，找不到即判编造；「三天」「2 人」「15:00」这类非金额数字不参与。
+- **超预算 / 时间冲突只看关键词，从不看引擎**。说一句「预算完全没问题」也过。现在 `engineIssues` 直接检查工具输出里引擎判出的 issue code（`validateView` 新增 `issues` 字段回传全部三级 code）。
+- **`mustMention` 的 AND / OR 写反了**：`[['时间','来不及','冲突','排不下']]` 要求四个词同现，诚实回答反而失败。现在每个说法单独成组（「或」），并在类型注释里写清两个方向的区别。同理 `missing_slot` 新增 `slotsAbsent`：嘴上追问、槽位里已经编好天数，判失败。
+
+另两个前提本身是错的：`over_budget` 用「重庆两天两人 low」算出来 635 元、没超 1000 的上限，**永远判不到 over-budget**；`time_conflict` 用「一天去熊猫基地+都江堰+青城山」，后两个根本不在收录里，判的其实是「城市未收录」。两条都换成了引擎确实会报出来的需求。
+
 验收：
 - **WHEN** 修改提示词后跑回归
 - **THEN** 输出通过率与逐条差异，编造数字类用例 MUST 全绿
+- **WHEN** 模型给出一个不在任何禁词里的具体票价
+- **THEN** 该用例失败，并指出哪个金额找不到出处
 
 ## 6. P3 代码卫生与文档同步
 
