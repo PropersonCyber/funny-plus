@@ -10,7 +10,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx --env-file=.env src/db/seed.ts",
     "metrics": "tsx --env-file=.env scripts/ai-metrics.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "eval:chat": "tsx --env-file=.env scripts/chat-eval.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.115",
