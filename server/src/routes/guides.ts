@@ -100,7 +100,7 @@ guideRoute.put('/:id', async (c) => {
 
   const now = new Date()
   const [existing] = await db
-    .select({ updatedAt: guideDrafts.updatedAt, userId: guideDrafts.userId })
+    .select({ updatedAt: guideDrafts.updatedAt, userId: guideDrafts.userId, payload: guideDrafts.payload })
     .from(guideDrafts)
     .where(eq(guideDrafts.id, id))
     .limit(1)
@@ -109,8 +109,16 @@ guideRoute.put('/:id', async (c) => {
     if (existing.userId !== actor.userId) {
       return c.json({ error: '无权访问', code: 'unauthorized' }, 401)
     }
+    // 冲突判定比的是**草的修改时间**，不是服务端写入握手时间。
+    //
+    // 早先这里拿 body.updatedAt 比 existing.updatedAt（服务端 now()）：客户端推上来的
+    // 是它自己的编辑时刻，几乎必然早于几毫秒后的 now()，于是「改完草稿再保存」连续两次
+    // 必有一次被判 stale_write —— 用户看到「这台设备的数据比云端旧」，而实际上他刚改的就是最新的。
+    // 现在两端存的是同一量纲的值（客户端自己写的 payload.updatedAt），比较才有意义。
     const incoming = body?.updatedAt ? new Date(body.updatedAt) : null
-    if (incoming && incoming.getTime() < existing.updatedAt.getTime()) {
+    const stored = (existing.payload as { updatedAt?: string } | null)?.updatedAt
+    const storedAt = stored ? new Date(stored) : null
+    if (incoming && storedAt && !Number.isNaN(storedAt.getTime()) && incoming.getTime() < storedAt.getTime()) {
       return c.json({ error: '这台设备的数据比云端旧，请刷新后再改', code: 'stale_write' }, 409)
     }
     const clean = stripLocalPhotos(payload)
