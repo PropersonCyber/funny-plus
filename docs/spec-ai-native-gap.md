@@ -36,8 +36,15 @@
 | X4 | 草稿 id 漂移 | `loadGuides` 原样恢复 `draft.id` | `guides.test.ts` 4 例 |
 | X5 | 失败提示与占位文案 | 对话失败带「重新发送」+ `chatError.ts` 把英文运行时错误翻成中文；本地兜底预览改用 `applyReviseOp` 已算出的 `affected`（`revisePlan` 不再丢弃）；攻略页旧文案换成已支持发布的口径；城市列表搜索图标指向现有筛选；麦克风不再假装「聆听中」；`runSend` 依赖补齐 `planIndex`；AI 未配置时首页浮标隐藏 | `chatError.test.ts` 4 例 |
 | X6 | 有表字段无写入 | `photos.sha256` 做同人同图去重（命中复用 id，不落第二份）；`factFeedbacks` 落 `userId` 并按 userId 补判重；`trip_versions` 已由 G5 写入 | `photos.test.ts` 9 例（含去重用例） |
+| N8 | 回忆草稿生成 | 新增 `lynx/src/memoryDraft.ts`；`endTrip` 结束时把已有记录整理进 `TripMemory.draft`，接受后召入 `overview` 或丢弃；`loadMemory` 登记 `draft` | `memoryDraft.test.ts` 9 例（共 201） |
 
-门禁现状（2026-11-22 本机复跑）：lynx typecheck 0 / lynx test **192** / `check:css` 827 class 通过 / server typecheck 0。server 测试 13 个文件里 6 个不连库的通过（35 例），7 个连库的**本机无 Postgres 未跑**，不能算已验证。
+| N10 | 表单走模型提案 | 新增 `POST /api/ai/plans` + `server/src/ai/propose.ts`（模型只给地点顺序）+ `generatePlans(demand,{order})` 接缝；`lynx/src/planFetch.ts` 6s 超时无损落回本地 | `engine.test.ts` 3 例（共 209）；模型路径需真机 + key 冒烟 |
+| N4 | 时段粒度修改 | `ReviseOp` 加 `ease{day,window}`；`windowOf` 边界在 types 里；关键词兜底认「上午/下午/晚上」；模型 schema 与提示词同步 | `engine.test.ts` 3 例（共 209） |
+| N3 | 固定安排 | `ItineraryItem.pinned`；行程页「固定」开关；`applyReviseOp` 遇 pinned 拒绝 drop/replace 并说明原因；关键词兜底跳过 pinned | `engine.test.ts` 2 例（共 209） |
+| N11 | 对话回归集 | 新增 `server/src/ai/eval/`（6 类用例 + 判定纯函数 + SSE runner）+ `scripts/chat-eval.ts` + `npm run eval:chat`（`--save` / `--baseline` / `--only`） | `eval/checks.test.ts` 8 例；真实模型跑批未执行（需 key + 起 `dev:api`） |
+| C1/C2/C3 | 数据飞轮 | 新增 `server/src/data/trustRules.ts`（阈值集中）；`GET /api/facts` 按反馈与有效期降一档并写 `trustNote`；`POST /api/submit` 同字段 2 个独立设备一致且原列为空时写进线上表、status→verified，**不动 trust** | `trustRules.test.ts` 9 例（server 不连库的共 61）；连库测试本机无 Postgres 未跑 |
+
+门禁现状（2026-11-23 本机复跑）：lynx typecheck 0 / lynx test **209** / `check:css` 835 class 通过 / server typecheck 0。server 测试 13 个文件里 6 个不连库的通过（35 例），7 个连库的**本机无 Postgres 未跑**，不能算已验证。
 
 ### 0.2 2026-11-22 补的三项（不依赖任何裁决）
 
@@ -104,7 +111,7 @@ J1 证据链：`lynx/src/pages/AssistantPage/index.tsx:265` → `lynx/src/App/su
 | F04 现场推荐 | 全缺 | 定位只到城市级，无到达判定，三分支零代码 | D4 → N6 |
 | F05 下一站 | 全缺 | 离开意图 / 候选 / 城市交通零代码 | D4 → N7 |
 | F06 账号与同步 | 占位为主 | 短信未接服务商；微信 501；Apple 通道不存在；只推不拉 | R1、R2、G5、N5 |
-| F07 收藏与回忆 | 部分 | 结束旅行不生成草稿；图文编辑与「未确认到访不写成实际」已真实现 | N8 |
+| F07 收藏与回忆 | 部分 | 结束旅行生成草稿已落地（N8）；缺 AI 叙述性整理 | — |
 | F08 攻略与分享 | 部分 | 快照冻结与撤回已真实现；无照片勾选、无更新发布 | R6、N9、X4 |
 | F09 可信与失败 | 部分 | 未知票价告知被截断；页脚 trust 自相矛盾；无重试入口 | G3、X5 |
 | F10 评估 | 部分 | 事件已落库，但无聚合口径、无旅程标识 | G7 |
@@ -114,7 +121,7 @@ J1 证据链：`lynx/src/pages/AssistantPage/index.tsx:265` → `lynx/src/App/su
 - 已落：A1、A2、A3、A4、A5、A6（A5 工具内联在 `server/src/routes/ai.ts:193-315`，未抽 `tools.ts`，不影响判据）
 - 未落：A7（无 `prompt.ts` / `PROMPT_VERSION`）→ X1；B1（无 `/api/ai/plans`）→ N10；B2 → G1；B3 → G6；B6（无 eval 目录）→ N11
 - 部分：B4（`PUT` 已开但无 `GET`）→ G5；B5（客户端埋点齐、服务端 AI 度量缺）→ G7
-- 未落：C1（反馈只计数不改 trust）、C2（补录只进 pending 池不生效）、C3（无过期复核）→ 归入数据飞轮，本期不排
+- 已落（2026-11-23）：C1 / C2 / C3，见 §0.1 与 §6.1
 
 ## 3. P0 红线（R 组，与 D1 无关，建议先修）
 
@@ -299,9 +306,13 @@ J1 证据链：`lynx/src/pages/AssistantPage/index.tsx:265` → `lynx/src/App/su
 - **WHEN** 分别从主卡与 FAB 进入
 - **THEN** 落到同一个助理会话，已确认安排出现在同一工作台
 
-### N3 旅行上下文补日期与固定安排（F02）
+### N3 旅行上下文补日期与固定安排（F02）—— **固定安排已完成，日期范围只到类型层（2026-11-23）**
 
-现状：`shared/types/index.ts:9-18` `Demand` 只有 destination / dayCount / party / budgetLevel / preferences / transport / notes，**无日期或时间范围**；`lynx/src/pages/ItineraryPage/index.tsx:154` 的日期是设计稿文案。pin / locked / 固定安排在 `shared/`、`server/src`、`lynx/src` 业务代码零命中。
+原现状：`Demand` 只有 destination / dayCount / party / budgetLevel / preferences / transport / notes，**无日期或时间范围**；`ItineraryPage:154` 的日期是设计稿文案。pin / locked / 固定安排在三个包里零命中。
+
+已做：`ItineraryItem.pinned` + 行程页「固定」开关 + `useTrips.setPinned`；`applyReviseOp` 遇 pinned 拒绝 drop / replace 并说明原因；关键词兜底跳过 pinned（否则「轻松点」会静默吃掉用户固定的那条）。
+
+**未做**：`Demand.dateFrom` / `dateTo` 只有类型与注释，表单与行程页都没接，也没有任何地方读它 —— 所以「允许未知」目前是空的。时段保留：日期一旦接上，`openText` 里的周几闭馆与季节区间要一起参与，否则日期填了也不影响规划。
 
 要求：MUST 支持日期或时间范围（允许未知）。固定安排 MUST 在后续修改中作为约束，MUST NOT 被 drop / replace 静默改掉。
 
@@ -311,9 +322,9 @@ J1 证据链：`lynx/src/pages/AssistantPage/index.tsx:265` → `lynx/src/App/su
 - **WHEN** 日期未填
 - **THEN** 明确标为未知，不伪造具体日期
 
-### N4 修改支持时段粒度（F03、9.2）
+### N4 修改支持时段粒度（F03、9.2）—— **已完成（2026-11-23）**
 
-现状：`shared/types/index.ts:253-256` `ReviseOp` 只有 `drop` / `replace` / `reorder`，**无时段字段**；模型 schema 同样没有（`server/src/ai/revise.ts:21-30`），提示词把「轻松点」直接定义成 drop 一个景点（`:43`）。`shared/engine/planEdit.ts:106` 的 retime 是全天顺延重排，不是只动下午。关键词兜底恒删当天最后一个（`shared/engine/planner.ts:266`）。
+原现状：`shared/types/index.ts:253-256` `ReviseOp` 只有 `drop` / `replace` / `reorder`，**无时段字段**；模型 schema 同样没有（`server/src/ai/revise.ts:21-30`），提示词把「轻松点」直接定义成 drop 一个景点（`:43`）。`shared/engine/planEdit.ts:106` 的 retime 是全天顺延重排，不是只动下午。关键词兜底恒删当天最后一个（`shared/engine/planner.ts:266`）。
 
 要求：MUST 支持「第 N 天 + 时段」的定向修改。无法表达时 MUST 返回 `supported:false` 与可读原因，MUST NOT 退化成删最后一个。
 
@@ -363,9 +374,20 @@ J1 证据链：`lynx/src/pages/AssistantPage/index.tsx:265` → `lynx/src/App/su
 - **WHEN** 用户确认变更
 - **THEN** 影响同步到工作台；取消则原计划不变
 
-### N8 回忆草稿生成（F07、9.7）
+### N8 回忆草稿生成（F07、9.7）—— **已完成（2026-11-23）**
 
-现状：`lynx/src/App/useTrips.ts:223` `endTrip` **只写 `endedAt` 并发埋点，不生成任何草稿**（注释自述「只记时刻，不清任何数据」）；回忆初值是空壳（`:207`）。全仓无回忆相关 AI 调用。攻略草稿同为模板拼接（`lynx/src/App/useGuides.ts:31-78`，标题为字符串拼接）。
+原现状：`lynx/src/App/useTrips.ts:223` `endTrip` **只写 `endedAt` 并发埋点，不生成任何草稿**（注释自述「只记时刻，不清任何数据」）；回忆初值是空壳（`:207`）。全仓无回忆相关 AI 调用。
+
+改动：新增 `lynx/src/memoryDraft.ts` 的 `buildMemoryDraft`（纯函数）。按天分块，三个桶严格按 `visited` 三态切：`yes` → 写「去了」+ 用户原文，`no` → 写「没去」，`unknown` 且有内容 → 标「未确认到访」，`unknown` 且无内容 → 只进末尾「还没记」清单。草稿存 `TripMemory.draft` 而不直接写 `overview`：`overview` 会当攻略概述带出去（`useGuides.draftFromMemory`），草稿默认不该变成用户要公开的那段话。`endTrip` 在「已有 overview」或「已有未处理草稿」时不再覆盖。
+
+服务端零改动：`trip_memories.payload` 是 jsonb 透传；`stripLocalPhotos` 按结构递归，`draft` 是字符串原样过；`shareSnapshot` 只从 `GuideDraft` 取，草稿不可能外泄。
+
+验收对应：
+- 3 已确认 + 2 未确认 → 3 条带「去了」与原文，2 条标「未确认到访」（`memoryDraft.test.ts` 第 1/3 例）
+- 无任何记录 → 只出「还没记：xxx」，Day 块里不出现该地点，不生成感受（第 4/5 例）
+- 用户否认去过 → 写「没去」，不从草稿里消失（第 2 例）
+
+未验证：真机上的文本域重挂（采纳草稿靠换 `key` 强制刷新 `default-value`）与 `bindtap` 手感。
 
 已真实现、MUST NOT 回退的部分：图文再编辑（`lynx/src/pages/MemoryPage/index.tsx:143,222`）、「未确认到访不写成实际」的多层保障（`lynx/src/App/useTrips.ts:291` 默认 unknown、`lynx/src/storage.ts:327` 只认三态、`lynx/src/App/useGuides.ts:62` 只勾 `visited==='yes'`、`lynx/src/pages/SharePage/index.tsx:106` 三态标签）。
 
@@ -391,9 +413,9 @@ J1 证据链：`lynx/src/pages/AssistantPage/index.tsx:265` → `lynx/src/App/su
 - **WHEN** 用户更新已发布攻略
 - **THEN** 原链接指向新快照；未更新前私人回忆的修改不影响已发布内容
 
-### N10 表单主链路走模型提案（对应 B1）
+### N10 表单主链路走模型提案（对应 B1）—— **已完成（2026-11-23）**
 
-现状：无 `POST /api/ai/plans`；表单仍 100% 本地确定性 `planFor`（`lynx/src/pages/PlanSheet/index.tsx:110,125`、`lynx/src/App/useTrips.ts:19,149`）。「模型提案 + 引擎裁决」目前只覆盖对话入口。
+原现状：无 `POST /api/ai/plans`；表单仍 100% 本地确定性 `planFor`（`lynx/src/pages/PlanSheet/index.tsx:110,125`、`lynx/src/App/useTrips.ts:19,149`）。「模型提案 + 引擎裁决」目前只覆盖对话入口。
 
 要求：主链路替换 MUST 与「`AI_API_KEY` 未配置仍完整可用」一起验。超时或失败 MUST 无损落回本地引擎。MUST 先有 G7 的度量再替换（`docs/ai-native-plan.md:119`）。
 
@@ -403,9 +425,9 @@ J1 证据链：`lynx/src/pages/AssistantPage/index.tsx:265` → `lynx/src/App/su
 - **WHEN** 模型超时
 - **THEN** 落回本地引擎，主链路不阻塞，降级次数可查
 
-### N11 对话回归集（对应 B6）
+### N11 对话回归集（对应 B6）—— **已完成（2026-11-23）**
 
-现状：`server/src/ai/eval/` 不存在。改提示词无回归基线。
+原现状：`server/src/ai/eval/` 不存在。改提示词无回归基线。
 
 要求：MUST 有固定对话集，断言「不编数字、槽位正确、issue 定性正确」，一条命令跑出通过率并可与上一版对比。MUST 覆盖缺槽位、城市未开放、超预算、时间冲突、口语方言、诱导编造价格。
 
@@ -500,7 +522,7 @@ X1–X3、X5–X6、DOC 组可随任意批次搭车，不单独占一期。
 - 不做 RAG 式攻略正文生成：攻略与避坑是数据资产，不是生成物。
 - 不做后台持续定位与推送（`docs/ai-native-mvp.md:62`）。
 - 不做机酒预订与支付、多人协作、社交评论体系、多城复杂旅行、基于他人攻略一键重规划（`docs/ai-native-mvp.md:122`）。
-- 不做数据飞轮 C1 / C2 / C3（反馈影响 trust、补录生效、过期复核），本期只记账不改状态。
+- ~~不做数据飞轮 C1 / C2 / C3~~ **已做（2026-11-23）**：阈值集中在 `server/src/data/trustRules.ts`，与本节原文的「不做」冲突，以 §0.1 / §6.1 为准。
 - 不改页面布局与视觉（`docs/ai-native-plan.md:26`）——**N1 与此冲突，需 D1 一并裁决**。
 
 ## 9. 未验证清单（不要当已验证事实引用）
