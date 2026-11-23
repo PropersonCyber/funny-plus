@@ -594,6 +594,45 @@ describe('定向修改只动指定时段（N4）', () => {
     // 第 2 天完全没动
     expect(apply.preview.plan.days[1].items.map((i) => i.id)).toEqual(plan.days[1].items.map((i) => i.id))
   })
+
+  /**
+   * 「只动该时段」不只是「只删该时段」。
+   *
+   * 删掉下午一站之后，晚上那条原本 19:00 的夜游会被顺延重排一路拖到下午 14:50 —
+   * 用户的指令是「下午轻松点」，看到的却是「晚上那站没了」。时间可以往前压，
+   * 但不能跨过时段边界。这里手工造一条晚上安排，因为种子数据里没有排到 18:00 之后的点。
+   */
+  it('压缩该时段时，后面的安排不会被拖进上一个时段', () => {
+    const d = demand({ dayCount: 2 })
+    const base = generatePlans(d)[2]
+    const evening: ItineraryItem = {
+      id: 'evening-1',
+      kind: 'place',
+      title: '夜景点',
+      placeId: base.days[1].items.find((i) => i.kind === 'place')!.placeId!,
+      startMin: 19 * 60,
+      endMin: 20 * 60,
+      stayMin: 60,
+      transportMin: 30,
+      transportMode: 'public',
+      cost: 40,
+    }
+    const plan: Plan = {
+      ...base,
+      days: [base.days[0], { index: 2, items: [...base.days[1].items, evening] }],
+    }
+    const apply = applyReviseOp(plan, d, { op: 'ease', day: 2, window: 'afternoon', reason: '测试' })
+    expect(apply.ok).toBe(true)
+    if (!apply.ok) return
+    const after = apply.preview.plan.days[1].items.find((i) => i.id === evening.id)
+    expect(after).toBeDefined()
+    expect(windowOf(after!.startMin)).toBe('evening')
+    // 早上 / 中午的安排也不该被反向挪动
+    for (const item of apply.preview.plan.days[1].items) {
+      const was = plan.days[1].items.find((i) => i.id === item.id)
+      if (was && windowOf(was.startMin) === 'morning') expect(windowOf(item.startMin)).toBe('morning')
+    }
+  })
 })
 
 // N3：固定安排是约束，不是提示。删掉它必须让用户自己动手。
@@ -626,5 +665,27 @@ describe('固定安排不被静默改掉（N3）', () => {
     const guess = keywordReviseOp(pinned, demand({ dayCount: 1 }), '轻松点')
     // 挑到的必须不是被固定的那一个
     expect(guess && 'targetId' in guess ? guess.targetId : null).not.toBe(placesInDay[placesInDay.length - 1].id)
+  })
+
+  /**
+   * 换序过去会把固定项一起挪走：pinned 只拦了 drop / replace 两条分支，
+   * reorder 走的是另一条路，用户定过的安排换个顺序就变了位次。
+   */
+  it('reorder 不让固定项换位，并在原因里说清没挪', () => {
+    const d = demand({ dayCount: 1 })
+    const plan = generatePlans(d)[2]
+    const placesInDay = plan.days[0].items.filter((i) => i.kind === 'place')
+    // 固定中间那个，然后要求把它排到第一位
+    const pinnedItem = placesInDay[1]
+    const pinned = withPin(plan, pinnedItem.id)
+    const order = [pinnedItem.id, ...placesInDay.filter((i) => i.id !== pinnedItem.id).map((i) => i.id)]
+    const r = applyReviseOp(pinned, d, { op: 'reorder', day: 1, order, reason: '换个顺序' })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    const after = r.preview.plan.days[0].items.filter((i) => i.kind === 'place')
+    // 位次不变：固定项仍在原来的下标上
+    expect(after.findIndex((i) => i.id === pinnedItem.id)).toBe(1)
+    // 「没挪」必须说出来，不能静默照做一半
+    expect(r.preview.reason).toContain('已固定')
   })
 })

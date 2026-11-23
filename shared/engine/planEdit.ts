@@ -1,6 +1,7 @@
 import type {
   AffectedChange,
   ChangeImpact,
+  DayWindow,
   Demand,
   ItineraryItem,
   Plan,
@@ -97,19 +98,41 @@ const LUNCH_EARLIEST = 11 * 60
 const LUNCH_LATEST = 14 * 60
 
 /**
+ * 各时段最早能开始的时刻，与 `windowOf` 的边界一致。
+ *
+ * 重排时用它当地板：一条安排只能在本时段内往前压缩，绝不能因为前面少了一站
+ * 就被拖进上一个时段。「第二天下午轻松点」删掉下午一条，晚上那条原本 19:00，
+ * 不设地板就会被算到 14:50 —— 用户看到的是「我明明说下午，结果晚上没了」。
+ */
+const WINDOW_FLOOR: Record<DayWindow, number> = {
+  morning: DAY_START,
+  afternoon: LUNCH_EARLIEST,
+  evening: 18 * 60
+}
+
+/**
  * 时间被删/换之后，按新的顺序重排时刻。
  *
  * 这里不能只做「上一项结束 + 路上时间」：删掉上午的景点后，午餐会一路顶到
  * 上午十点半，看起来像系统排错了。餐食的约束是「在中午吃」，不是「紧跟前一个点」，
  * 所以到达后照旧按 OPEN 等待 + 饭点判定：早到就在原地等到最早开饭时间，
  * 晚到就顺延，超过最晚开饭时间则不留这顿饭（宁可少排一顿，也不排一顿下午三点的午饭）。
+ *
+ * keepWindows：每条安排不得早于它**原本所在时段**的起点。只该做「压缩」的动作
+ * （删点 / 换点 / 按时段精简）必须开着它，否则去掉一站会把晚上 19:00 的夜游
+ * 一路拖到下午三点 —— 用户说的是「下午轻松点」，看到的却是晚上那站消失。
+ * 换序（reorder）要用 false：那是用户明确要求重排，安排本来就该跟着新顺序走。
  */
-const retime = (day: TripDay): TripDay => {
+const retime = (day: TripDay, { keepWindows = true }: { keepWindows?: boolean } = {}): TripDay => {
+  const original = new Map(day.items.map((i) => [i.id, i.startMin]))
   let t = day.items[0]?.startMin ?? DAY_START
   const items: ItineraryItem[] = []
   for (const [idx, item] of day.items.entries()) {
     const arrive = idx === 0 ? t : t + item.transportMin
-    const start = item.kind === 'meal' ? Math.max(arrive, LUNCH_EARLIEST) : arrive
+    // 地板用「原本」的时刻算时段：改完之后再算会随压缩一起漂移，变成自我指涉
+    const was = original.get(item.id)
+    const floor = keepWindows && was !== undefined ? WINDOW_FLOOR[windowOf(was)] : 0
+    const start = Math.max(item.kind === 'meal' ? Math.max(arrive, LUNCH_EARLIEST) : arrive, floor)
     if (item.kind === 'meal' && start > LUNCH_LATEST) continue
     const end = start + item.stayMin
     items.push({ ...item, startMin: start, endMin: end })
@@ -205,9 +228,29 @@ export function applyReviseOp(
   if (listed.length < 2) return { ok: false, reason: '调整顺序至少要说到这一天的两个地点' }
   const finalOrder = [...listed, ...ids.filter((id) => !listed.includes(id))]
   const byId = new Map(day.items.map((i) => [i.id, i]))
+  // 固定项占住它原来的位置，其余项在剩下的槽位里按新顺序填。
+  // 只锁「位次」而不是锁时刻：换序本来就是整天的重排，时刻必然跟着走（见 ItineraryItem.pinned）。
+  const pinnedIds = new Set(ids.filter((id) => byId.get(id)?.pinned))
+  const movable = finalOrder.filter((id) => !pinnedIds.has(id))
   let k = 0
-  const shuffled = day.items.map((i) => (i.kind === 'place' ? byId.get(finalOrder[k++])! : i))
-  return finish(plan, demand, day, retime(relink({ index: day.index, items: shuffled }, transport)), op.reason, by)
+  const shuffled = day.items.map((i) => {
+    if (i.kind !== 'place') return i
+    const id = pinnedIds.has(i.id) ? i.id : movable[k++]
+    return byId.get(id)!
+  })
+  const anchored = ids.filter((id) => pinnedIds.has(id) && finalOrder.indexOf(id) !== ids.indexOf(id))
+  // 固定项被要求挪位时，明说「没挪」而不是静默照做：用户定过它，改了他的约束要让他知道
+  const note = anchored.length
+    ? `${op.reason}（${anchored.map((id) => `「${byId.get(id)!.title}」`).join('')}已固定，保持原位）`
+    : op.reason
+  return finish(
+    plan,
+    demand,
+    day,
+    retime(relink({ index: day.index, items: shuffled }, transport), { keepWindows: false }),
+    note,
+    by
+  )
 }
 
 /** 收尾：重算预算与校验，再产出变更影响与逐条受影响项 */
