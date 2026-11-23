@@ -71,6 +71,13 @@ export const places = pgTable(
     closedWeekdays: integer('closed_weekdays').array().notNull().default([]),
     /** 整段闭馆的日期区间（MM-DD，不含年份，跨年取模） */
     closedRanges: jsonb('closed_ranges').$type<{ from: string; to: string; note?: string }[]>(),
+    /**
+     * 分季节的营业时段，人工从 openText 摘录。
+     *
+     * 不存成「运行时解析 openText」是有意的：那段文本同一件事十几种写法，
+     * 解析错一次就是把「今天 16:30 就停止检票」说成「开到 17:00」。结构化字段可复核。
+     */
+    seasons: jsonb('seasons').$type<{ from: string; to: string; open: [number, number]; text?: string }[]>(),
     /** 门票人均（元）；null = 票价未核实，不能用 0 冒充免费 */
     ticket: integer('ticket'),
     /** 建议停留（分钟） */

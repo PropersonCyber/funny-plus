@@ -61,10 +61,18 @@ for (const l of seedLines) {
 
 for (const p of seedPlaces) {
   const { id, open, ...rest } = p
+  // 可选的结构化字段要显式置 null：upsert 只 set 传进来的键，
+  // 从 seed 里删掉一条季节档/闭馆区间时，库里那份会原样留着，
+  // 于是「数据已经改了」和「线上还在按旧的判」同时成立。
+  const cleared = {
+    seasons: rest.seasons ?? null,
+    closedRanges: rest.closedRanges ?? null,
+    closedWeekdays: rest.closedWeekdays ?? [],
+  }
   await db
     .insert(places)
     .values({ id, openStart: open[0], openEnd: open[1], ...rest })
-    .onConflictDoUpdate({ target: places.id, set: { openStart: open[0], openEnd: open[1], ...rest } })
+    .onConflictDoUpdate({ target: places.id, set: { openStart: open[0], openEnd: open[1], ...rest, ...cleared } })
 }
 
 for (const { id, ...rest } of seedFacts) {

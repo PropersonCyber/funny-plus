@@ -46,6 +46,50 @@ export const onetapConfigured = () =>
   onetap.provider.length > 0 && onetap.appKey.length > 0 && onetap.secret.length > 0
 
 /**
+ * 短信服务商（F06 / N5）。目前只接阿里云短信。
+ *
+ * 「没配」与「配错」必须分开，沿用 amap 的口径：没配时发码接口返回明确错误码，
+ * 前端据此提示「短信服务未就绪」；配错时把服务商原始错误码透出来（签名错、模板未审核、
+ * 余额不足是完全不同的三件事，混成一句「发送失败」没法排查）。
+ *
+ * 只读这里，路由不直接摸 process.env —— 同一组凭证在发码与状态接口里都要用。
+ */
+const smsAccessKeyId = (process.env.SMS_ACCESS_KEY_ID ?? '').trim()
+const smsAccessKeySecret = (process.env.SMS_ACCESS_KEY_SECRET ?? '').trim()
+const smsSignName = (process.env.SMS_SIGN_NAME ?? '').trim()
+const smsTemplateCode = (process.env.SMS_TEMPLATE_CODE ?? '').trim()
+const smsRegionId = (process.env.SMS_REGION_ID ?? 'cn-hangzhou').trim()
+
+export const sms = {
+  accessKeyId: smsAccessKeyId,
+  accessKeySecret: smsAccessKeySecret,
+  signName: smsSignName,
+  templateCode: smsTemplateCode,
+  regionId: smsRegionId
+}
+
+/**
+ * 四个凭证缺一不可：少了签名名或模板号，请求能发出去但会被服务商拒，
+ * 那种「配了一半」比完全没配更难查，所以这里当作未配置处理。
+ */
+export const smsConfigured = () =>
+  smsAccessKeyId.length > 0 &&
+  smsAccessKeySecret.length > 0 &&
+  smsSignName.length > 0 &&
+  smsTemplateCode.length > 0
+
+/**
+ * Sign in with Apple（F06 / N5）。
+ *
+ * 只需要 clientId（= iOS bundle id）：我们做的是**本地验签**，用 Apple 公开的 JWKS
+ * 校验客户端递上来的 identityToken，不请求 Apple 的 token 端点，所以不需要 teamId / keyId / 私钥。
+ * 那三项是「服务端去换 token」才要的，本流程没有那一步。
+ */
+const appleClientId = (process.env.APPLE_CLIENT_ID ?? '').trim()
+export const apple = { clientId: appleClientId }
+export const appleConfigured = () => appleClientId.length > 0
+
+/**
  * AI 通道走公司 ops-ai-gateway（OpenAI 兼容），不直连模型厂商。
  * key 只在服务端：一旦随包下发，任何人都能拿它烧额度，且模型侧无法区分是我们还是别人。
  *

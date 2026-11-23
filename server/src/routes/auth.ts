@@ -1,8 +1,9 @@
 import { Hono } from 'hono'
+import type { Context } from 'hono'
 import { and, desc, eq, gt, isNull } from 'drizzle-orm'
 import { db } from '../db/client.ts'
 import { authSessions, smsCodes, users } from '../db/schema.ts'
-import { onetap, onetapConfigured, wechat, wechatConfigured } from '../env.ts'
+import { apple, appleConfigured, onetap, onetapConfigured, wechat, wechatConfigured } from '../env.ts'
 import { claimAnonData } from '../auth/merge.ts'
 import { requireUser } from '../auth/middleware.ts'
 import {
@@ -18,6 +19,8 @@ import {
   normalizePhone
 } from '../auth/codes.ts'
 import { newSession, newToken } from '../auth/token.ts'
+import { smsReady, smsSender } from '../auth/sms.ts'
+import { exchangeOnetapToken, exchangeWechatCode, verifyAppleToken } from '../auth/providers.ts'
 
 /**
  * 账号与登录（F06）。
@@ -30,7 +33,7 @@ import { newSession, newToken } from '../auth/token.ts'
  *    失败一律 bad_code，不区分「号码没注册」。
  * 2. **匿名不降级**：登录失败不能把匿名可用的链路堵死，所有登录接口失败都只影响登录本身。
  */
-type ProviderId = 'wechat' | 'onetap'
+type ProviderId = 'wechat' | 'onetap' | 'apple'
 
 const PROVIDERS: { id: ProviderId; label: string; configured: () => boolean }[] = [
   { id: 'wechat', label: '微信登录', configured: wechatConfigured },
@@ -38,7 +41,10 @@ const PROVIDERS: { id: ProviderId; label: string; configured: () => boolean }[] 
     id: 'onetap',
     label: onetap.provider ? `${onetap.provider} 一键登录` : '手机号一键登录',
     configured: onetapConfigured
-  }
+  },
+  // Apple 立在这里是为了让 /status 如实下发「这条通道有没有配」：
+  // 没配就不出现在客户端可选列表里，而不是让用户点了才收到 501
+  { id: 'apple', label: '通过 Apple 登录', configured: appleConfigured }
 ]
 
 export const authRoute = new Hono()
@@ -65,13 +71,20 @@ authRoute.get('/status', (c) =>
 /**
  * 请求验证码。
  *
- * 真实短信服务商还没接：非生产环境不发送任何短信，验证码固定为 `DEV_CODE`，
- * 但接口契约、限流、落库全部照真实路径走，接服务商时只替换「发送」这一步。
+ * 三个分支必须分开（这是本次补上的核心）：
+ * - 配了短信服务商：真发。发送失败要说清是哪一步，且**不留下一个永远收不到的码**
+ * - 没配 + 开发开关打开：不发送，固定码登录（dev 自测用）
+ * - 没配 + 生产：明确回「短信服务未就绪」，不让用户对着一个收不到的码干等
  */
 authRoute.post('/sms-code', async (c) => {
   const body = (await c.req.json().catch(() => null)) as { phone?: string } | null
   const phone = typeof body?.phone === 'string' ? normalizePhone(body.phone) : null
   if (!phone) return c.json({ error: '手机号格式不对', code: 'bad_param' }, 400)
+
+  // 通道没就绪且不在 dev：先拒，连码都不该生成 —— 生成一个发不出去的码只会误导用户
+  if (!smsReady() && !isDev()) {
+    return c.json({ error: '短信服务未就绪，暂时无法登录', code: 'sms_unavailable' }, 503)
+  }
 
   const now = new Date()
   const [latest] = await db
@@ -92,6 +105,20 @@ authRoute.post('/sms-code', async (c) => {
     expiresAt: new Date(now.getTime() + SMS_TTL_MS),
     createdAt: now
   })
+
+  // 只有配了服务商才真发。发送失败把这条码作废：留着它等于占住 60 秒冷却，
+  // 用户重试会被告知「太频繁」，而实际上一条短信都没收到
+  if (smsReady()) {
+    const sent = await smsSender.sendCode(phone, code)
+    if (!sent.ok) {
+      await db.delete(smsCodes).where(and(eq(smsCodes.phone, phone), eq(smsCodes.codeHash, hashCode(phone, code))))
+      if (sent.reason === 'failed') {
+        console.error('[auth] 短信发送失败', sent.detail)
+        return c.json({ error: '短信发送失败，请稍后重试', code: 'sms_failed' }, 502)
+      }
+      return c.json({ error: '短信服务未就绪，暂时无法登录', code: 'sms_unavailable' }, 503)
+    }
+  }
 
   // 响应体对已注册 / 未注册手机号完全一致；dev 标记只放 header，不进 body
   if (isDev()) c.header('x-dev-code', '1')
@@ -132,6 +159,22 @@ authRoute.post('/sms-verify', async (c) => {
   await db.insert(users).values({ id: newId('u'), phone, createdAt: now, lastSeenAt: now }).onConflictDoNothing()
   const [user] = await db.select().from(users).where(eq(users.phone, phone)).limit(1)
   if (!user) return c.json({ error: '账号创建失败', code: 'server_error' }, 500)
+  return issueSession(c, user, clientId, now)
+})
+
+/**
+ * 签发 session + 并账。短信、微信、Apple 三条通道共用这一处。
+ *
+ * 抽出来的理由不是「少写几行」：三条通道各写一遍签发，早晚有一处忘了滑动续期
+ * 或忘了并账 —— 而这两种差别只会在用户换设备时以「数据丢了」暴露出来，
+ * 到那时候没人会想到是登录入口的差别造成的。
+ */
+async function issueSession(
+  c: Context,
+  user: { id: string; phone: string | null; createdAt: Date },
+  clientId: string | null,
+  now: Date
+) {
   await db.update(users).set({ lastSeenAt: now }).where(eq(users.id, user.id))
 
   const raw = newToken()
@@ -156,7 +199,7 @@ authRoute.post('/sms-verify', async (c) => {
     user: publicUser(user),
     merged
   })
-})
+}
 
 authRoute.get('/me', requireUser, async (c) => {
   const actor = c.get('actor')
@@ -179,20 +222,96 @@ authRoute.post('/logout', requireUser, async (c) => {
 })
 
 /**
- * 登录兑换：壳层拿到 provider 的 code / 一键登录的 token 后 POST 过来。
- * 未配置直接 501 —— 501（未实现）和 500（服务炸了）必须分开，否则线上分不清是没接还是挂了。
+ * 登录兑换：客户端拿到 provider 的一次性 code / token 后 POST 过来。
+ *
+ * 三条通道共用同一个出口（`finishLogin`），差别只在「怎么把凭证换成一个稳定的用户标识」：
+ * - wechat → unionid
+ * - apple  → sub
+ * - onetap → 手机号（服务商未定，故仍不可用）
+ *
+ * 换到标识之后按标识找已有账号；找不到才建新号。找的是**同一个账号表里的唯一列**，
+ * 所以「先用微信、后用短信登录同一手机号」会落到同一个人 —— 前提是短信登录时
+ * 该手机号已绑定在同一行上（见 `linkPhoneIfEmpty`）。
  */
 authRoute.post('/login', async (c) => {
-  const body = (await c.req.json().catch(() => null)) as { provider?: ProviderId; code?: string } | null
+  const body = (await c.req.json().catch(() => null)) as
+    | { provider?: ProviderId; code?: string; clientId?: string }
+    | null
   const provider = PROVIDERS.find((p) => p.id === body?.provider)
   if (!provider) return c.json({ error: '不支持的登录方式', code: 'bad_provider' }, 400)
   if (!provider.configured()) {
     return c.json({ error: `${provider.label}未配置`, code: 'not_configured', provider: provider.id }, 501)
   }
   if (!body?.code) return c.json({ error: '缺少授权码', code: 'bad_param' }, 400)
-  // AppID/AppSecret 都在但兑换流程还没写：明确 501，不返回假 token
-  return c.json({ error: '登录兑换流程未实现', code: 'not_implemented', provider: provider.id }, 501)
+  const clientId = typeof body.clientId === 'string' && body.clientId ? body.clientId : null
+
+  if (provider.id === 'wechat') {
+    const ex = await exchangeWechatCode(body.code)
+    if (!ex.ok) {
+      if (ex.reason === 'not_configured') {
+        return c.json({ error: '微信登录未配置', code: 'not_configured', provider: provider.id }, 501)
+      }
+      // 兑换失败与网络失败要分开：一个是用户重试有用（code 过期），一个是我们这边的问题
+      return c.json(
+        { error: ex.reason === 'rejected' ? '微信授权已失效，请重新授权' : '微信服务暂时不可用', code: ex.reason, provider: provider.id },
+        ex.reason === 'rejected' ? 401 : 502
+      )
+    }
+    return finishLogin(c, { kind: 'wechat', unionid: ex.unionid }, clientId)
+  }
+
+  if (provider.id === 'apple') {
+    const checked = await verifyAppleToken(body.code, apple.clientId)
+    if (!checked.ok) {
+      if (checked.reason === 'not_configured') {
+        return c.json({ error: 'Apple 登录未配置', code: 'not_configured', provider: provider.id }, 501)
+      }
+      return c.json({ error: 'Apple 凭证无效', code: 'invalid_credential', provider: provider.id }, 401)
+    }
+    return finishLogin(c, { kind: 'apple', sub: checked.sub }, clientId)
+  }
+
+  // onetap：服务商未定，没有实现就明确说不支持，不返回假 token
+  const one = await exchangeOnetapToken(body.code)
+  if (!one.ok) {
+    return c.json({ error: '一键登录服务商未接入', code: 'not_implemented', provider: provider.id }, 501)
+  }
+  return finishLogin(c, { kind: 'phone', phone: one.phone }, clientId)
 })
+
+/** 三种身份标识，任选其一 */
+type Identity = { kind: 'wechat'; unionid: string } | { kind: 'apple'; sub: string } | { kind: 'phone'; phone: string }
+
+/**
+ * 按身份标识找号 / 建号，然后签发 session。
+ *
+ * 与短信登录共用同一段签发逻辑（`issueSession`），避免两条通道产出的 token
+ * 在过期、归属、并账上有细微差别 —— 那种差别只会在换设备时以「数据丢了」的形式暴露。
+ */
+async function finishLogin(c: Context, identity: Identity, clientId: string | null) {
+  const now = new Date()
+  const column = identity.kind === 'wechat' ? users.wechatUnionid : identity.kind === 'apple' ? users.appleSub : users.phone
+  const value = identity.kind === 'wechat' ? identity.unionid : identity.kind === 'apple' ? identity.sub : identity.phone
+
+  let [user] = await db.select().from(users).where(eq(column, value)).limit(1)
+  if (!user) {
+    await db
+      .insert(users)
+      .values({
+        id: newId('u'),
+        phone: identity.kind === 'phone' ? identity.phone : null,
+        wechatUnionid: identity.kind === 'wechat' ? identity.unionid : null,
+        appleSub: identity.kind === 'apple' ? identity.sub : null,
+        createdAt: now,
+        lastSeenAt: now
+      })
+      .onConflictDoNothing()
+    ;[user] = await db.select().from(users).where(eq(column, value)).limit(1)
+  }
+  if (!user) return c.json({ error: '账号创建失败', code: 'server_error' }, 500)
+  return issueSession(c, user, clientId, now)
+}
+
 
 /** 微信 App 登录需要 AppID 才能拉起授权页；secret 绝不能下发 */
 authRoute.get('/wechat-appid', (c) =>

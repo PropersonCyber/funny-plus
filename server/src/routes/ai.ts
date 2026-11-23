@@ -9,10 +9,11 @@ import { proposeReviseOp } from '../ai/revise.ts'
 import { recordAiCall, startedAt, elapsedMs } from '../ai/observe.ts'
 import { appendTurn, latestTurnsOf, loadTurns, resolveSession } from '../ai/history.ts'
 import { resolveActorQuietly } from '../auth/middleware.ts'
-import { placeById, placesOf, placesLoaded, setPlaces } from '@/engine/placeIndex.ts'
+import { nearestTo, placeById, placesOf, placesLoaded, setPlaces } from '@/engine/placeIndex.ts'
 import { warmRoutes } from '../ai/routeWarm.ts'
 import { linesOf, setLines } from '@/engine/lines.ts'
-import { budgetView, factsView, linesView, placeDetailView, validateView } from '@/engine/aiGround.ts'
+import { budgetView, clock, factsView, linesView, placeDetailView, validateView } from '@/engine/aiGround.ts'
+import { cityTransitFor, nextStopAfter } from '@/engine/onSite.ts'
 import { NO_KEYWORD_HINT, generatePlans, keywordReviseOp } from '@/engine/planner.ts'
 import { applyReviseOp, dayBrief } from '@/engine/planEdit.ts'
 import { toApi as dbPlaceToApi } from './places.ts'
@@ -20,7 +21,10 @@ import { factWithTrust, feedbackStats } from './facts.ts'
 import { lineToApi } from './lines.ts'
 import { CHAT_SYSTEM_PROMPT } from '../ai/prompt.ts'
 import { proposePlanOrder } from '../ai/propose.ts'
-import type { Demand, Place, RevisePreview, TripContext } from '@/types/index.ts'
+import { narrateMemory } from '../ai/narrate.ts'
+import type { NarrativeParagraph, NarrativeSource } from '../ai/narrate.ts'
+import { buildMemoryDraft } from '@/engine/memoryDraft.ts'
+import type { Demand, Place, RevisePreview, TripContext, TripMemory } from '@/types/index.ts'
 /**
  * 对话式旅行助手。
  *
@@ -29,6 +33,43 @@ import type { Demand, Place, RevisePreview, TripContext } from '@/types/index.ts
  * 预算 / 校验 / 时间轴全部由 shared/engine 的纯函数算 —— 让模型自己输出数字，
  * 它会给你一个自洽但错误的价格，而用户没有能力分辨。
  */
+/** 请求里的定位快照：只认合法坐标，别的一律当作没有定位 */
+function locOf(raw: unknown): { lng: number; lat: number; accuracy?: number; at?: number } | null {
+  if (!raw || typeof raw !== 'object') return null
+  const r = raw as Record<string, unknown>
+  const lng = Number(r.lng)
+  const lat = Number(r.lat)
+  if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null
+  if (Math.abs(lng) > 180 || Math.abs(lat) > 90) return null
+  const accuracy = Number(r.accuracy)
+  const at = Number(r.at)
+  return {
+    lng,
+    lat,
+    ...(Number.isFinite(accuracy) ? { accuracy } : {}),
+    ...(Number.isFinite(at) ? { at } : {})
+  }
+}
+
+/**
+ * 定位怎么讲给模型听。
+ *
+ * 只说事实：坐标有没有、精度多少。**不把坐标本身写进提示词** —— 模型会把一串数字
+ * 当成地名来源开始推断，而它推断出的位置我们无从核对。坐标只用来算距离，
+ * 结果由工具返回。
+ */
+function locPrompt(loc: { accuracy?: number } | null): string {
+  if (!loc) {
+    return '## 当前定位\n没有拿到用户定位。用户在问「附近」时先追问位置或让他手动指定，不要推断。'
+  }
+  const acc = loc.accuracy
+  const note =
+    acc !== undefined && acc > 500
+      ? `定位精度约 ${Math.round(acc)} 米，偏差较大；说「附近」时要提这一点`
+      : '定位精度可用于判断附近'
+  return `## 当前定位\n有用户定位（${note}）。只能通过 nearbyPlaces 工具算距离，不要自己推断位置或距离。`
+}
+
 export const aiRoute = new Hono()
 
 /** 生成方案所需的最小槽位；不齐就不允许调 generatePlans */
@@ -253,6 +294,8 @@ aiRoute.post('/chat', async (c) => {
         journey?: string
         /** G6：登录时只传本轮输入，历史由服务端持有 */
         input?: string
+        /** 当前定位（用户授权后由客户端上传）；没有就是没授权，不推断 */
+        loc?: { lng?: number; lat?: number; accuracy?: number; at?: number }
       }
     | null
 
@@ -264,6 +307,7 @@ aiRoute.post('/chat', async (c) => {
   // 换设备才不会「没聊过」。匿名仍然整段带（服务端没有归属，存了也找不回来）。
   const input = typeof body?.input === 'string' ? body.input.trim() : ''
   const trip = tripContextOf(body?.trip)
+  const loc = locOf(body?.loc)
   const session = actor?.userId && input
     ? await resolveSession(actor.userId, typeof body?.sessionId === 'string' ? body.sessionId : '', trip?.tripId ?? null)
     : null
@@ -281,7 +325,9 @@ aiRoute.post('/chat', async (c) => {
   // 同一轮里 generatePlans 调了几次。第二次仍有硬冲突就停，不能让模型一直重排
   let planAttempts = 0
   // 有当前行程时按「改这份行程」聊；没有时按「从零规划」聊
-  const system = trip ? `${CHAT_SYSTEM_PROMPT}\n${tripPrompt(trip)}` : CHAT_SYSTEM_PROMPT
+  const system = [trip ? `${CHAT_SYSTEM_PROMPT}\n${tripPrompt(trip)}` : CHAT_SYSTEM_PROMPT, locPrompt(loc)]
+    .filter(Boolean)
+    .join('\n')
 
   // ---- G7 服务端度量：本轮对话的服务端侧账 ----
   // journey 由客户端标注（plan = 从零规划，revise = 改已有行程），空表示日常使用。
@@ -396,6 +442,66 @@ aiRoute.post('/chat', async (c) => {
         execute: async ({ city }) => {
           await ensureEngine()
           return linesView(linesOf(city))
+        }
+      }),
+
+      /**
+       * 附近有什么（F04 现场推荐）。
+       *
+       * 只按**用户给的坐标**排距离，没有坐标时不猜：拿城市中心冒充用户位置，
+       * 排出来看着合理，实际会让他跨半个城市去一个「附近」的点。
+       */
+      nearbyPlaces: tool({
+        description: '按当前定位找附近已收录的地点。用户没提供定位、或问「附近有什么」时先看系统提示里有没有坐标；没有就追问位置，不要编。',
+        inputSchema: z.object({
+          limit: z.number().int().min(1).max(10).optional().describe('返回几个，默认 5'),
+          city: z.string().optional().describe('城市名，省略则用当前行程目的地')
+        }),
+        execute: async ({ limit, city }) => {
+          await ensureEngine()
+          if (!loc) return { ok: false, error: '还没有用户定位。先问用户在哪个位置，或让他手动指定，不要推断' }
+          const target = (city ?? trip?.demand.destination ?? '').trim()
+          if (!target) return { ok: false, error: '不知道在哪个城市，先问用户' }
+          const pool = placesOf(target)
+          if (!pool.length) return { ok: false, error: `${target} 暂未收录地点数据` }
+          const near = nearestTo(loc, pool, limit ?? 5)
+          return {
+            ok: true,
+            // 距离是直线近似，不是导航里程；界面与模型都不能把它说成「走过去多久」
+            basis: '直线距离',
+            items: near.map(({ place, km }) => ({ id: place.id, name: place.name, km, tags: place.tags, stayMin: place.stayMin }))
+          }
+        }
+      }),
+
+      nextStop: tool({
+        description: '查当前行程里某一站的下一站、距离和可用的景区交通。用户说「接下来去哪」「下一个点」时用。',
+        inputSchema: z.object({
+          itemId: z.string().describe('当前所在那一站的行程条目 id')
+        }),
+        execute: async ({ itemId }) => {
+          if (!trip) return { ok: false, error: '还没有行程，不能算下一站' }
+          const next = nextStopAfter(trip.plan, itemId)
+          if (!next) return { ok: true, last: true, hint: '这一天没有下一站了，如实告诉用户，不要编一个' }
+          return {
+            ok: true,
+            last: false,
+            title: next.place.name,
+            placeId: next.place.id,
+            distanceKm: next.distanceKm,
+            distanceBasis: '直线距离',
+            // 没有线路数据时 line 是 null：模型必须说「没查到交通」，不能编班次
+            line: next.line
+              ? {
+                  name: next.line.name,
+                  departure: clock(next.line.departureMin),
+                  rideMin: next.line.rideMin,
+                  verified: next.line.verified
+                }
+              : null,
+            // 城市公交数据为 0，这里显式告知，避免模型自行编造地铁/公交班次
+            cityTransit: cityTransitFor(trip.demand.destination)
+          }
         }
       }),
 
@@ -637,4 +743,118 @@ async function resolveRevision(
   const applied = applyReviseOp(trip.plan, trip.demand, guess, 'engine')
   if (applied.ok) return { preview: applied.preview, reason: '', by: 'engine' }
   return { preview: null, reason: applied.reason, by: 'engine' }
+}
+
+/**
+ * 回忆叙述：把用户写下的记录整理成一段通顺的回顾（F07 / N8 之后）。
+ *
+ * 与其它 AI 端点的三点不同，都来自「回忆是用户的亲历，不是产品的内容」：
+ *
+ * 1. **不读库**。回忆由客户端上传（`payload.trip` + `payload.memory`），
+ *    匿名用户的回忆只在本机，强制登录会砍掉主场景；越权风险因此也不存在。
+ * 2. **模型不可用时降级到确定性草稿**，返回 200 + `by:'engine'`，不报错 ——
+ *    与 `/revise` 同一口径：AI 是加分项，不是回忆功能的前提。
+ * 3. **结果必须带来源**。模型输出的每一段都对着一条真实记录（见 narrate.applyNarrative），
+ *    对不上的句子被丢弃。所以这里返回的 `by` 不只是「谁写的」，也是「能不能信」。
+ */
+aiRoute.post('/memory-narrative', async (c) => {
+  const body = (await c.req.json().catch(() => null)) as
+    | { trip?: TripContext; memory?: TripMemory; sessionId?: string; journey?: string }
+    | null
+  const trip = tripContextOf(body?.trip)
+  const memory = memoryOfBody(body?.memory)
+  if (!trip || !memory) return c.json({ error: '缺少行程或回忆内容', code: 'bad_param' }, 400)
+
+  const started = startedAt()
+  const actor = await resolveActorQuietly(c.req.header('authorization'))
+  const sessionId = typeof body?.sessionId === 'string' && body.sessionId ? body.sessionId.slice(0, 64) : null
+  const journey = typeof body?.journey === 'string' && body.journey ? body.journey.slice(0, 32) : null
+
+  // 兜底与基线永远是同一份确定性文本：模型失败时用户拿到的内容，
+  // 与结束旅行时自动生成的那份完全一致，不会因为「AI 挂了」突然少了几条记录
+  const baseline = buildMemoryDraft({ demand: trip.demand, plans: [trip.plan], planIndex: 0 }, memory)
+  const sources = narrativeSources(trip, memory)
+
+  let text = baseline
+  let by: 'model' | 'engine' = 'engine'
+  if (aiConfigured() && sources.length) {
+    const narrated = await narrateMemory(sources)
+    if (narrated.ok) {
+      const joined = joinNarrative(narrated.paragraphs)
+      // 模型给的内容真的可用才替换基线。空串或只剩待补清单时保留基线
+      if (joined) {
+        text = joined
+        by = 'model'
+      }
+    }
+  }
+
+  await recordAiCall({
+    kind: 'memory',
+    sessionId,
+    userId: actor?.userId ?? null,
+    model: modelName(),
+    journey,
+    toolCalls: by === 'model' ? 1 : 0,
+    degraded: by !== 'model',
+    degradeReason: by === 'model' ? null : 'model_unavailable_or_unparsable',
+    durationMs: elapsedMs(started)
+  })
+
+  return c.json({ text, by })
+})
+
+/** 回忆正文只用到这几个字段，其余（照片等）不进 prompt，也不回传 */
+function memoryOfBody(raw: unknown): TripMemory | null {
+  if (!raw || typeof raw !== 'object') return null
+  const m = raw as Partial<TripMemory>
+  if (!m.places || typeof m.places !== 'object') return null
+  return {
+    tripId: typeof m.tripId === 'string' ? m.tripId : '',
+    overview: typeof m.overview === 'string' ? m.overview : '',
+    photos: Array.isArray(m.photos) ? m.photos : [],
+    places: m.places as TripMemory['places'],
+    createdAt: typeof m.createdAt === 'string' ? m.createdAt : '',
+    updatedAt: typeof m.updatedAt === 'string' ? m.updatedAt : ''
+  }
+}
+
+/** 把记录摊平成「一行一条」，只含有用户写过东西的那些 */
+function narrativeSources(trip: TripContext, memory: TripMemory): NarrativeSource[] {
+  const out: NarrativeSource[] = []
+  for (const day of trip.plan.days) {
+    for (const item of day.items) {
+      if (item.kind === 'meal' || !item.placeId) continue
+      const note = memory.places[item.id]
+      const text = (note?.text ?? '').trim()
+      const visited = note?.visited ?? 'unknown'
+      const hasPhotos = (note?.photos ?? []).length > 0
+      // 与 buildMemoryDraft 同一条过滤：什么都没记的点不进叙述，只进末尾待补
+      if (visited === 'unknown' && !text && !hasPhotos) continue
+      out.push({ ref: `d${day.index}:${item.id}`, day: day.index, title: item.title, visited, text, hasPhotos })
+    }
+  }
+  return out
+}
+
+/**
+ * 模型段落 → 草稿文本。
+ *
+ * 按天分块，格式与 `buildMemoryDraft` 保持同一形状（`Day N` 头 + 每行一个点），
+ * 这样回忆页的渲染逻辑不用为「模型版」单独写一套 —— 两套渲染意味着两处都会出 bug。
+ */
+function joinNarrative(paragraphs: NarrativeParagraph[]): string {
+  const days = new Map<number, string[]>()
+  for (const p of paragraphs) {
+    const m = /^d(\d+):/.exec(p.sourceRef)
+    if (!m) continue
+    const day = Number(m[1])
+    const list = days.get(day) ?? []
+    list.push(`· ${p.text.trim()}`)
+    days.set(day, list)
+  }
+  return [...days.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([day, lines]) => `Day ${day}\n${lines.join('\n')}`)
+    .join('\n')
 }
