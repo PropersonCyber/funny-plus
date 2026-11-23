@@ -144,6 +144,22 @@ function checkItem(
       message: `「${item.title}」结束时间晚于 21:00`
     })
   }
+  // 用户说了「20 点必须回来」，这就是约束不是建议：超了要说清晚多久，
+  // 让他自己决定砍站还是接受晚归，而不是替他默默排到更晚
+  if (Number.isFinite(demand.returnBy) && item.endMin > demand.returnBy!) {
+    const over = item.endMin - demand.returnBy!
+    push(hard, soft, {
+      id: `over-return-d${day.index}`,
+      code: 'over-return',
+      level: 'error',
+      dayIndex: day.index,
+      message: `「${item.title}」结束于 ${fmt(item.endMin)}，比你要求的 ${fmt(demand.returnBy!)} 晚 ${over} 分钟`,
+      alternatives: [
+        { kind: 'advance', label: '少排一站或缩短停留，赶在返回时间前结束' },
+        { kind: 'change-spot', label: '换一个更近的点' }
+      ]
+    })
+  }
 
   // FR-01/02：这一段是坐线路型交通走的，先按班次判，再谈营业时间
   if (item.lineId) checkLineSegment(item, day, hard, wait, soft)

@@ -19,6 +19,7 @@ import { linesAtPlace, nextDeparture } from '@/engine/lines'
 import { applyReviseOp, highlightsOf, prevPlace } from '@/engine/planEdit'
 import { openingForDay } from '@/engine/opening'
 import { generateLightPlan, isLight } from '@/engine/lightPlan'
+import { startOf, clock, reverseWindow, windowFeasible } from '@/engine/timeWindow'
 
 // 这里就是「AI 规划模块」的边界：现在用确定性模板生成，接真模型时只换这个文件，
 // 上层视图只依赖 Plan 结构，不依赖生成方式。
@@ -57,6 +58,10 @@ export function generatePlans(demand: Demand, opts: { order?: string[] } = {}): 
   if (pool.length === 0) {
     throw new UnsupportedDestination(`A 版只开放重庆、成都、北京三个目的地，「${demand.destination}」暂未接入地点数据`)
   }
+  // 必去点：按用户给的顺序取池子里真实存在的，编造或已下线的 id 直接忽略
+  const must = (demand.mustVisit ?? [])
+    .map((id) => pool.find((p) => p.id === id))
+    .filter((p): p is Place => !!p)
   // 一天排几个点由节奏决定，点池不够时后面几天会空着：先算最少要几个点，不够就别硬凑一套行程。
   if (pool.length < demand.dayCount) {
     throw new UnsupportedDestination(
@@ -64,11 +69,13 @@ export function generatePlans(demand: Demand, opts: { order?: string[] } = {}): 
     )
   }
   const tags = demand.preferences.flatMap((p) => PREF_TAGS[p] ?? [])
-  // 模型提案只决定「去哪儿、先哪个」，遮挡不住偏好排序以外的任何东西。
-  // 给了顺序就不再按偏好重排：两套排序叠在一起，谁也说不清为什么最终是这个顺序。
-  const ordered = opts.order?.length
-    ? applyPreferredOrder(pool, opts.order)
-    : orderByPreference(orderByProximity(pool), tags)
+  // 必去模式下用户的点序优先于任何自动排序：他说「这四站都要去」，
+  // 再按偏好或就近重排一遍，等于把他点名的顺序又改回去了
+  const ordered = must.length
+    ? [...must, ...orderByProximity(pool.filter((p) => !must.some((m) => m.id === p.id)))]
+    : opts.order?.length
+      ? applyPreferredOrder(pool, opts.order)
+      : orderByPreference(orderByProximity(pool), tags)
   const unmatched = demand.preferences.filter((p) => !(PREF_TAGS[p] ?? []).some((t) => pool.some((place) => place.tags.includes(t))))
   const variants: { pace: Pace; transport: TransportMode }[] =
     demand.transport === 'compare'
@@ -95,6 +102,26 @@ export function generatePlans(demand: Demand, opts: { order?: string[] } = {}): 
       issues: []
     }
     plan.issues = validatePlan(plan, variantDemand)
+    // 必去模式下要把「为什么是这个出发时间」讲出来：用户只说了要去哪几个点，
+    // 时间是程序倒推的，不说清楚他会以为是我们随便定的
+    if (must.length) {
+      const w = reverseWindow(must, variantDemand)
+      if (w && windowFeasible(w)) {
+        plan.issues.unshift({
+          id: 'reverse-window',
+          code: 'reverse-window',
+          level: 'info',
+          message: `按${w.basis}倒推，建议 ${clock(w.startMin)} 出发、${clock(w.endMin)} 返回`
+        })
+      } else if (w) {
+        plan.issues.unshift({
+          id: 'reverse-infeasible',
+          code: 'reverse-infeasible',
+          level: 'error',
+          message: `这 ${must.length} 个点共需 ${w.totalMin} 分钟，要 ${clock(w.endMin)} 返回就得 ${clock(w.startMin)} 出发，早于可行时间，请减少地点或放宽返回时间`
+        })
+      }
+    }
     if (unmatched.length) {
       plan.issues.push({
         id: 'pref-unmatched',
@@ -103,9 +130,28 @@ export function generatePlans(demand: Demand, opts: { order?: string[] } = {}): 
         message: `「${unmatched.join('」「')}」在${demand.destination}没有匹配到已收录的地点，这部分偏好未体现在行程里`
       })
     }
+    // 延长备选（F03）：用户说「20 点左右回来」，超了不只是一句冲突，
+    // 还要说清「晚多久、多玩什么」，让他有得选。只说「超时」等于把问题丢回去
+    const late = latestEndOf(days)
+    if (Number.isFinite(variantDemand.returnBy) && late > variantDemand.returnBy!) {
+      const over = late - variantDemand.returnBy!
+      plan.issues.push({
+        id: 'extend-option',
+        code: 'extend-option',
+        level: 'info',
+        message:
+          `按「${clock(variantDemand.returnBy!)} 左右回来」排不下全部 ${ordered.length} 个点：` +
+          `晚约 ${over} 分钟（${clock(late)} 结束）可多走 1–2 站；` +
+          `要准点回，就去掉最后一站`
+      })
+    }
     return plan
   })
 }
+
+/** 整份行程里最晚的结束时刻；没有条目返回 0 */
+const latestEndOf = (days: TripDay[]): number =>
+  days.reduce((max, d) => d.items.reduce((m, i) => Math.max(m, i.endMin), max), 0)
 
 /**
  * 模型给的顺序 → 实际的点序。
@@ -160,7 +206,9 @@ function buildDays(demand: Demand, ordered: Place[], perDay: number): TripDay[] 
 function buildDay(index: number, slice: Place[], demand: Demand): TripDay {
   const transport = demand.transport
   const items: ItineraryItem[] = []
-  let t = 9 * 60
+  // 出发时刻由用户定：说「12 点出发」就从 12 点排，没说才是 9:00。
+  // 写死 9:00 的话，用户那句话会被无声忽略，排出来的行程他一站都赶不上
+  let t = startOf(demand)
   let prev: Place | undefined
   let ateLunch = false
 

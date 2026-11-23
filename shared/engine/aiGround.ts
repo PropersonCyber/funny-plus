@@ -1,5 +1,6 @@
 import type { Demand, Plan, Place, TransitLine, TravelFact } from '@/types'
 import { splitByFreshness } from '@/engine/facts'
+import { transportAdvice } from '@/engine/lines'
 import { validatePlan } from '@/engine/validate'
 
 /** 分钟数换成工具里的时刻。模型只能引用这个字符串，不能自己换算。 */
@@ -133,5 +134,42 @@ export function linesView(list: TransitLine[]) {
       isDemo: !!l.isDemo,
       scheduleStatus: l.firstBus === null || l.lastBus === null ? '班次未核实' : '有首末班'
     }))
+  }
+}
+
+/**
+ * 逐段交通比较（F05）。
+ *
+ * 用户问「这段怎么走」「打车还是坐观光车」「2 人和 6 人哪种合适」，要给的是
+ * **当前人数下的钱与时间并列**，不是一句「建议打车」。`lines.ts` 的 transportAdvice
+ * 早就算好了这件事，但一直没接到任何入口上，等于没有。
+ *
+ * 缺数据的处理照老规矩：票价没核实就只说时间差，核载没核实就写明假设，
+ * 不能合成一个看起来精确的总分。
+ */
+export function segmentView(
+  line: TransitLine | undefined,
+  party: number,
+  rideMinutes: number,
+  walkMinutes: number
+) {
+  // 没有线路数据时只给步行与打车两种现实选择，并明确说线路「未接入」，
+  // 不能给一个假的班次对比
+  if (!line) {
+    return {
+      ok: false as const,
+      party,
+      walk: { minutes: walkMinutes },
+      note: '这一段没有已收录的线路型交通，只能步行或打车；不要编造班次'
+    }
+  }
+  const advice = transportAdvice(line, party, rideMinutes)
+  return {
+    ok: true as const,
+    party,
+    walk: { minutes: walkMinutes, note: '默认方式；能走下去时不必换乘' },
+    ...advice,
+    // 走比坐车还快时要说出来：用户往往默认「坐车一定更快」
+    walkFaster: walkMinutes < (advice.options.find((o) => o.mode === 'line')?.minutes ?? Infinity)
   }
 }
