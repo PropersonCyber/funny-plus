@@ -35,6 +35,8 @@ export type Summary = {
   calls: number
   chatCalls: number
   reviseCalls: number
+  /** 表单主链路（N10）的模型提案次数；与对话分开计，否则「表单走没走模型」被混进 chat 里看不出来 */
+  planCalls: number
   /** 生成了方案的对话数；分母是 chatCalls 而不是 calls —— 改行程那类调用本来就不该产方案 */
   planGenerated: number
   planRate: number
@@ -62,6 +64,7 @@ const rate = (num: number, den: number): number => (den > 0 ? num / den : 0)
 export function summarize(rows: AiCallRow[]): Summary {
   const chat = rows.filter((r) => r.kind === 'chat')
   const revise = rows.filter((r) => r.kind === 'revise')
+  const plan = rows.filter((r) => r.kind === 'plan')
   const toolCalls = rows.reduce((s, r) => s + r.toolCalls, 0)
   const toolFailures = rows.reduce((s, r) => s + r.toolFailures, 0)
   const planGenerated = chat.filter((r) => r.planGenerated).length
@@ -72,6 +75,7 @@ export function summarize(rows: AiCallRow[]): Summary {
     calls: rows.length,
     chatCalls: chat.length,
     reviseCalls: revise.length,
+    planCalls: plan.length,
     planGenerated,
     planRate: rate(planGenerated, chat.length),
     retriedPlans: chat.filter((r) => r.planAttempts > 1).length,

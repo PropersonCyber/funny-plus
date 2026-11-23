@@ -17,7 +17,7 @@ import { db } from '../db/client.ts'
 import { aiCalls } from '../db/schema.ts'
 import { PROMPT_VERSION } from './prompt.ts'
 
-export type AiCallKind = 'chat' | 'revise'
+export type AiCallKind = 'chat' | 'revise' | 'plan'
 
 export type AiObservation = {
   kind: AiCallKind

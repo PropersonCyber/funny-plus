@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from '@lynx-js/react';
 
 import { BUDGET_LABEL, planFor } from '../../data.js';
 import { warmTravelMinutes } from '../../travel.js';
+import { fetchPlans } from '../../planFetch.js';
 import { track } from '../../track.js';
 import { svgIcon } from '../../icons.js';
 import { PickerSheet } from '../PickerSheet/index.js';
@@ -104,45 +105,50 @@ export function PlanSheet({ demand, cities, onClose, onPlanned }: Props) {
     const startedAt = Date.now();
     setError('');
     setSubmitting(true);
-    // 先用直线估算跑一遍拿顺序：排序只依赖 distanceKm，第二遍重算顺序不会变
-    let firstPass: Plan[] = [];
-    try {
-      firstPass = planFor(draft);
-    } catch (e) {
-      // 城市没接入 / 地点池没加载：这时候连顺序都没有，不用去取路线
+
+    const settle = (next: Plan[], by: 'model' | 'engine') => {
+      track('plan_submitted', {
+        destination: draft.destination,
+        dayCount: draft.dayCount,
+        party: draft.party,
+        transport: draft.transport,
+        plans: next.length,
+        by,
+      });
+      // 取数快的时候也让过渡卡停一下，否则用户看不到「生成」发生过
+      const wait = Math.max(0, 700 - (Date.now() - startedAt));
+      timer.current = setTimeout(() => {
+        setSubmitting(false);
+        onPlanned(draft, next);
+      }, wait);
+    };
+
+    const fail = (e: unknown) => {
       const msg = e instanceof Error ? e.message : '这次没生成出来，换个目的地或稍后重试';
       setSubmitting(false);
       setError(msg);
       track('plan_failed', { destination: draft.destination, reason: msg });
-      return;
-    }
-    // 按第一遍的顺序取真实路段耗时（拿不到就退回直线估算，方案照样出）
-    warmTravelMinutes(draft, firstPass)
-      .catch(() => ({ asked: 0, hit: 0 }))
-      .then(() => {
-        try {
-          // 路上时间换成真实值后重算：顺序不变，到达时刻变准
-          const next = planFor(draft);
-          track('plan_submitted', {
-            destination: draft.destination,
-            dayCount: draft.dayCount,
-            party: draft.party,
-            transport: draft.transport,
-            plans: next.length,
-          });
-          // 取数快的时候也让过渡卡停一下，否则用户看不到「生成」发生过
-          const wait = Math.max(0, 700 - (Date.now() - startedAt));
-          timer.current = setTimeout(() => {
-            setSubmitting(false);
-            onPlanned(draft, next);
-          }, wait);
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : '这次没生成出来，换个目的地或稍后重试';
-          setSubmitting(false);
-          setError(msg);
-          track('plan_failed', { destination: draft.destination, reason: msg });
+    };
+
+    fetchPlans(draft)
+      .then((res) => {
+        // 服务端这条路已套过两遍路段预热（与对话入口同一套），客户端再预热一次只会多一圈请求
+        if (res.source === 'server') {
+          settle(res.plans, res.by);
+          return;
         }
-      });
+        // 本地兜底：先拿顺序，再按顺序取真实路段耗时（拿不到就退回直线估算，方案照样出）
+        warmTravelMinutes(draft, res.plans)
+          .catch(() => ({ asked: 0, hit: 0 }))
+          .then(() => {
+            try {
+              settle(planFor(draft), 'engine');
+            } catch (e) {
+              fail(e);
+            }
+          });
+      })
+      .catch(fail);
   }, [draft, onPlanned]);
 
   const cancelSubmit = useCallback(() => {

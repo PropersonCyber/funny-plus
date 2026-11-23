@@ -19,6 +19,7 @@ import { toApi as dbPlaceToApi } from './places.ts'
 import { factToApi } from './facts.ts'
 import { lineToApi } from './lines.ts'
 import { CHAT_SYSTEM_PROMPT } from '../ai/prompt.ts'
+import { proposePlanOrder } from '../ai/propose.ts'
 import type { Demand, Place, RevisePreview, TravelFact, TripContext } from '@/types/index.ts'
 /**
  * 对话式旅行助手。
@@ -149,6 +150,77 @@ function tripPrompt(trip: TripContext): string {
  * 只回文本：方案与预览由客户端按当前行程重新渲染，历史卡片不复活 ——
  * 跨设备把「待确认」变成「可确认」是最危险的一种复活。
  */
+/**
+ * 表单主链路的模型提案（N10）。
+ *
+ * 与对话入口共用同一套引擎与服务端路段预热，但**不需要**模型听懂人话：
+ * 表单已经把 Demand 填成结构化槽位，这里只让它在地点池里挑走法与顺序。
+ *
+ * 降级是无损的：模型没配 / 超时 / 输出不可解析，一律当没提过，
+ * 走回原来的 `generatePlans(demand)`，产出与今天完全一致（只是没有模型参与）。
+ */
+aiRoute.post('/plans', async (c) => {
+  const body = (c.req.json ? await c.req.json().catch(() => null) : null) as
+    | { demand?: unknown; sessionId?: string; journey?: string }
+    | null
+  const demand = toDemand((body?.demand ?? {}) as Slots)
+  const started = startedAt()
+  const actor = await resolveActorQuietly(c.req.header('authorization'))
+  const sessionId = typeof body?.sessionId === 'string' && body.sessionId ? body.sessionId.slice(0, 64) : null
+  const journey = typeof body?.journey === 'string' && body.journey ? body.journey.slice(0, 32) : null
+
+  await ensureEngine()
+  if (!placesLoaded()) return c.json({ error: '地点数据未载入', code: 'not_ready' }, 503)
+
+  let by: 'model' | 'engine' = 'engine'
+  let order: string[] | undefined
+  let reason = ''
+  if (aiConfigured()) {
+    const proposed = await proposePlanOrder(demand)
+    if ('ok' in proposed) {
+      by = 'model'
+      order = proposed.order
+      reason = proposed.reason
+    }
+  }
+
+  let plans
+  try {
+    // 与对话入口同一套两遍生成：第一遍定顺序，预热路段后第二遍把到达时刻变准。
+    // 顺序交给模型时两遍都用同一个 order，否则第一遍的模型顺序和第二遍的就对不上了。
+    const firstPass = generatePlans(demand, { order })
+    const warm = await warmRoutes(demand, firstPass)
+    plans = warm.hit > 0 ? generatePlans(demand, { order }) : firstPass
+  } catch (err) {
+    await recordAiCall({
+      kind: 'plan',
+      sessionId,
+      userId: actor?.userId ?? null,
+      model: modelName(),
+      journey,
+      toolCalls: by === 'model' ? 1 : 0,
+      degraded: true,
+      degradeReason: 'generate_failed',
+      durationMs: elapsedMs(started)
+    })
+    const msg = err instanceof Error ? err.message : '生成方案失败'
+    return c.json({ error: msg, code: 'plan_failed' }, 400)
+  }
+
+  await recordAiCall({
+    kind: 'plan',
+    sessionId,
+    userId: actor?.userId ?? null,
+    model: modelName(),
+    journey,
+    toolCalls: by === 'model' ? 1 : 0,
+    degraded: by !== 'model',
+    degradeReason: by === 'model' ? null : 'model_unavailable_or_unparsable',
+    durationMs: elapsedMs(started)
+  })
+  return c.json({ plans, by, reason })
+})
+
 aiRoute.get('/history', async (c) => {
   const actor = await resolveActorQuietly(c.req.header('authorization'))
   if (!actor) return c.json({ error: '请先登录', code: 'unauthorized' }, 401)
