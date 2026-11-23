@@ -23,6 +23,26 @@ export const distanceKm = (a: Place, b: Place): number => {
   return Math.round(Math.hypot(dLat, dLng) * 10) / 10
 }
 
+/**
+ * 任一点 ↔ 地点 的距离（km）。
+ *
+ * `distanceKm` 只吃两个 Place，而现场场景手里只有一个设备坐标（`GeoPoint`），
+ * 硬套就得先伪造一个 Place —— 那会把 lng/lat 之外的一堆必填字段填成假的。
+ * 同一个近似公式单独开一个签名，精度口径与 `distanceKm` 完全一致。
+ */
+export const kmTo = (from: { lng: number; lat: number }, to: { lng: number; lat: number }): number => {
+  const dLat = (from.lat - to.lat) * 111
+  const dLng = (from.lng - to.lng) * 111 * Math.cos(((from.lat + to.lat) / 2) * (Math.PI / 180))
+  return Math.round(Math.hypot(dLat, dLng) * 10) / 10
+}
+
+/** 离某点最近的 N 个地点，按距离升序；用于「我在这附近」这类候选检索 */
+export const nearestTo = (point: { lng: number; lat: number }, pool: Place[], limit: number): { place: Place; km: number }[] =>
+  pool
+    .map((place) => ({ place, km: kmTo(point, place) }))
+    .sort((a, b) => a.km - b.km)
+    .slice(0, Math.max(0, limit))
+
 /** 耗时来源：区分「真问过地图服务」和「直线折算」，界面要如实标注，不能混成一个数字 */
 export type TravelSource = 'route' | 'straight'
 

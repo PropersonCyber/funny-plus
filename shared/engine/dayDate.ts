@@ -87,7 +87,7 @@ export function closureIssue(day: TripDay, item: ItineraryItem, iso: string, not
  * `dayIndex` 从 1 开始；`dateFrom` 就是第 1 天。不用本地时区做加减 ——
  * 全程按 UTC 算，跨时区打开 App 不会让「第 2 天」变成前一天。
  */
-export function dayDateOf(demand: Demand, dayIndex: number): string | undefined {
+export function dayDateOf(demand: Pick<Demand, 'dateFrom'>, dayIndex: number): string | undefined {
   if (!demand.dateFrom) return undefined
   const base = Date.parse(`${demand.dateFrom}T00:00:00Z`)
   if (Number.isNaN(base)) return undefined

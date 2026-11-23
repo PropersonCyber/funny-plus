@@ -17,6 +17,30 @@ export interface Demand {
    */
   dateFrom?: string
   dateTo?: string
+  /**
+   * 只安排「接下来几个小时」（F04 当地临时规划）。
+   *
+   * 与 `dayCount` 并存而不是替换它：整趟行程仍要有一个天数口径（住宿、天数文案都靠它），
+   * 而这里说的是「这一次只排这么长」。给了它就走轻量规划 —— 单日、从 `startMin` 起算、
+   * 到 `startMin + hours * 60` 截止，超出的景点一个都不排。
+   *
+   * 允许半小时粒度（3.5 小时是真实需求），但封顶 12 小时：排得比一天还长就不该走这条路。
+   */
+  hours?: number
+  /**
+   * 轻量规划的起始时刻（当日分钟数，如 14:00 = 840）。
+   *
+   * 缺省按 `LIGHT_START`（下午两点）—— 用户说「下午有四小时」时，从上午九点开始排
+   * 等于把他已经过掉的那半天也算进去，排出来的行程他根本执行不了。
+   */
+  startMin?: number
+  /**
+   * 当前位置（GCJ-02，与 `Place` 同坐标系）。
+   *
+   * 只在用户主动授权/手动指定时有值。给了它，轻量规划从离这里最近的点排起；
+   * 没给就沿用普通就近排序，**绝不拿城市中心冒充用户位置**。
+   */
+  origin?: { lng: number; lat: number }
   /** 同行人数，按实际人数参与预算与核载计算，不存区间 */
   party: number
   budgetLevel: 'low' | 'mid' | 'high' | 'flexible'
@@ -25,13 +49,35 @@ export interface Demand {
   notes: string
 }
 
+/**
+ * 一档季节性营业时间。
+ *
+ * `from`/`to` 是 `MM-DD`（不含年份，支持跨年区间），`open` 是该档的 [开门, 关门]。
+ * 只在 `data/places.json` 里人工摘录，不由脚本从 `openText` 生成 —— 见 Place.seasons。
+ */
+export interface OpenSeason {
+  from: string
+  to: string
+  /** 与该季节的 `Place.open` 同口径：右端是最晚可进入时刻，不是名义关门时间 */
+  open: [number, number]
+  /** 摘自 openText 的原文片段，用来复核这档是怎么来的 */
+  text?: string
+}
+
 export interface Place {
   id: string
   name: string
   city: string
   lng: number
   lat: number
-  /** 开放时段，当日分钟数。多档营业时间取最保守的交集（见 scripts/verify-amap.ts） */
+  /**
+   * 可进入的时段，当日分钟数。多档营业时间取最保守的交集（见 scripts/verify-amap.ts）。
+   *
+   * **右端点是「最晚可进入/关园」，不是「关门」**：`scripts/verify-amap.ts` 的
+   * `lightsOffCap` 把「16:00 停止检票」「23 点关灯」这类说明收在这里，
+   * 因为它才是决定「这站能不能排」的时刻。填成景区名义关门时间（如故宫 17:00）
+   * 会放行一批实际进不去的安排 —— `seasons[].open` 必须用同一个口径。
+   */
   open: [number, number]
   /**
    * 每周固定不开放的日子，0=周日 … 6=周六；缺省或空数组 = 没有（或未核过）周几闭馆。
@@ -52,12 +98,29 @@ export interface Place {
   /** 高德原始营业时间文本（含季节区间、停止检票、周几闭馆）；有它才能让人复核上面的时段怎么来的 */
   openText?: string
   /**
+   * 分季节的营业时段，`MM-DD` 区间 + 该季节的开放时刻（当日分钟数）。
+   *
+   * 为什么单开字段而不在运行时解析 `openText`：那段文本同一件事有十几种写法，
+   * 正则抠出来的时段错一次就是「以为 17:00 还能进，实际 16:30 就停止检票」。
+   * 这里的值由 `openText` **人工摘录**，`text` 保留原文片段供复核；
+   * 没有这一项的地点一律按 `open` 的最保守交集判（见 opening.ts）。
+   */
+  seasons?: OpenSeason[]
+  /**
    * 门票人均（元）；null = 票价未核实，界面必须显示「暂无票价」。
    * 不要用 0 顶替未知：0 的含义是免费，把未知写成 0 等于对外撒谎。
    */
   ticket: number | null
   /** 建议停留（分钟） */
   stayMin: number
+  /**
+   * 到达判定半径（米）。缺省按 `DEFAULT_ARRIVAL_RADIUS_M`。
+   *
+   * 这是产品参数不是测绘结果：一个博物馆的「到了」是门口 200 米内，
+   * 一个公园可以是 500 米。没核过就用默认值，并在界面上说清「按 XX 米范围判断」，
+   * 不假装知道每个景区的实际边界。
+   */
+  radiusM?: number
   /** 步行强度 1-3 */
   walk: 1 | 2 | 3
   tags: string[]
@@ -588,6 +651,15 @@ export interface TripMemory {
    * 而草稿是一份待确认的整理结果，默认不该变成用户要公开的那段话。
    */
   draft?: string
+  /**
+   * 这份草稿是谁写的：`model` = 咕噜改写过的，`engine` = 确定性重排用户原文。
+   *
+   * 必须能分辨，因为两者对用户的承诺不同：确定性草稿逐条照抄他写的内容；
+   * 模型版虽然也被剪过枝（每句都得挂靠一条真实记录），措辞是模型给的。
+   * 界面把后者说成「咕噜帮你写好了」，用户就会开始分不清哪些是他自己经历过的。
+   * 缺省（老数据）按 engine 处理 —— 那时根本没有模型叙述这条路。
+   */
+  draftBy?: 'model' | 'engine'
   /**
    * 用户已经把这份草稿否掉了。
    *

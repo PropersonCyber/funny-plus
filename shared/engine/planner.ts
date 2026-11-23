@@ -17,6 +17,8 @@ import { estimateBudget } from '@/engine/budget'
 import { validatePlan } from '@/engine/validate'
 import { linesAtPlace, nextDeparture } from '@/engine/lines'
 import { applyReviseOp, highlightsOf, prevPlace } from '@/engine/planEdit'
+import { openingForDay } from '@/engine/opening'
+import { generateLightPlan, isLight } from '@/engine/lightPlan'
 
 // 这里就是「AI 规划模块」的边界：现在用确定性模板生成，接真模型时只换这个文件，
 // 上层视图只依赖 Plan 结构，不依赖生成方式。
@@ -48,6 +50,9 @@ export class UnsupportedDestination extends Error {}
 
 export function generatePlans(demand: Demand, opts: { order?: string[] } = {}): Plan[] {
   if (!placesLoaded()) throw new UnsupportedDestination('地点数据还没取到，请检查网络后重试')
+  // 有 hours 就走轻量规划：他要的是「接下来这几小时」，不是一份两天行程。
+  // 分派放在这里而不是每个调用点自己判，两条入口（表单/对话）才会自动一致。
+  if (isLight(demand)) return [generateLightPlan(demand)]
   const pool = placesOf(demand.destination)
   if (pool.length === 0) {
     throw new UnsupportedDestination(`A 版只开放重庆、成都、北京三个目的地，「${demand.destination}」暂未接入地点数据`)
@@ -147,12 +152,13 @@ function buildDays(demand: Demand, ordered: Place[], perDay: number): TripDay[] 
   const days: TripDay[] = []
   for (let d = 0; d < demand.dayCount; d++) {
     const slice = ordered.slice(d * perDay, d * perDay + perDay)
-    days.push(buildDay(d + 1, slice, demand.transport))
+    days.push(buildDay(d + 1, slice, demand))
   }
   return days
 }
 
-function buildDay(index: number, slice: Place[], transport: TransportMode): TripDay {
+function buildDay(index: number, slice: Place[], demand: Demand): TripDay {
+  const transport = demand.transport
   const items: ItineraryItem[] = []
   let t = 9 * 60
   let prev: Place | undefined
@@ -163,8 +169,10 @@ function buildDay(index: number, slice: Place[], transport: TransportMode): Trip
     // 后面每个到达时刻跟着漂。出发就是 09:00，到早了由营业时间兜（下一行）。
     const leg = prev ? planLeg(prev, place, transport) : null
     t += leg?.minutes ?? 0
-    // 到得比开门时间早就在门口等，否则方案自己就会报「落在营业时段外」
-    if (t < place.open[0]) t = place.open[0]
+    // 到得比开门时间早就在门口等，否则方案自己就会报「落在营业时段外」。
+    // 用当季时段而不是全年最保守档：夏天故宫 17:00 才关，按冬天那档等门会白等。
+    const opens = openingForDay(place, demand, index).open[0]
+    if (t < opens) t = opens
     if (!ateLunch && t >= 11 * 60 + 30) {
       items.push(mealItem(index, t, false))
       t += 60

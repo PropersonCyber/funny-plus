@@ -3,6 +3,7 @@ import { budgetLevelCap } from './budget'
 import { placeById } from './placeIndex'
 import { canJudgeHard, lineById, nextDeparture } from './lines'
 import { closureIssue, closureOf, dayDateOf } from './dayDate'
+import { openingForDay } from './opening'
 
 // PRD 六：模型负责理解和规划，程序负责计算和验证。这里就是那层「确定性校验」。
 const DAY_START = 8 * 60 + 30
@@ -85,7 +86,7 @@ function checkDay(
       message: `第 ${day.index} 天总时长 ${fmt(span)}，超过 12 小时上限`
     })
   }
-  day.items.forEach((item) => checkItem(item, day, hard, wait, soft, unconfirmed))
+  day.items.forEach((item) => checkItem(item, day, hard, wait, soft, unconfirmed, demand))
 
   // 闭馆判断只在日期已知时做：拿今天充数会凭空造出用户没定过的出行日，
   // 「周一闭馆」的提示也就变成了噪音（见 dayDate.ts 的注释）
@@ -122,7 +123,8 @@ function checkItem(
   hard: PlanIssue[],
   wait: PlanIssue[],
   soft: PlanIssue[],
-  unconfirmed: string[]
+  unconfirmed: string[],
+  demand: Demand
 ) {
   if (item.startMin < DAY_START) {
     soft.push({
@@ -149,19 +151,23 @@ function checkItem(
   if (!item.placeId) return
   const place = placeById(item.placeId)
   if (!place) return
-  if (item.startMin < place.open[0] || item.endMin > place.open[1]) {
+  // 营业时段跟着日期换档：故宫夏天 17:00 关、冬天 16:30 停检，
+  // 拿全年最保守那档判会把夏天排得下的行程误判成冲突
+  const { open, bySeason } = openingForDay(place, demand, day.index)
+  if (item.startMin < open[0] || item.endMin > open[1]) {
     // 只有官方核验过的营业时间才配判硬冲突。待核实的数据一旦判 error，
     // 就是把「我们没核过」的锅甩给用户，误报两次之后没人再看提示卡。
     const isHard = place.trust === 'official'
-    const alt = isHard ? nextDayAlternatives(day, `「${place.name}」在 ${fmt(place.open[0])} 开门，提前到点也进不去`) : undefined
+    const alt = isHard ? nextDayAlternatives(day, `「${place.name}」在 ${fmt(open[0])} 开门，提前到点也进不去`) : undefined
     push(hard, soft, {
       id: `closed-window-${place.id}`,
       code: 'closed-window',
       level: isHard ? 'error' : 'warn',
       dayIndex: day.index,
-      message: `「${place.name}」在 ${fmt(place.open[0])}-${fmt(place.open[1])} 开放，当前安排落在时段外${
-        isHard ? '' : '（营业时间待核实，出发前自行确认）'
-      }`,
+      // 说清这条时段是哪一档：用户才知道该去核对哪个季节的公告，而不是以为数据错了
+      message: `「${place.name}」在 ${fmt(open[0])}-${fmt(open[1])} 开放${
+        bySeason ? '（当季时段）' : ''
+      }，当前安排落在时段外${isHard ? '' : '（营业时间待核实，出发前自行确认）'}`,
       alternatives: alt
     })
   }
