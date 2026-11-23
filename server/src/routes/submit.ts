@@ -3,6 +3,7 @@ import { and, eq, isNull, or } from 'drizzle-orm'
 import { db } from '../db/client.ts'
 import { constraintReports, dataSubmissions, facts, lines, places } from '../db/schema.ts'
 import { resolveActorQuietly } from '../auth/middleware.ts'
+import { SUBMIT_CONFIRM_VOTES, SUBMIT_PROMOTABLE } from '../data/trustRules.ts'
 import type { DataSubmission, SubmitField } from '@/types/index.ts'
 
 /**
@@ -116,10 +117,97 @@ submitRoute.post('/', async (c) => {
   // 登录了就记归属，没登录留空：这两类数据匿名可用，登录只是让它跟账号走
   const actor = await resolveActorQuietly(c.req.header('authorization'))
   await db.insert(dataSubmissions).values({ ...row, userId: actor?.userId ?? null })
-  return c.json({ item: toApi({ ...row, createdAt: new Date() } as typeof dataSubmissions.$inferSelect) }, 201)
+
+  // C2 补录生效：同一字段两个独立设备填了同一个值就写进线上表。
+  // 只填「原本是空」的列、且不动 trust —— 补录不能把自己升成官方数据。
+  const promoted = await promoteIfAgreed(scope, targetId, field)
+  if (promoted) {
+    await db
+      .update(dataSubmissions)
+      .set({ status: 'verified' })
+      .where(
+        and(
+          eq(dataSubmissions.scope, scope),
+          eq(dataSubmissions.targetId, targetId),
+          eq(dataSubmissions.field, field),
+          eq(dataSubmissions.value, trimmed),
+          eq(dataSubmissions.status, 'pending')
+        )
+      )
+  }
+  return c.json(
+    { item: toApi({ ...row, createdAt: new Date() } as typeof dataSubmissions.$inferSelect), promoted },
+    201
+  )
 })
 
 /** 「这条不对」：每个硬提示都能点一次，用于统计误报率 */
+/**
+ * 补录是否已达生效门槛，达到就写进线上表。
+ *
+ * 三个刻意的限制：
+ * 1. 只认白名单字段（班次三件 + 营业时间）。「避坑正文」这类文本被两个设备写进去，
+ *    就等于把用户填报当成了官方描述。
+ * 2. 只在原列为空时写。补录是补缺，不是改写已核验过的值 —— 后者必须有人工审核。
+ * 3. 不动 trust。行程里它仍然是待核实信息，最多提示、不拦人（见 canJudgeHard）。
+ *
+ * 返回值只用来告诉本次调用方「你这一票让数据生效了」，不参与任何判定。
+ */
+async function promoteIfAgreed(scope: DataSubmission['scope'], targetId: string, field: string): Promise<boolean> {
+  const allowed = scope === 'line' ? SUBMIT_PROMOTABLE.line : scope === 'place' ? SUBMIT_PROMOTABLE.place : []
+  if (!(allowed as readonly string[]).includes(field)) return false
+
+  const rows = await db
+    .select({ value: dataSubmissions.value, clientId: dataSubmissions.clientId })
+    .from(dataSubmissions)
+    .where(
+      and(
+        eq(dataSubmissions.scope, scope),
+        eq(dataSubmissions.targetId, targetId),
+        eq(dataSubmissions.field, field),
+        eq(dataSubmissions.status, 'pending')
+      )
+    )
+
+  // 按值归；一票 = 一个独立设备（同一设备重复提交已被唯一索引拦住）
+  const votes = new Map<string, Set<string>>()
+  for (const r of rows) {
+    const set = votes.get(r.value) ?? new Set<string>()
+    set.add(r.clientId)
+    votes.set(r.value, set)
+  }
+  const agreed = [...votes.entries()].find(([, who]) => who.size >= SUBMIT_CONFIRM_VOTES)
+  if (!agreed) return false
+  const [value] = agreed
+
+  if (scope === 'line') {
+    const num = Number(value)
+    if (!Number.isFinite(num) || num < 0) return false
+    const column = { firstBus: lines.firstBus, lastBus: lines.lastBus, intervalMin: lines.intervalMin }[
+      field as 'firstBus' | 'lastBus' | 'intervalMin'
+    ]
+    const [cur] = await db
+      .select({ firstBus: lines.firstBus, lastBus: lines.lastBus, intervalMin: lines.intervalMin })
+      .from(lines)
+      .where(eq(lines.id, targetId))
+      .limit(1)
+    if (!cur) return false
+    const existing = cur[field as 'firstBus' | 'lastBus' | 'intervalMin']
+    if (existing !== null) return false
+    // isNull 再挡一次并发：两个请求同时判定为空时，只有一个能写进去
+    await db
+      .update(lines)
+      .set({ [field]: num, updatedAt: new Date() } as Partial<typeof lines.$inferInsert>)
+      .where(and(eq(lines.id, targetId), isNull(column)))
+    return true
+  }
+
+  const [cur] = await db.select({ openText: places.openText }).from(places).where(eq(places.id, targetId)).limit(1)
+  if (!cur || cur.openText !== null) return false
+  await db.update(places).set({ openText: value }).where(and(eq(places.id, targetId), isNull(places.openText)))
+  return true
+}
+
 export const reportRoute = new Hono()
 
 reportRoute.post('/', async (c) => {

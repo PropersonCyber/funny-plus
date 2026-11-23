@@ -3,6 +3,8 @@ import { and, count, eq, isNull, or } from 'drizzle-orm'
 import { db } from '../db/client.ts'
 import { factFeedbacks, facts } from '../db/schema.ts'
 import { resolveActorQuietly } from '../auth/middleware.ts'
+import { resolveTrust } from '../data/trustRules.ts'
+import type { FeedbackStat, TrustVerdict } from '../data/trustRules.ts'
 // 类型从 shared 单向引；tsx 跑源码时会被抹掉，所以镜像里不需要打 shared
 import type { TravelFact } from '@/types/index.ts'
 
@@ -12,7 +14,7 @@ const VALID_VERDICTS = ['met', 'not-applicable'] as const
 type Verdict = (typeof VALID_VERDICTS)[number]
 
 /** 库里的行 → 前端契约；日期列 drizzle 默认就是 'YYYY-MM-DD' 字符串，与前端比较口径一致 */
-export const factToApi = (r: typeof facts.$inferSelect): TravelFact => ({
+export const factToApi = (r: typeof facts.$inferSelect, verdict?: TrustVerdict): TravelFact => ({
   id: r.id,
   city: r.city,
   category: r.category as TravelFact['category'],
@@ -22,7 +24,9 @@ export const factToApi = (r: typeof facts.$inferSelect): TravelFact => ({
   sourceUrl: r.sourceUrl ?? undefined,
   verifiedAt: r.verifiedAt,
   validUntil: r.validUntil ?? undefined,
-  trust: r.trust,
+  // verdict 是 C1/C3 算出来的当下可信度；不给就直传库里的值（AI 工具面那条路不查反馈）
+  trust: verdict?.trust ?? r.trust,
+  trustNote: verdict?.note,
   placeId: r.placeId ?? undefined,
   poiGroup: r.poiGroup ?? undefined
 })
@@ -64,7 +68,23 @@ factsRoute.get('/', async (c) => {
     .from(facts)
     .where(city ? eq(facts.city, city) : undefined)
     .orderBy(facts.id)
-  return c.json({ items: rows.map(factToApi) })
+  // C1：反馈聚合一次查完，不按条目逐条查（47 条事实逐条查就是 47 次往返）
+  const grouped = await db
+    .select({ factId: factFeedbacks.factId, verdict: factFeedbacks.verdict, total: count() })
+    .from(factFeedbacks)
+    .groupBy(factFeedbacks.factId, factFeedbacks.verdict)
+  const stats = new Map<string, FeedbackStat>()
+  for (const g of grouped as Grouped[]) {
+    const cur = stats.get(g.factId) ?? { met: 0, notApplicable: 0 }
+    if (g.verdict === 'met') cur.met = Number(g.total)
+    else cur.notApplicable = Number(g.total)
+    stats.set(g.factId, cur)
+  }
+  return c.json({
+    items: rows.map((r) =>
+      factToApi(r, resolveTrust({ trust: r.trust, validUntil: r.validUntil ?? undefined }, stats.get(r.id)))
+    )
+  })
 })
 
 factsRoute.get('/feedback', async (c) => {

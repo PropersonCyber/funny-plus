@@ -94,7 +94,8 @@ function ensureEngine(): Promise<void> {
       // 全量灌入后只读：按请求换城市会让并发的两个人互相盖掉地点和线路
       setPlaces(placeRows.map(dbPlaceToApi))
       setLines(lineRows.map(lineToApi))
-      factCache = factList.map(factToApi)
+      // 显式包一层：factToApi 第二位是可选的可信度结论，直接 map(factToApi) 会把下标当成它传进去
+      factCache = factList.map((f) => factToApi(f))
     })().catch((err) => {
       engineReady = null
       throw err

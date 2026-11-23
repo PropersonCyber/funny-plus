@@ -240,6 +240,8 @@ export function GuidePage({ city, plans }: Props) {
                   {/* 随包快照不能显示成「官方信息」：库里改过档之后，打进包里的旧副本还在按老样子说 */}
                   {f.scope} · {TRUST_LABEL[displayTrust(f)] ?? f.trust}
                   {originNote(f) ? ` · ${originNote(f)}` : ''}
+                  {/* 降档原因要让用户看得见：否则「官方已核验」莫名变成「可靠来源」，像是数据坏了 */}
+                  {f.trustNote ? ` · ${f.trustNote}` : ''}
                 </text>
                 <text className={cls('fact-meta')}>
                   {f.validUntil ? `有效期至 ${f.validUntil}` : `核验 ${f.verifiedAt}`}
