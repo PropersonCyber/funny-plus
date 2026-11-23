@@ -62,6 +62,15 @@ export const places = pgTable(
     openEnd: integer('open_end').notNull(),
     /** 高德原始营业时间文本；可追溯「时段是怎么来的」，没有就是没核验过 */
     openText: text('open_text'),
+    /**
+     * 每周固定不开放的日子，0=周日 … 6=周六。
+     *
+     * 不从 openText 解析：那是给人看的自由文本，同一件事十几种写法，
+     * 解析错一次就是把「今天闭馆」说成「今天开放」。空数组 = 没有周几闭馆。
+     */
+    closedWeekdays: integer('closed_weekdays').array().notNull().default([]),
+    /** 整段闭馆的日期区间（MM-DD，不含年份，跨年取模） */
+    closedRanges: jsonb('closed_ranges').$type<{ from: string; to: string; note?: string }[]>(),
     /** 门票人均（元）；null = 票价未核实，不能用 0 冒充免费 */
     ticket: integer('ticket'),
     /** 建议停留（分钟） */

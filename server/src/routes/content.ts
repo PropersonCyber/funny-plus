@@ -17,6 +17,8 @@ const toPlace = (r: typeof places.$inferSelect): Place => ({
    * 「16:00 停止检票」「周一闭馆」这些约束是怎么被吃掉的，用户无从复核。
    */
   openText: r.openText ?? undefined,
+  closedWeekdays: r.closedWeekdays ?? [],
+  closedRanges: r.closedRanges ?? undefined,
   ticket: r.ticket,
   stayMin: r.stayMin,
   walk: r.walk as Place['walk'],

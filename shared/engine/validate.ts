@@ -2,6 +2,7 @@ import type { Demand, IssueAlternative, ItineraryItem, Plan, PlanIssue, TripDay 
 import { budgetLevelCap } from './budget'
 import { placeById } from './placeIndex'
 import { canJudgeHard, lineById, nextDeparture } from './lines'
+import { closureIssue, closureOf, dayDateOf } from './dayDate'
 
 // PRD 六：模型负责理解和规划，程序负责计算和验证。这里就是那层「确定性校验」。
 const DAY_START = 8 * 60 + 30
@@ -25,7 +26,7 @@ export function validatePlan(plan: Plan, demand: Demand): PlanIssue[] {
   const unconfirmed: string[] = []
 
   plan.days.forEach((day) => {
-    checkDay(day, hard, wait, soft, unconfirmed)
+    checkDay(day, hard, wait, soft, unconfirmed, demand)
   })
 
   const cap = budgetLevelCap(demand.budgetLevel)
@@ -66,7 +67,14 @@ function dedupe(list: PlanIssue[]): PlanIssue[] {
   return list.filter((i) => (seen.has(i.id) ? false : (seen.add(i.id), true)))
 }
 
-function checkDay(day: TripDay, hard: PlanIssue[], wait: PlanIssue[], soft: PlanIssue[], unconfirmed: string[]) {
+function checkDay(
+  day: TripDay,
+  hard: PlanIssue[],
+  wait: PlanIssue[],
+  soft: PlanIssue[],
+  unconfirmed: string[],
+  demand: Demand
+) {
   const span = daySpan(day)
   if (span > MAX_DAY_SPAN) {
     soft.push({
@@ -78,6 +86,19 @@ function checkDay(day: TripDay, hard: PlanIssue[], wait: PlanIssue[], soft: Plan
     })
   }
   day.items.forEach((item) => checkItem(item, day, hard, wait, soft, unconfirmed))
+
+  // 闭馆判断只在日期已知时做：拿今天充数会凭空造出用户没定过的出行日，
+  // 「周一闭馆」的提示也就变成了噪音（见 dayDate.ts 的注释）
+  const date = dayDateOf(demand, day.index)
+  if (date) {
+    for (const item of day.items) {
+      if (item.kind !== 'place' || !item.placeId) continue
+      const place = placeById(item.placeId)
+      if (!place) continue
+      const closure = closureOf(place, date)
+      if (closure.closed) hard.push(closureIssue(day, item, date, closure.note!))
+    }
+  }
 
   const walk = walkMinutes(day)
   if (walk > MAX_WALK_MIN) {

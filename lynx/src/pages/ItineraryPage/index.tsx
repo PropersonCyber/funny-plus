@@ -15,6 +15,7 @@ import { track } from '../../track.js';
 import styles from './index.module.scss';
 import { makeCls } from '../../styles/cls.js';
 import { ticketText } from '../../ticketText.js';
+import { dateRangeLabel } from '../../../../shared/engine/dayDate.js';
 
 const cls = makeCls(styles);
 
@@ -154,9 +155,9 @@ export function ItineraryPage({
             </view>
           </view>
         </view>
-        {/* 日期是设计稿示例，不能跟真实预算数字并排放在同一行冒充数据 */}
+        {/* 日期与预算不能混成一行：日期未定时要明确说「未定」，而预算一直有真数 */}
         <text className={cls('page-sub')}>
-          {demand.party} 人 · 人均 ¥{plan.budget.perPerson} · 合计 ¥{plan.budget.total}
+          {dateRangeLabel(demand)} · {demand.party} 人 · 人均 ¥{plan.budget.perPerson} · 合计 ¥{plan.budget.total}
         </text>
 
         {plans.length > 1 ? (

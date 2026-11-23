@@ -44,6 +44,11 @@ const LABEL: Record<(typeof REQUIRED)[number], string> = {
 const demandSchema = z.object({
   destination: z.string().optional().describe('目的地城市，如「重庆」'),
   dayCount: z.number().int().min(1).max(5).optional().describe('游玩天数'),
+  dateFrom: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .describe('出发日期 YYYY-MM-DD。用户没说就省略，绝不要拿今天充数'),
   party: z.number().int().min(1).max(20).optional().describe('同行人数'),
   budgetLevel: z.enum(['low', 'mid', 'high', 'flexible']).optional().describe('预算档位'),
   preferences: z.array(z.string()).optional().describe('偏好标签，如 美食探店 / 经典打卡 / 拍照出片'),
@@ -66,6 +71,9 @@ function toDemand(s: Slots): Demand {
   return {
     destination: s.destination ?? '',
     dayCount: s.dayCount ?? 1,
+    // 日期允许未知：没填就是 undefined，不能拿今天充数 —— 一充数，
+    // 行程页就会出现一个用户从没定过的出行日，闭馆判断也会按错误的日子跑
+    ...(s.dateFrom ? { dateFrom: s.dateFrom } : {}),
     party: s.party ?? 1,
     budgetLevel: s.budgetLevel ?? 'flexible',
     preferences: s.preferences ?? [],

@@ -7,6 +7,8 @@ import { fetchPlans } from '../../planFetch.js';
 import { track } from '../../track.js';
 import { svgIcon } from '../../icons.js';
 import { PickerSheet } from '../PickerSheet/index.js';
+import { dateOptions } from './dateOptions.js';
+import { dateRangeLabel } from '../../../../shared/engine/dayDate.js';
 import { PlanLoading } from '../PlanLoading/index.js';
 import type { PickerOption } from '../PickerSheet/index.js';
 import mascotStart from '../../assets/ip/mascot-start.png';
@@ -26,13 +28,24 @@ type Props = {
 
 const BUDGETS: Demand['budgetLevel'][] = ['low', 'mid', 'high', 'flexible'];
 
+/**
+ * 表单行里显示的日期。
+ *
+ * 「日期未定」不是占位符，是如实回答：用户没选就是没选，界面不该显示一个
+ * 他没定过的具体日期（设计稿里原本就摆着一个写死的示例日期）。
+ */
+function dateLabel(d: Demand): string {
+  return d.dateFrom ? dateRangeLabel({ ...d, dayCount: 1 }) : '还不确定';
+}
+
 // 单选维度的选择器配置集中在这里：以后加城市/加预算档只改数据，不动布局
-type PickerKey = 'destination' | 'dayCount' | 'budgetLevel' | 'transport';
+type PickerKey = 'destination' | 'dayCount' | 'budgetLevel' | 'transport' | 'dateFrom';
 const PICKER_TITLE: Record<PickerKey, string> = {
   destination: '目的地',
   dayCount: '玩几天',
   budgetLevel: '人均预算',
   transport: '交通方式',
+  dateFrom: '出发日期',
 };
 // 只放引擎真能映射到地点 tags 的偏好（planner PREF_TAGS），映射不上的选了也是白选
 const PREFERENCES = ['美食探店', '经典打卡', '拍照出片', '亲子慢游', '夜景江湖'];
@@ -53,6 +66,8 @@ const PICKER_OPTIONS: Record<PickerKey, PickerOption[]> = {
     label: t.label,
     ...(t.value === 'compare' ? { note: '同一需求出公交 / 自驾 / 包车三套' } : {}),
   })),
+  // 出发日期的选项要按「今天」算出来，所以在渲染时生成，不放进这张静态表
+  dateFrom: [],
 };
 
 /** 底部弹窗：每行一个决策项，行内左图标右控件；只放引擎真吃得下的四维 */
@@ -89,6 +104,8 @@ export function PlanSheet({ demand, cities, onClose, onPlanned }: Props) {
       else if (picker === 'budgetLevel') patch({ budgetLevel: v as Demand['budgetLevel'] });
       else if (picker === 'transport') patch({ transport: v as Demand['transport'] });
       else if (picker === 'destination') patch({ destination: v });
+      // 空串 = 用户选了「还不确定」：把字段清掉，而不是存一个空字符串冒充日期
+      else if (picker === 'dateFrom') patch({ dateFrom: v || undefined });
     },
     [picker, patch],
   );
@@ -100,7 +117,12 @@ export function PlanSheet({ demand, cities, onClose, onPlanned }: Props) {
         ? draft.budgetLevel
         : picker === 'transport'
           ? draft.transport
-          : draft.destination;
+          : picker === 'dateFrom'
+            ? (draft.dateFrom ?? '')
+            : draft.destination;
+  // 日期候选按「今天」生成。渲染期算一次即可：这个弹窗不会跨天停留
+  const pickerOptions =
+    picker === 'dateFrom' ? dateOptions(new Date().toISOString().slice(0, 10)) : picker ? PICKER_OPTIONS[picker] : [];
   const submit = useCallback(() => {
     const startedAt = Date.now();
     setError('');
@@ -195,12 +217,23 @@ export function PlanSheet({ demand, cities, onClose, onPlanned }: Props) {
             </view>
           </view>
 
+          {/* 出发日期：允许未知，不给这一项等于逼用户编一个日期出来 */}
+          <view className={cls('ps-row')}>
+            <view className={cls('ps-icon ps-icon-blue')}>
+              <IconSvg content={svgIcon('clock', '#2478F2')} style={{ width: '16px', height: '16px' }} />
+            </view>
+            <text className={cls('ps-label')}>出发日期</text>
+            <view className={cls('ps-select')} bindtap={() => setPicker('dateFrom')}>
+              <text className={cls('ps-select-text')}>{dateLabel(draft)}</text>
+              <IconSvg content={svgIcon('chevronRight', '#8A99B3')} style={{ width: '14px', height: '14px' }} />
+            </view>
+          </view>
+
           <view className={cls('ps-row')}>
             <view className={cls('ps-icon ps-icon-green')}>
               <IconSvg content={svgIcon('profile', '#35C08A')} style={{ width: '16px', height: '16px' }} />
             </view>
-            <text className={cls('ps-label')}>人数</text>
-            <view className={cls('ps-stepper')}>
+            <text className={cls('ps-label')}>人数</text>            <view className={cls('ps-stepper')}>
               <view className={cls('ps-step-btn')} bindtap={() => patch({ party: Math.max(1, draft.party - 1) })}>
                 <text className={cls('ps-step-text')}>–</text>
               </view>
@@ -281,11 +314,7 @@ export function PlanSheet({ demand, cities, onClose, onPlanned }: Props) {
         {picker ? (
           <PickerSheet
             title={PICKER_TITLE[picker]}
-            options={
-              picker === 'destination'
-                ? cities.map((c) => ({ value: c, label: c }))
-                : PICKER_OPTIONS[picker]
-            }
+            options={picker === 'destination' ? cities.map((c) => ({ value: c, label: c })) : pickerOptions}
             value={pickerValue}
             onClose={() => setPicker(null)}
             onPick={onPickValue}

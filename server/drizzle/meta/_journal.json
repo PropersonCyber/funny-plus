@@ -127,6 +127,13 @@
       "when": 1795332792889,
       "tag": "0017_hot_oracle",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1795427092083,
+      "tag": "0018_place_closures",
+      "breakpoints": true
     }
   ]
 }

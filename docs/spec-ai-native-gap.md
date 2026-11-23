@@ -40,11 +40,11 @@
 
 | N10 | 表单走模型提案 | 新增 `POST /api/ai/plans` + `server/src/ai/propose.ts`（模型只给地点顺序）+ `generatePlans(demand,{order})` 接缝；`lynx/src/planFetch.ts` 6s 超时无损落回本地 | `engine.test.ts` 3 例（共 209）；模型路径需真机 + key 冒烟 |
 | N4 | 时段粒度修改 | `ReviseOp` 加 `ease{day,window}`；关键词兜底认「上午/下午/晚上」；`retime` 加 `WINDOW_FLOOR`（压缩不得把安排拖出原时段），换序用 `keepWindows:false` | `engine.test.ts` 4 例（含「晚上的安排不被拖进下午」） |
-| N3 | 固定安排 | `ItineraryItem.pinned`；行程页「固定」开关；`applyReviseOp` 遇 pinned 拒绝 drop/replace；**`reorder` 让固定项保持原位次并在 reason 里说明**；关键词兜底跳过 pinned | `engine.test.ts` 3 例 |
+| N3 | 日期与固定安排 | `ItineraryItem.pinned` + 行程页「固定」开关 + `applyReviseOp` 拒绝 drop/replace + **`reorder` 让固定项保持原位次**；**`dateFrom` 全链路（表单 → 落库 → 引擎）+ `places.closedWeekdays` 闭馆判断**（迁移 `0018`） | `engine.test.ts` 6 例 + `dayDate.test.ts` 14 例 |
 | N11 | 对话回归集 | `server/src/ai/eval/`（6 类用例 + 判定纯函数 + SSE runner）+ `scripts/chat-eval.ts`；runner 保留 `tool_result`，判定新增 `noInventedPrices`（金额须在工具返回里有出处）、`engineIssues`（引擎真的判出 over-budget / empty-day）、`expectPlans`、`slotsAbsent`；every `mustMention` alternative 拆成独立「或」组 | `eval/checks.test.ts` 18 例；真实模型跑批未执行（需 key + 起 `dev:api`） |
 | C1/C2/C3 | 数据飞轮 | `server/src/data/trustRules.ts`（阈值集中）；`GET /api/facts`、`GET /api/content`、AI `getFacts` **三处共用 `factWithTrust`**（反馈 + 有效期，AI 不再用进程级缓存）；`POST /api/submit` 按**归一化后的值**凑票（`17:00` 与 `1020` 算同一票）、只在原列为空时写入、**写入同时把行压到 `experience`**（`capTrust`）、写 0 行时不再谎报 `promoted`、**凑票只认登录账号**（`isAgreed`，自报 `clientId` 不算数） | `trustRules.test.ts` 19 例 + `submit.test.ts` 5 例（真库） |
 
-门禁现状（2026-11-23 最终复跑）：lynx typecheck 0 / lynx test **217** / `check:css` 835 class 通过 / server typecheck 0 / **server test 160 例全绿（17 个文件，含连库的 7 个）**。连库测试是本次先起 `docker compose -f server/docker-compose.yml up -d` + `db:migrate` + `db:seed` 之后真跑通的，不再是「本机无 Postgres 未跑」。
+门禁现状（2026-11-23 最终复跑）：lynx typecheck 0 / lynx test **235** / `check:css` 835 class 通过 / server typecheck 0 / **server test 160 例全绿（17 个文件，含连库的 7 个）**。连库测试是本次先起 `docker compose -f server/docker-compose.yml up -d` + `db:migrate` + `db:seed` 之后真跑通的，不再是「本机无 Postgres 未跑」。
 
 ### 0.1.1 2026-11-23 复核五个「已完成」项发现的缺陷
 
@@ -122,7 +122,7 @@ J1 证据链：`lynx/src/pages/AssistantPage/index.tsx:265` → `lynx/src/App/su
 | 编号 | 现状 | 主要缺口 | 工作项 |
 |---|---|---|---|
 | F01 首页与咕噜 | 形态不符 | 城市卡发现页，无问候 / 无输入框 / 无当前旅行卡；主 CTA 进表单非助理 | N1、N2 |
-| F02 旅行上下文 | 部分 | `Demand` 无日期或时间范围；无固定安排（pin） | N3 |
+| F02 旅行上下文 | 完成 | 固定安排与日期范围均已接入（N3） | — |
 | F03 规划与修改 | 部分 | 预览确认闭环成立；但无时段粒度，兜底会误吃句子 | N4、G2 |
 | F04 现场推荐 | 全缺 | 定位只到城市级，无到达判定，三分支零代码 | D4 → N6 |
 | F05 下一站 | 全缺 | 离开意图 / 候选 / 城市交通零代码 | D4 → N7 |
@@ -322,13 +322,20 @@ J1 证据链：`lynx/src/pages/AssistantPage/index.tsx:265` → `lynx/src/App/su
 - **WHEN** 分别从主卡与 FAB 进入
 - **THEN** 落到同一个助理会话，已确认安排出现在同一工作台
 
-### N3 旅行上下文补日期与固定安排（F02）—— **固定安排已完成，日期范围只到类型层（2026-11-23）**
+### N3 旅行上下文补日期与固定安排（F02）—— **已完成（2026-11-23）**
 
 原现状：`Demand` 只有 destination / dayCount / party / budgetLevel / preferences / transport / notes，**无日期或时间范围**；`ItineraryPage:154` 的日期是设计稿文案。pin / locked / 固定安排在三个包里零命中。
 
 已做：`ItineraryItem.pinned` + 行程页「固定」开关 + `useTrips.setPinned`；`applyReviseOp` 遇 pinned 拒绝 drop / replace 并说明原因；关键词兜底跳过 pinned（否则「轻松点」会静默吃掉用户固定的那条）。
 
-**未做**：`Demand.dateFrom` / `dateTo` 只有类型与注释，表单与行程页都没接，也没有任何地方读它 —— 所以「允许未知」目前是空的。时段保留：日期一旦接上，`openText` 里的周几闭馆与季节区间要一起参与，否则日期填了也不影响规划。
+**日期链路已补齐（2026-11-23）**：`dateFrom` 从类型 → 表单选日期 → 落库 → 引擎参与校验，全链路打通。
+
+- **表单**：新增「出发日期」行，选项是未来 45 天的日历，含周几；第一项是「还不确定」，值落成 `undefined` 而不是空串 —— 允许未知是产品口径，不给这一项等于逼用户编日期。Lynx 没有原生日期控件，复用已有的 `PickerSheet` 列表，不引入未验证的滚轮吸附。
+- **行程页**：顶部那行日期改成真实值；未填时显示「日期未定」（原来那里摆着设计稿写死的示例日期，跟真实预算并排，看起来像真数据）。
+- **闭馆判断**：新增 `places.closedWeekdays`（0=周日…6=周六）+ `closedRanges`（MM-DD，支持跨年），迁移 `0018_place_closures`。`validatePlan` 在**日期已知且该点有结构化闭馆数据**时判 `closed-weekday` 为 error，给「换一天 / 换一个点」两条出路。
+- **为什么不解析 `openText`**：34 条里只有 3 条含周几闭馆，且写法各异（「周一全天关闭(法定节假日除外)」「周二–周日 09:00–17:00」）。把正则当数据源，判错一次就是把「今天闭馆」说成「今天开放」，比不判更糟。所以只给已确认的 3 个点（故宫 / 国博 / 三峡博物馆，均周一）填结构化字段，其余留空 = 不判定。
+
+**仍未做**：`dateTo` 没有独立入口（区间由 `dateFrom + dayCount` 推出，两者同时可填会互相矛盾）；季节区间营业时间（`cd-panda` 的 03-16 至 10-31 两档）尚未结构化，仍只取最保守交集。
 
 要求：MUST 支持日期或时间范围（允许未知）。固定安排 MUST 在后续修改中作为约束，MUST NOT 被 drop / replace 静默改掉，也 MUST NOT 被换序挪位次（`reorder` 现在让固定项留在原位，并在 reason 里说明「保持原位」）。
 
@@ -337,6 +344,10 @@ J1 证据链：`lynx/src/pages/AssistantPage/index.tsx:265` → `lynx/src/App/su
 - **THEN** 该地点不被删除，预览说明它被保留的原因
 - **WHEN** 日期未填
 - **THEN** 明确标为未知，不伪造具体日期
+- **WHEN** 日期填了，行程里排到周一闭馆的点
+- **THEN** 出发前就报 error，并给「换一天 / 换一个点」两条出路
+- **WHEN** 日期没填
+- **THEN** 不做任何闭馆判断，不凭空提示
 
 ### N4 修改支持时段粒度（F03、9.2）—— **已完成（2026-11-23）**
 

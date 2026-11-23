@@ -13,6 +13,8 @@ export const toApi = (r: typeof places.$inferSelect): Place => ({
   lat: r.lat,
   open: [r.openStart, r.openEnd],
   openText: r.openText ?? undefined,
+  closedWeekdays: r.closedWeekdays ?? [],
+  closedRanges: r.closedRanges ?? undefined,
   ticket: r.ticket,
   stayMin: r.stayMin,
   walk: r.walk as Place['walk'],
