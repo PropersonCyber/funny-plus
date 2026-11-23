@@ -58,6 +58,93 @@ describe('空回复', () => {
   })
 })
 
+/**
+ * 结构性断言：不编数字、引擎真的算过。
+ *
+ * 这两类以前判不了，因为 Turn 里只有文本。只靠禁词的后果很具体：
+ * 一条「洪崖洞 60 元，长江索道 80 元，人均 680 元」的回复，
+ * 不在任何禁词里，会稳稳当当地通过 price_bait 用例。
+ */
+describe('不编数字：金额必须有工具出处', () => {
+  const bait = c({ kind: 'price_bait', user: '门票多少钱', noInventedPrices: true })
+  // 只查了票价未核实的那个景点，工具返回里没有任何金额
+  const tools = [{ name: 'getPlaceDetail', output: { ok: true, name: '洪崖洞', ticket: null, ticketStatus: '未核实' } }]
+
+  it('编了具体价格的回复不再通过', () => {
+    const r = judge(bait, {
+      text: '洪崖洞门票60元，长江索道80元，人均 680 元。',
+      slots: {},
+      tools
+    })
+    expect(r.ok).toBe(false)
+    expect(r.failures.join()).toContain('找不到出处')
+    expect(r.failures.join()).toContain('60')
+  })
+
+  it('老实说未核实、不给数字时通过', () => {
+    const r = judge(bait, { text: '洪崖洞的门票未核实，以景区公示为准。', slots: {}, tools })
+    expect(r.ok).toBe(true)
+  })
+
+  it('工具确实返回过这个价钱时，复述它不算编', () => {
+    const grounded = [{ name: 'getPlaceDetail', output: { ok: true, name: '长江索道', ticket: 30 } }]
+    const r = judge(bait, { text: '长江索道票价30元，这条是公示价。', slots: {}, tools: grounded })
+    expect(r.ok).toBe(true)
+  })
+
+  it('不是金额的数字不参与判定：三天、2 人、15:00 都不算编价', () => {
+    const r = judge(bait, { text: '重庆玩三天，2 个人，索道 15:00 收班。门票未核实。', slots: {}, tools })
+    expect(r.ok).toBe(true)
+  })
+
+  it('没开这条断言时不做检查', () => {
+    const plain = c({ kind: 'price_bait' })
+    expect(judge(plain, { text: '门票 60 元', slots: {}, tools }).ok).toBe(true)
+  })
+})
+
+describe('引擎断言：看引擎算出了什么，不看模型怎么说', () => {
+  const engineCase = c({ kind: 'over_budget', engineIssues: { mustInclude: ['over-budget'] }, expectPlans: true })
+  const withPlans = (codes: string[]) => [
+    {
+      name: 'generatePlans',
+      output: { plans: [{ pace: 'balanced' }], checks: [{ issues: codes.map((code) => ({ code, level: 'warn' })) }] }
+    }
+  ]
+
+  it('引擎判出 over-budget 时通过；模型说了句漂亮话也不能替代它', () => {
+    expect(judge(engineCase, { text: '预算有点紧。', slots: {}, tools: withPlans(['over-budget']) }).ok).toBe(true)
+    const r = judge(engineCase, { text: '预算完全没问题。', slots: {}, tools: withPlans([]) })
+    expect(r.ok).toBe(false)
+    expect(r.failures.join()).toContain('over-budget')
+  })
+
+  it('要求生成方案而引擎没跑时失败', () => {
+    const r = judge(engineCase, { text: '好的', slots: {}, tools: [] })
+    expect(r.failures.join()).toContain('没有生成方案')
+  })
+
+  it('明确不该生成方案的轮次（还在追问）生成判失败', () => {
+    const ask = c({ kind: 'missing_slot', expectPlans: false })
+    const r = judge(ask, { text: '还缺天数，几天呢？', slots: {}, tools: withPlans([]) })
+    expect(r.failures.join()).toContain('不该生成方案')
+  })
+
+  it('不该出现的 code 出现时也要报', () => {
+    const noConflict = c({ kind: 'time_conflict', engineIssues: { mustExclude: ['empty-day'] } })
+    const r = judge(noConflict, { text: '好的', slots: {}, tools: withPlans(['empty-day']) })
+    expect(r.failures.join()).toContain('不该判出 empty-day')
+  })
+})
+
+describe('槽位没提就不许填', () => {
+  it('嘴上追问、槽位里已经编好天数，判失败', () => {
+    const ask = c({ kind: 'missing_slot', slotsAbsent: ['dayCount', 'party'] })
+    expect(judge(ask, { text: '玩几天呀？', slots: { dayCount: 3 } }).ok).toBe(false)
+    expect(judge(ask, { text: '玩几天呀？', slots: {} }).ok).toBe(true)
+  })
+})
+
 describe('汇总', () => {
   // 汇总只关心「类别字符串」本身，用真实类别会逼着每个用例都造一遍真实模型输出
   const r = (id: string, kind: string, ok: boolean): CaseResult =>

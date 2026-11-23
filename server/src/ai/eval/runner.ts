@@ -1,5 +1,5 @@
 import type { EvalCase } from './cases.ts'
-import type { Turn } from './checks.ts'
+import type { ToolCall, Turn } from './checks.ts'
 
 /**
  * 跑一条用例：直接打正在运行的 `/api/ai/chat`（N11）。
@@ -58,6 +58,7 @@ async function chatOnce(
     let buf = ''
     let text = ''
     let finalSlots: Record<string, unknown> = { ...slots }
+    const tools: ToolCall[] = []
 
     for (;;) {
       const { done, value } = await reader.read()
@@ -81,12 +82,17 @@ async function chatOnce(
           if (parsed.event === 'done' && payload?.slots && typeof payload.slots === 'object') {
             finalSlots = payload.slots as Record<string, unknown>
           }
+          // 工具返回要留下：判定「不编数字」「引擎判出 over-budget」全靠它，
+          // 只留文本的话这两类断言根本写不出来（以前 Turn 只有 text + slots）
+          if (parsed.event === 'tool_result' && payload) {
+            tools.push({ name: String(payload.name ?? ''), output: payload.output })
+          }
           if (parsed.event === 'error' && payload) throw new Error(String(payload.message ?? '模型报错'))
         }
         idx = buf.indexOf('\n\n')
       }
     }
-    return { text, slots: finalSlots }
+    return { text, slots: finalSlots, tools }
   } finally {
     clearTimeout(timer)
   }
@@ -95,8 +101,11 @@ async function chatOnce(
 /**
  * 跑一条用例。有 history 的先跑前置轮次（只要把上下文喂进去，结果不判定），
  * 最后一轮才是被判定的那句 —— 多轮用例的价值在于槽位跨轮累积。
+ *
+ * 返回的工具调用只取**最后一轮**：判定的是这一轮有没有拿工具结果说话，
+ * 前面轮次的查询不该替这一轮的编造作证。
  */
-export async function runCase(c: EvalCase, opts: RunnerOptions): Promise<{ text: string; slots: Record<string, unknown> }> {
+export async function runCase(c: EvalCase, opts: RunnerOptions): Promise<Turn> {
   const messages: { role: 'user' | 'assistant'; content: string }[] = []
   let slots: Record<string, unknown> = {}
 
@@ -109,5 +118,5 @@ export async function runCase(c: EvalCase, opts: RunnerOptions): Promise<{ text:
 
   messages.push({ role: 'user', content: c.user })
   const last = await chatOnce(opts, messages, slots)
-  return { text: last.text, slots: last.slots }
+  return { text: last.text, slots: last.slots, tools: last.tools }
 }

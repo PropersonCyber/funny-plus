@@ -67,3 +67,7 @@ backup-*/
 
 # 照片上传目录（F08 后半）：用户内容，不进仓
 server/.media/
+
+# 对话回归基线（N11）：属于「这版提示词在这台机器上的一次实测」，不是团队共享的期望值。
+# chat-eval.ts 的注释一直这么写，但以前没落进 gitignore，跑一次 --save 就会混进提交。
+server/.eval-baseline.json

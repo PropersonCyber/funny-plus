@@ -91,8 +91,16 @@ export function conflictHint(errorCount: number, attempt: number): string {
   return '有硬冲突，最多再生成一版更松的方案'
 }
 
+/**
+ * 给模型看的校验结果。
+ *
+ * 只回 error 是刻意的：模型据此判断「要不要再松一版」，warn/info 混进来会让它
+ * 以为没排好而反复重排。但回归集要断言「引擎真的判出了 over-budget」这类 warn，
+ * 所以额外回一份 issues（code + level），仅供程序判定，提示词里没有引用它。
+ */
 export function validateView(plan: Plan, demand: Demand, attempt = 1) {
-  const errors = validatePlan(plan, demand).filter((i) => i.level === 'error')
+  const all = validatePlan(plan, demand)
+  const errors = all.filter((i) => i.level === 'error')
   return {
     ok: true as const,
     errorCount: errors.length,
@@ -101,6 +109,8 @@ export function validateView(plan: Plan, demand: Demand, attempt = 1) {
       message: i.message,
       alternatives: (i.alternatives ?? []).map((a) => a.label)
     })),
+    /** 全部三级问题的 code 与等级；模型不读，回归集用它判「引擎算出了什么」 */
+    issues: all.map((i) => ({ code: i.code, level: i.level })),
     attempt,
     hint: conflictHint(errors.length, attempt)
   }
