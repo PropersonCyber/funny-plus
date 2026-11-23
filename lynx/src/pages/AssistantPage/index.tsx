@@ -165,6 +165,12 @@ export function AssistantPage({
       preferences: demand.preferences,
       transport: demand.transport,
       notes: demand.notes,
+      // 轻量行程的时长要一起带过去：不带的话用户说「再给我加一个小时」，
+      // 咕噜会按整天重排一份和工作台上不一样的行程
+      ...(demand.hours ? { hours: demand.hours } : {}),
+      ...(demand.startMin !== undefined ? { startMin: demand.startMin } : {}),
+      ...(demand.returnBy !== undefined ? { returnBy: demand.returnBy } : {}),
+      ...(demand.mustVisit?.length ? { mustVisit: demand.mustVisit } : {}),
     };
   }, [demand]);
 

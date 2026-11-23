@@ -31,6 +31,14 @@ export type ChatSlots = {
   preferences?: string[];
   transport?: 'public' | 'car' | 'charter' | 'compare';
   notes?: string;
+  /** 只安排接下来几小时（当地临时规划）；有它就只排这一段，不看天数 */
+  hours?: number;
+  /** 从当天几点开始，当日分钟数（14:00 = 840） */
+  startMin?: number;
+  /** 最晚返回时刻，当日分钟数；是约束不是建议 */
+  returnBy?: number;
+  /** 用户点名必去的地点 id，按他说的先后顺序 */
+  mustVisit?: string[];
 };
 
 export type ChatHandlers = {

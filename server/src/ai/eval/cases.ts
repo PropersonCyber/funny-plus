@@ -6,13 +6,20 @@
  * 就要改一遍测试，最后没人愿意跑它。
  *
  * 覆盖面按 `docs/spec-ai-native-gap.md` N11 的六类：缺槽位、城市未开放、超预算、
- * 时间冲突、口语方言、诱导编造价格。
+ * 时间冲突、口语方言、诱导编造价格。另加当地临时规划（「还有四小时」）一类。
  */
 
 export type EvalCase = {
   id: string
   /** 用例属于哪一类，失败时按类看哪一块最弱 */
-  kind: 'missing_slot' | 'city_unsupported' | 'over_budget' | 'time_conflict' | 'colloquial' | 'price_bait'
+  kind:
+    | 'missing_slot'
+    | 'city_unsupported'
+    | 'over_budget'
+    | 'time_conflict'
+    | 'colloquial'
+    | 'price_bait'
+    | 'light_plan'
   user: string
   /** 多轮：前面的轮次先跑完，最后一轮才是被判定的这句 */
   history?: string[]
@@ -34,6 +41,12 @@ export type EvalCase = {
     dayCount?: number
     party?: number
     budgetLevel?: 'low' | 'mid' | 'high' | 'flexible'
+    /** 当地临时规划的时长；断言它是从「还有四小时」这类话里听出来的 */
+    hours?: number
+    /** 出发时刻（当日分钟数）；断言模型听出了「12 点出发」 */
+    startMin?: number
+    /** 最晚返回时刻（当日分钟数）；断言模型把「8 点前回来」当约束收下了 */
+    returnBy?: number
   }
   /**
    * 断言这些槽位**没有被填**。
@@ -148,5 +161,32 @@ export const CASES: EvalCase[] = [
     // 只禁三个字面串（「门票 60」之类）挡不住「洪崖洞 60 元」这种编法。
     noInventedPrices: true,
     slots: { destination: '重庆', dayCount: 2 }
+  },
+  {
+    id: 'light-hours-1',
+    kind: 'light_plan',
+    user: '我在北京前门附近，下午还有四个小时，帮我安排下',
+    // 当地临时规划的核心契约：听出「四小时」并只按这四个小时排，不要反问天数与预算。
+    // 断言 hours=4 而不是只看文案 —— 槽位没收敛的话引擎就会去排整天行程。
+    slots: { hours: 4 },
+    expectPlans: true,
+    mustMention: [['小时'], ['北京']]
+  },
+  {
+    id: 'window-return-1',
+    kind: 'time_conflict',
+    user: '北京一天，12 点出发，晚上 8 点前得回来',
+    // 两种规划起点里的「按时间」。出发与返回都要落进槽位，否则引擎仍从 9:00 排、
+    // 也不知道 20:00 是约束 —— 排出来的行程用户赶不上。
+    slots: { destination: '北京', startMin: 12 * 60, returnBy: 20 * 60 },
+    expectPlans: true
+  },
+  {
+    id: 'nearby-eat-1',
+    kind: 'colloquial',
+    user: '我在北京，附近有什么能吃点东西的吗',
+    // 没建行程也该能查附近（F04）。这类内容数据只有小吃街/商圈，
+    // 模型不能把它说成「推荐餐厅」，也不能编出具体店名。
+    mustMention: [['附近'], ['小吃', '商圈', '南锣鼓巷', '王府井']]
   }
 ]

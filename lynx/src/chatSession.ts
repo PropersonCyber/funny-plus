@@ -8,6 +8,10 @@ export type StoredSlots = {
   preferences?: string[]
   transport?: 'public' | 'car' | 'charter' | 'compare'
   notes?: string
+  hours?: number
+  startMin?: number
+  returnBy?: number
+  mustVisit?: string[]
 }
 
 export type StoredLog = { turns: StoredTurn[]; slots: StoredSlots }

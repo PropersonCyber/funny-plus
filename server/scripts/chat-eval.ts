@@ -38,7 +38,9 @@ for (const c of cases) {
   process.stdout.write(`· ${c.id} … `)
   try {
     const turn = await runCase(c, { baseUrl })
-    const r = judge(c, { text: turn.text, slots: turn.slots })
+    // tools 必须一起交出去：引擎冲突与价格出处两类断言全靠它，
+    // 只传 text+slots 的话这两类用例永远判成「没有出处」或「引擎没判出」
+    const r = judge(c, { text: turn.text, slots: turn.slots, tools: turn.tools })
     console.log(r.ok ? '通过' : `不通过（${r.failures.join('；')}）`)
     results.push(r)
   } catch (err) {

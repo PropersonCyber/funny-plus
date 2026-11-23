@@ -9,22 +9,25 @@ import { proposeReviseOp } from '../ai/revise.ts'
 import { recordAiCall, startedAt, elapsedMs } from '../ai/observe.ts'
 import { appendTurn, latestTurnsOf, loadTurns, resolveSession } from '../ai/history.ts'
 import { resolveActorQuietly } from '../auth/middleware.ts'
-import { nearestTo, placeById, placesOf, placesLoaded, setPlaces } from '@/engine/placeIndex.ts'
+import { nearestTo, placeById, placesOf, placesLoaded, setPlaces, travelMinutes } from '@/engine/placeIndex.ts'
 import { warmRoutes } from '../ai/routeWarm.ts'
-import { linesOf, setLines } from '@/engine/lines.ts'
-import { budgetView, clock, factsView, linesView, placeDetailView, validateView } from '@/engine/aiGround.ts'
+import { linePlaceIds, linesAtPlace, linesOf, setLines } from '@/engine/lines.ts'
+import { budgetView, clock, factsView, linesView, placeDetailView, segmentView, validateView } from '@/engine/aiGround.ts'
 import { cityTransitFor, nextStopAfter } from '@/engine/onSite.ts'
 import { NO_KEYWORD_HINT, generatePlans, keywordReviseOp } from '@/engine/planner.ts'
+import { isLight } from '@/engine/lightPlan.ts'
 import { applyReviseOp, dayBrief } from '@/engine/planEdit.ts'
 import { toApi as dbPlaceToApi } from './places.ts'
 import { factWithTrust, feedbackStats } from './facts.ts'
 import { lineToApi } from './lines.ts'
 import { CHAT_SYSTEM_PROMPT } from '../ai/prompt.ts'
+import { applyPatch, missingOf, toDemand } from '../ai/slots.ts'
+import type { Slots } from '../ai/slots.ts'
 import { proposePlanOrder } from '../ai/propose.ts'
 import { narrateMemory } from '../ai/narrate.ts'
 import type { NarrativeParagraph, NarrativeSource } from '../ai/narrate.ts'
 import { buildMemoryDraft } from '@/engine/memoryDraft.ts'
-import type { Demand, Place, RevisePreview, TripContext, TripMemory } from '@/types/index.ts'
+import type { Place, RevisePreview, TripContext, TripMemory } from '@/types/index.ts'
 /**
  * 对话式旅行助手。
  *
@@ -72,15 +75,19 @@ function locPrompt(loc: { accuracy?: number } | null): string {
 
 export const aiRoute = new Hono()
 
-/** 生成方案所需的最小槽位；不齐就不允许调 generatePlans */
-const REQUIRED = ['destination', 'dayCount', 'party', 'budgetLevel'] as const
-
-const LABEL: Record<(typeof REQUIRED)[number], string> = {
-  destination: '目的地',
-  dayCount: '天数',
-  party: '人数',
-  budgetLevel: '预算'
+/**
+ * 「附近有什么」的三类筛选（F04）。
+ *
+ * 数据里没有独立的餐厅/机位实体，只有地点标签。所以这三类只能按标签近似筛，
+ * 筛不出来就如实说「这类没收录」—— 拿一个博物馆冒充「吃饭的地方」比不回答更糟。
+ */
+const CATEGORY_TAGS: Record<'eat' | 'play' | 'photo', string[]> = {
+  // 小吃/商圈是现有数据里唯一与「吃」相关的标签
+  eat: ['小吃', '商圈'],
+  play: ['人文', '休闲', '亲子', '动物', '博物馆', '园林', '茶馆'],
+  photo: ['拍照', '文创', '夜景']
 }
+const CATEGORY_LABEL: Record<'eat' | 'play' | 'photo', string> = { eat: '吃饭', play: '游玩', photo: '拍照' }
 
 const demandSchema = z.object({
   destination: z.string().optional().describe('目的地城市，如「重庆」'),
@@ -94,34 +101,33 @@ const demandSchema = z.object({
   budgetLevel: z.enum(['low', 'mid', 'high', 'flexible']).optional().describe('预算档位'),
   preferences: z.array(z.string()).optional().describe('偏好标签，如 美食探店 / 经典打卡 / 拍照出片'),
   transport: z.enum(['public', 'car', 'charter', 'compare']).optional().describe('交通方式'),
-  notes: z.string().optional().describe('用户的其他补充要求原文')
+  notes: z.string().optional().describe('用户的其他补充要求原文'),
+  hours: z
+    .number()
+    .min(1)
+    .max(12)
+    .nullable()
+    .optional()
+    .describe('只安排接下来几小时（当地临时规划），如「下午还有四小时」= 4。改口要按天数了传 null 清空'),
+  startMin: z
+    .number()
+    .int()
+    .min(0)
+    .max(22 * 60)
+    .optional()
+    .describe('从当天几点开始，当日分钟数（14:00 = 840）。用户说了起始时刻才填，没说就省略'),
+  returnBy: z
+    .number()
+    .int()
+    .min(0)
+    .max(23 * 60 + 59)
+    .optional()
+    .describe('最晚返回时刻，当日分钟数（20:00 = 1200）。用户说「20 点前回来」才填，是约束不是建议'),
+  mustVisit: z
+    .array(z.string())
+    .optional()
+    .describe('用户点名必去的地点 id，按他说的先后顺序。id 必须来自 queryPlaces，不要自己编')
 })
-
-type Slots = Partial<Demand>
-
-const missingOf = (s: Slots): string[] => REQUIRED.filter((k) => s[k] === undefined || s[k] === null).map((k) => LABEL[k])
-
-/**
- * 槽位 → Demand。
- *
- * 不能直接 `slots as Demand`：Demand 的 preferences 等字段是非可选的，
- * 模型没提到偏好时槽位里就没有这个键，引擎里 `demand.preferences.flatMap` 会直接崩。
- * 类型断言在这里只能骗过编译器，骗不过运行时。
- */
-function toDemand(s: Slots): Demand {
-  return {
-    destination: s.destination ?? '',
-    dayCount: s.dayCount ?? 1,
-    // 日期允许未知：没填就是 undefined，不能拿今天充数 —— 一充数，
-    // 行程页就会出现一个用户从没定过的出行日，闭馆判断也会按错误的日子跑
-    ...(s.dateFrom ? { dateFrom: s.dateFrom } : {}),
-    party: s.party ?? 1,
-    budgetLevel: s.budgetLevel ?? 'flexible',
-    preferences: s.preferences ?? [],
-    transport: s.transport ?? 'public',
-    notes: s.notes ?? ''
-  }
-}
 
 /**
  * 地点池只在首次提问时载入一次。
@@ -222,7 +228,10 @@ aiRoute.post('/plans', async (c) => {
   let by: 'model' | 'engine' = 'engine'
   let order: string[] | undefined
   let reason = ''
-  if (aiConfigured()) {
+  // 轻量规划只有一套、顺序由「离我最近」决定，模型提的顺序会被引擎丢掉 ——
+  // 这一步照样会花掉一次模型调用，不如省掉
+  const light = isLight(demand)
+  if (aiConfigured() && !light) {
     const proposed = await proposePlanOrder(demand)
     if ('ok' in proposed) {
       by = 'model'
@@ -254,6 +263,8 @@ aiRoute.post('/plans', async (c) => {
     return c.json({ error: msg, code: 'plan_failed' }, 400)
   }
 
+  // 轻量规划本来就不走模型（顺序由距离决定，模型提的顺序会被丢掉）。
+  // 这不算降级：把它记成降级会让「模型不可用率」凭空变高
   await recordAiCall({
     kind: 'plan',
     sessionId,
@@ -261,8 +272,8 @@ aiRoute.post('/plans', async (c) => {
     model: modelName(),
     journey,
     toolCalls: by === 'model' ? 1 : 0,
-    degraded: by !== 'model',
-    degradeReason: by === 'model' ? null : 'model_unavailable_or_unparsable',
+    degraded: !light && by !== 'model',
+    degradeReason: by === 'model' || light ? null : 'model_unavailable_or_unparsable',
     durationMs: elapsedMs(started)
   })
   return c.json({ plans, by, reason })
@@ -364,9 +375,7 @@ aiRoute.post('/chat', async (c) => {
         description: '把用户这一轮提到的需求字段写进槽位。只写用户明确说过的字段，没提到就不要填。',
         inputSchema: demandSchema,
         execute: async (patch) => {
-          for (const [k, v] of Object.entries(patch)) {
-            if (v !== undefined && v !== null) (slots as Record<string, unknown>)[k] = v
-          }
+          applyPatch(slots, patch)
           const missing = missingOf(slots)
           return {
             ok: true,
@@ -452,25 +461,78 @@ aiRoute.post('/chat', async (c) => {
        * 排出来看着合理，实际会让他跨半个城市去一个「附近」的点。
        */
       nearbyPlaces: tool({
-        description: '按当前定位找附近已收录的地点。用户没提供定位、或问「附近有什么」时先看系统提示里有没有坐标；没有就追问位置，不要编。',
+        description:
+          '按位置找附近已收录的地点。用户没授权定位时可以传 placeId 手动指定一个地点作为起点（F04 拒绝定位后仍能继续）。没有定位也没有 placeId 时先追问。',
         inputSchema: z.object({
           limit: z.number().int().min(1).max(10).optional().describe('返回几个，默认 5'),
-          city: z.string().optional().describe('城市名，省略则用当前行程目的地')
+          city: z.string().optional().describe('城市名，省略则用当前行程目的地'),
+          placeId: z.string().optional().describe('用户手动指定的起点地点 id，定位不可用且用户说了在哪时用'),
+          want: z
+            .enum(['eat', 'play', 'photo'])
+            .optional()
+            .describe(
+              '用户想找哪一类（吃/玩/拍照）。eat 目前只有小吃街与商圈，没有独立餐厅数据；说的时候别把它说成「推荐餐厅」'
+            )
         }),
-        execute: async ({ limit, city }) => {
+        execute: async ({ limit, city, placeId, want }) => {
           await ensureEngine()
-          if (!loc) return { ok: false, error: '还没有用户定位。先问用户在哪个位置，或让他手动指定，不要推断' }
           const target = (city ?? trip?.demand.destination ?? '').trim()
-          if (!target) return { ok: false, error: '不知道在哪个城市，先问用户' }
-          const pool = placesOf(target)
-          if (!pool.length) return { ok: false, error: `${target} 暂未收录地点数据` }
-          const near = nearestTo(loc, pool, limit ?? 5)
+          // 手动指定的起点优先于设备定位：用户明确说了「我在前门」，比一个可能过期的坐标可信
+          const anchor = placeId ? placeById(placeId) : undefined
+          if (placeId && !anchor) return { ok: false, error: '这个地点 id 不在已收录数据里，换一个或让用户说地名' }
+          if (!anchor && !loc) {
+            return { ok: false, error: '还没有位置。先问用户在哪个位置（地名也行），或让他手动指定，不要推断' }
+          }
+          const city_ = (anchor?.city ?? target).trim()
+          if (!city_) return { ok: false, error: '不知道在哪个城市，先问用户' }
+          const all = placesOf(city_).filter((p) => p.id !== anchor?.id)
+          if (!all.length) return { ok: false, error: `${city_} 暂未收录地点数据` }
+          // 按已有标签筛：数据里没有「餐厅」这类实体，只有地点的 tags。
+          // 筛完为空时如实说「这类没有收录」，不要让模型拿别的类别凑数
+          const tags = want ? CATEGORY_TAGS[want] : null
+          const pool = tags ? all.filter((p) => tags.some((t) => p.tags.includes(t))) : all
+          if (!pool.length) {
+            return { ok: false, error: `${city_} 暂未收录「${CATEGORY_LABEL[want!]}」类地点，如实告诉用户，不要拿别的类别顶替` }
+          }
+          const from = anchor ?? loc!
+          const near = nearestTo(from, pool, limit ?? 5)
           return {
             ok: true,
             // 距离是直线近似，不是导航里程；界面与模型都不能把它说成「走过去多久」
             basis: '直线距离',
+            want: want ?? null,
+            from: anchor ? { name: anchor.name, manual: true } : { manual: false },
             items: near.map(({ place, km }) => ({ id: place.id, name: place.name, km, tags: place.tags, stayMin: place.stayMin }))
           }
+        }
+      }),
+
+      /**
+       * 这一段怎么走（F05 逐段交通比较）。
+       *
+       * 按**当前人数**比钱和时间，不合成总分：2 人和 6 人本来就该得出不同结论。
+       * 没有线路数据时如实说只能步行/打车，不编班次。
+       */
+      transportFor: tool({
+        description:
+          '比较某一段路的交通方式：步行、打车、景区线路，按当前人数给出费用、耗时与分乘。用户问「怎么过去」「打车还是坐车」「我们 6 个人怎么划算」时用。',
+        inputSchema: z.object({
+          fromPlaceId: z.string().describe('这一段起点的地方 id'),
+          toPlaceId: z.string().describe('这一段终点的地方 id'),
+          party: z.number().int().min(1).max(20).optional().describe('实际人数，省略用当前行程人数')
+        }),
+        execute: async ({ fromPlaceId, toPlaceId, party }) => {
+          await ensureEngine()
+          const from = placeById(fromPlaceId)
+          const to = placeById(toPlaceId)
+          if (!from || !to) return { ok: false, error: '起点或终点不在已收录数据里，先用 queryPlaces 确认 id' }
+          const people = party ?? trip?.demand.party ?? slots.party ?? 1
+          // 步行时长与引擎排程同口径：真实路线优先，没有就直线折算
+          const walk = travelMinutes(from, to, false)
+          const ride = travelMinutes(from, to, true)
+          // 这一段有没有线路覆盖，由引擎按「终点是不是乘车点」判断
+          const line = linesAtPlace(to.id).find((l) => linePlaceIds(l).includes(from.id))
+          return segmentView(line, people, ride, walk)
         }
       }),
 
@@ -521,14 +583,18 @@ aiRoute.post('/chat', async (c) => {
           if (!placesLoaded()) return { ok: false, error: '地点数据未载入' }
 
           const demand = toDemand(slots)
+          // 轻量规划从「我现在在哪」排起；模型不给 origin，只有设备坐标可用。
+          // 坐标只用于这一次排序，不写回 demand：它会随方案存进本机行程，
+          // 而用户没同意让精确位置跟着出行记录长期留着
+          const from = isLight(demand) && !demand.origin && loc ? { ...demand, origin: { lng: loc.lng, lat: loc.lat } } : demand
           let plans
           try {
             // 第一遍只用来知道「会用到哪些相邻段」：planner 排序看直线距离，
             // 所以这一遍的顺序就是最终顺序，第二遍只有路上时间变准。
-            const firstPass = generatePlans(demand)
-            const warm = await warmRoutes(demand, firstPass)
+            const firstPass = generatePlans(from)
+            const warm = await warmRoutes(from, firstPass)
             // 一段都没取到（未配高德 / 断网 / 限流）：不必重跑，第一遍已经是直线估算
-            plans = warm.hit > 0 ? generatePlans(demand) : firstPass
+            plans = warm.hit > 0 ? generatePlans(from) : firstPass
           } catch (err) {
             return { ok: false, error: err instanceof Error ? err.message : '生成方案失败' }
           }

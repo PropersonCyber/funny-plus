@@ -17,8 +17,7 @@ const c = (patch: Partial<EvalCase> = {}): EvalCase => ({
   ...patch
 })
 
-describe('关键词组：外层或、内层且', () => {
-  it('内层必须全部出现才算命中', () => {
+describe('关键词组：外层或、内层且', () => {  it('内层必须全部出现才算命中', () => {
     const case_ = c({ mustMention: [['还缺', '天数']] })
     expect(judge(case_, { text: '还缺天数哦', slots: {} }).ok).toBe(true)
     // 只说了一半不算
@@ -49,6 +48,12 @@ describe('槽位断言', () => {
     const case_ = c({ slots: { dayCount: 2 } })
     expect(judge(case_, { text: '好的', slots: {} }).failures.join()).toContain('缺失')
     expect(judge(case_, { text: '好的', slots: { dayCount: 3 } }).failures.join()).toContain('期望 2')
+  })
+
+  it('轻量规划的 hours 能被断言：没听出时长就判失败', () => {
+    const case_ = c({ kind: 'light_plan', slots: { hours: 4 } })
+    expect(judge(case_, { text: '好', slots: { hours: 4 } }).ok).toBe(true)
+    expect(judge(case_, { text: '好', slots: {} }).failures.join()).toContain('hours')
   })
 })
 
