@@ -2,7 +2,8 @@ import { Hono } from 'hono'
 import { asc } from 'drizzle-orm'
 import { db } from '../db/client.ts'
 import { cities, facts, guides, places, playPlaces, plays } from '../db/schema.ts'
-import type { City, Guide, Place, Play, TravelFact } from '@/types/index.ts'
+import { factWithTrust, feedbackStats } from './facts.ts'
+import type { City, Guide, Place, Play } from '@/types/index.ts'
 
 const toPlace = (r: typeof places.$inferSelect): Place => ({
   id: r.id,
@@ -28,23 +29,6 @@ const toPlace = (r: typeof places.$inferSelect): Place => ({
   trust: r.trust
 })
 
-const toFact = (r: typeof facts.$inferSelect): TravelFact => ({
-  id: r.id,
-  city: r.city,
-  category: r.category as TravelFact['category'],
-  content: r.content,
-  scope: r.scope,
-  source: r.source,
-  sourceUrl: r.sourceUrl ?? undefined,
-  verifiedAt: r.verifiedAt,
-  validUntil: r.validUntil ?? undefined,
-  trust: r.trust,
-  // 与 GET /api/facts 保持同形：少了这两个字段，客户端从 /api/content 拿到的避坑
-  // 挂不上具体地点、分不了组，AI 的「这条适用哪个点」就答不了
-  placeId: r.placeId ?? undefined,
-  poiGroup: r.poiGroup ?? undefined
-})
-
 export const contentRoute = new Hono()
 
 /**
@@ -52,13 +36,16 @@ export const contentRoute = new Hono()
  * 分接口拉会让 Lynx 冷启动多三四个 RTT，而这几张表都是几十条量级。
  */
 contentRoute.get('/', async (c) => {
-  const [cityRows, placeRows, factRows, guideRows, playRows, linkRows] = await Promise.all([
+  const [cityRows, placeRows, factRows, guideRows, playRows, linkRows, factStats] = await Promise.all([
     db.select().from(cities).orderBy(asc(cities.sortOrder)),
     db.select().from(places).orderBy(asc(places.id)),
     db.select().from(facts).orderBy(asc(facts.id)),
     db.select().from(guides).orderBy(asc(guides.id)),
     db.select().from(plays).orderBy(asc(plays.sortOrder)),
-    db.select().from(playPlaces).orderBy(asc(playPlaces.sortOrder))
+    db.select().from(playPlaces).orderBy(asc(playPlaces.sortOrder)),
+    // 避坑的可信度必须和 GET /api/facts 同口径：这个入口同样把 facts 发给客户端，
+    // 直接用库里的 trust 就会让同一条避坑在两个接口上给出两个可信度
+    feedbackStats()
   ])
 
   const cityItems: City[] = cityRows.map((r) => ({
@@ -106,7 +93,7 @@ contentRoute.get('/', async (c) => {
   return c.json({
     cities: cityItems,
     places: placeRows.map(toPlace),
-    facts: factRows.map(toFact),
+    facts: factRows.map((r) => factWithTrust(r, factStats)),
     guides: guideItems,
     plays: playItems
   })

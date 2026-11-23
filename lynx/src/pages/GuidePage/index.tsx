@@ -228,8 +228,10 @@ export function GuidePage({ city, plans }: Props) {
                 <view className={cls('gd-main')}>
                   <view className={cls('gd-title-row')}>
                     <text className={cls('gd-title')}>{f.category}</text>
-                    <view className={cls(['fact-cat-badge', LEVEL[f.trust]?.cls ?? ''].join(' '))}>
-                      <text className={cls('fact-cat-text')}>{LEVEL[f.trust]?.text ?? '待核实'}</text>
+                    {/* 徽标也要走 displayTrust：页脚用的是它，徽标却直接读 f.trust，
+                        随包快照里的 official 就会在卡片头上写着「重要」、页脚写着「可靠来源」 */}
+                    <view className={cls(['fact-cat-badge', LEVEL[displayTrust(f)]?.cls ?? ''].join(' '))}>
+                      <text className={cls('fact-cat-text')}>{LEVEL[displayTrust(f)]?.text ?? '待核实'}</text>
                     </view>
                   </view>
                   <text className={cls('gd-content')}>{f.content}</text>

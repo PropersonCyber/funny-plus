@@ -16,11 +16,11 @@ import { budgetView, factsView, linesView, placeDetailView, validateView } from 
 import { NO_KEYWORD_HINT, generatePlans, keywordReviseOp } from '@/engine/planner.ts'
 import { applyReviseOp, dayBrief } from '@/engine/planEdit.ts'
 import { toApi as dbPlaceToApi } from './places.ts'
-import { factToApi } from './facts.ts'
+import { factWithTrust, feedbackStats } from './facts.ts'
 import { lineToApi } from './lines.ts'
 import { CHAT_SYSTEM_PROMPT } from '../ai/prompt.ts'
 import { proposePlanOrder } from '../ai/propose.ts'
-import type { Demand, Place, RevisePreview, TravelFact, TripContext } from '@/types/index.ts'
+import type { Demand, Place, RevisePreview, TripContext } from '@/types/index.ts'
 /**
  * 对话式旅行助手。
  *
@@ -80,23 +80,21 @@ function toDemand(s: Slots): Demand {
  * shared/engine/placeIndex 是模块级 Map，setPlaces 改的是全局状态：
  * 如果按请求灌不同城市的数据，两个用户并发问不同城市会互相覆盖，
  * A 城市的人拿到 B 城市的地点。所以这里一次性灌全量，之后只读。
+ *
+ * **避坑不在这里缓存**：它的可信度依赖反馈与有效期（C1/C3），一旦和地点池一起
+ * 缓存到进程生命周期，AI 的回答就永远停在第一次启动时那一档 —— 攻略页因为
+ * 反馈降了档，AI 还在拿「官方已核验」说话。47 条数据一次查完是一次很便宜的查询，
+ * 每次 getFacts 重查反馈聚合即可（见 tools.getFacts）。
  */
 let engineReady: Promise<void> | null = null
-let factCache: TravelFact[] = []
 
 function ensureEngine(): Promise<void> {
   if (!engineReady) {
     engineReady = (async () => {
-      const [placeRows, factList, lineRows] = await Promise.all([
-        db.select().from(places),
-        db.select().from(facts),
-        db.select().from(lines)
-      ])
+      const [placeRows, lineRows] = await Promise.all([db.select().from(places), db.select().from(lines)])
       // 全量灌入后只读：按请求换城市会让并发的两个人互相盖掉地点和线路
       setPlaces(placeRows.map(dbPlaceToApi))
       setLines(lineRows.map(lineToApi))
-      // 显式包一层：factToApi 第二位是可选的可信度结论，直接 map(factToApi) 会把下标当成它传进去
-      factCache = factList.map((f) => factToApi(f))
     })().catch((err) => {
       engineReady = null
       throw err
@@ -359,7 +357,10 @@ aiRoute.post('/chat', async (c) => {
         }),
         execute: async ({ city, placeId }) => {
           await ensureEngine()
-          return factsView(factCache, city, placeId)
+          // 每次重查而不是读一份进程级缓存：可信度按反馈与有效期实时算（C1/C3），
+          // 缓存住那一刻的档位，模型就会拿旧结论回答「这条是官方核验的」
+          const [rows, stats] = await Promise.all([db.select().from(facts), feedbackStats()])
+          return factsView(rows.map((r) => factWithTrust(r, stats)), city, placeId)
         }
       }),
 

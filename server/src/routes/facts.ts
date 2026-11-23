@@ -24,7 +24,8 @@ export const factToApi = (r: typeof facts.$inferSelect, verdict?: TrustVerdict):
   sourceUrl: r.sourceUrl ?? undefined,
   verifiedAt: r.verifiedAt,
   validUntil: r.validUntil ?? undefined,
-  // verdict 是 C1/C3 算出来的当下可信度；不给就直传库里的值（AI 工具面那条路不查反馈）
+  // verdict 是 C1/C3 算出来的当下可信度。不给就直传库里的值 —— 那只有测试与
+  // 老调用方会走到；接口面一律用 factWithTrust（里面必查反馈），别再新增直传的调用点。
   trust: verdict?.trust ?? r.trust,
   trustNote: verdict?.note,
   placeId: r.placeId ?? undefined,
@@ -60,15 +61,14 @@ function summarize(grouped: Grouped[], mineRows: Mine[]) {
 
 export const factsRoute = new Hono()
 
-// 全量返回，过期过滤在前端做：A2 要展示「已折叠 N 条」，服务端先剪掉就数不出来了
-factsRoute.get('/', async (c) => {
-  const city = c.req.query('city')
-  const rows = await db
-    .select()
-    .from(facts)
-    .where(city ? eq(facts.city, city) : undefined)
-    .orderBy(facts.id)
-  // C1：反馈聚合一次查完，不按条目逐条查（47 条事实逐条查就是 47 次往返）
+/**
+ * 一次查全所有条目的反馈聚合。
+ *
+ * 抽出来是因为现在有三个入口要用它：`GET /api/facts`、`GET /api/content`、
+ * 以及 AI 的 getFacts 工具。三处各查一遍不只是多两次往返，更要紧的是**口径会分叉**：
+ * 只要有一处直接用库里的 trust，同一条避坑在攻略页和 AI 回答里就会是两个可信度。
+ */
+export async function feedbackStats(): Promise<Map<string, FeedbackStat>> {
   const grouped = await db
     .select({ factId: factFeedbacks.factId, verdict: factFeedbacks.verdict, total: count() })
     .from(factFeedbacks)
@@ -80,11 +80,29 @@ factsRoute.get('/', async (c) => {
     else cur.notApplicable = Number(g.total)
     stats.set(g.factId, cur)
   }
-  return c.json({
-    items: rows.map((r) =>
-      factToApi(r, resolveTrust({ trust: r.trust, validUntil: r.validUntil ?? undefined }, stats.get(r.id)))
-    )
-  })
+  return stats
+}
+
+/**
+ * 库里的避坑行 → 前端契约，**可信度一律经过 resolveTrust**。
+ *
+ * 导出给 content 路由与 AI 共用：trust 的真源是「库里那一档 + 反馈 + 有效期」，
+ * 不是库里那一列。任何入口直接用 r.trust 都会绕过 C1/C3，让降级只在部分界面生效。
+ */
+export const factWithTrust = (r: typeof facts.$inferSelect, stats: Map<string, FeedbackStat>): TravelFact =>
+  factToApi(r, resolveTrust({ trust: r.trust, validUntil: r.validUntil ?? undefined }, stats.get(r.id)))
+
+// 全量返回，过期过滤在前端做：A2 要展示「已折叠 N 条」，服务端先剪掉就数不出来了
+factsRoute.get('/', async (c) => {
+  const city = c.req.query('city')
+  const rows = await db
+    .select()
+    .from(facts)
+    .where(city ? eq(facts.city, city) : undefined)
+    .orderBy(facts.id)
+  // C1：反馈聚合一次查完，不按条目逐条查（47 条事实逐条查就是 47 次往返）
+  const stats = await feedbackStats()
+  return c.json({ items: rows.map((r) => factWithTrust(r, stats)) })
 })
 
 factsRoute.get('/feedback', async (c) => {
@@ -94,7 +112,6 @@ factsRoute.get('/feedback', async (c) => {
     .select({ factId: factFeedbacks.factId, verdict: factFeedbacks.verdict, total: count() })
     .from(factFeedbacks)
     .groupBy(factFeedbacks.factId, factFeedbacks.verdict)
-
   // 「我投过哪些」登录后按 userId 找：换设备时 clientId 换了，只按 clientId 会查不到自己投过的
   const mine = actor
     ? await db
