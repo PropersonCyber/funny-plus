@@ -13,7 +13,8 @@ import { nearestTo, placeById, placesOf, placesLoaded, setPlaces, travelMinutes 
 import { warmRoutes } from '../ai/routeWarm.ts'
 import { linePlaceIds, linesAtPlace, linesOf, setLines } from '@/engine/lines.ts'
 import { budgetView, clock, factsView, linesView, placeDetailView, segmentView, validateView } from '@/engine/aiGround.ts'
-import { cityTransitFor, nextStopAfter } from '@/engine/onSite.ts'
+import { cityTransitFor, nextStopAfter, reachabilityOf } from '@/engine/onSite.ts'
+import type { Reachability } from '@/engine/onSite.ts'
 import { NO_KEYWORD_HINT, generatePlans, keywordReviseOp } from '@/engine/planner.ts'
 import { isLight } from '@/engine/lightPlan.ts'
 import { applyReviseOp, dayBrief } from '@/engine/planEdit.ts'
@@ -88,6 +89,23 @@ const CATEGORY_TAGS: Record<'eat' | 'play' | 'photo', string[]> = {
   photo: ['拍照', '文创', '夜景']
 }
 const CATEGORY_LABEL: Record<'eat' | 'play' | 'photo', string> = { eat: '吃饭', play: '游玩', photo: '拍照' }
+
+/** 现在能不能去的排序：来得及的排前面，已关门的排最后（不删，它本身也是答案） */
+const REACH_ORDER: Record<Reachability, number> = { fits: 0, tight: 1, closing: 2, closed: 3, unknown: 4 }
+
+/**
+ * 这座城市现在的本地时间。
+ *
+ * 现场推荐靠「现在几点」判断还开不开门，用服务器时区会错 8 小时 ——
+ * 服务器多半跑在 UTC，那样整天的判断都会偏。三个开放城市都在东八区，直接按它算。
+ *
+ * shortcut: 只支持国内城市。接入其他时区时改成按城市查时区表。
+ */
+function nowInCity(now = new Date()): number {
+  const utc = now.getTime() + now.getTimezoneOffset() * 60_000
+  const local = new Date(utc + 8 * 3_600_000)
+  return local.getHours() * 60 + local.getMinutes()
+}
 
 const demandSchema = z.object({
   destination: z.string().optional().describe('目的地城市，如「重庆」'),
@@ -472,9 +490,15 @@ aiRoute.post('/chat', async (c) => {
             .optional()
             .describe(
               '用户想找哪一类（吃/玩/拍照）。eat 目前只有小吃街与商圈，没有独立餐厅数据；说的时候别把它说成「推荐餐厅」'
-            )
+            ),
+          hours: z
+            .number()
+            .min(0.5)
+            .max(12)
+            .optional()
+            .describe('用户还剩多少小时可用；给了就按它判断来不来得及，没给就只看营业状态')
         }),
-        execute: async ({ limit, city, placeId, want }) => {
+        execute: async ({ limit, city, placeId, want, hours }) => {
           await ensureEngine()
           const target = (city ?? trip?.demand.destination ?? '').trim()
           // 手动指定的起点优先于设备定位：用户明确说了「我在前门」，比一个可能过期的坐标可信
@@ -495,14 +519,32 @@ aiRoute.post('/chat', async (c) => {
             return { ok: false, error: `${city_} 暂未收录「${CATEGORY_LABEL[want!]}」类地点，如实告诉用户，不要拿别的类别顶替` }
           }
           const from = anchor ?? loc!
+          const nowMin = nowInCity()
           const near = nearestTo(from, pool, limit ?? 5)
+          // 只按距离排是不够的：20 米外但已经停止入场，推荐它等于让用户白走一趟。
+          // 关门的排到最后而不是删掉 —— 「那家已经关了」本身也是有用的答案
+          const ranked = near
+            .map(({ place, km }) => {
+              const r = reachabilityOf(place, nowMin, hours)
+              return { place, km, reach: r.reach, note: r.note }
+            })
+            .sort((a, b) => REACH_ORDER[a.reach] - REACH_ORDER[b.reach] || a.km - b.km)
           return {
             ok: true,
             // 距离是直线近似，不是导航里程；界面与模型都不能把它说成「走过去多久」
             basis: '直线距离',
             want: want ?? null,
             from: anchor ? { name: anchor.name, manual: true } : { manual: false },
-            items: near.map(({ place, km }) => ({ id: place.id, name: place.name, km, tags: place.tags, stayMin: place.stayMin }))
+            now: clock(nowMin),
+            items: ranked.map(({ place, km, reach, note }) => ({
+              id: place.id,
+              name: place.name,
+              km,
+              tags: place.tags,
+              stayMin: place.stayMin,
+              reach,
+              note
+            }))
           }
         }
       }),
