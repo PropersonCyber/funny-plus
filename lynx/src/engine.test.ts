@@ -9,7 +9,7 @@ import { canJudgeHard, lineSegmentFor, setLines } from '../../shared/engine/line
 import { validatePlan } from '../../shared/engine/validate.js';
 import { legsOf } from './legs.js';
 import { windowOf } from '../../shared/types/index.js';
-import type { Demand, ItineraryItem, Place, Plan, TransitLine, TravelFact } from '../../shared/types/index.js';
+import type { Demand, ItineraryItem, Place, Plan, TransitLine, TravelFact, TripDay } from '../../shared/types/index.js';
 
 // 引擎是纯函数，「确定性」是产品卖点，这里用固定地点池把口径钉住：
 // 改预算常数、改校验阈值、改人天口径，下面几条会先红。
@@ -596,11 +596,34 @@ describe('定向修改只动指定时段（N4）', () => {
   })
 
   /**
-   * 「只动该时段」不只是「只删该时段」。
+   * N4 的原话是「只有第 2 天下午的安排变化」。
    *
-   * 删掉下午一站之后，晚上那条原本 19:00 的夜游会被顺延重排一路拖到下午 14:50 —
-   * 用户的指令是「下午轻松点」，看到的却是「晚上那站没了」。时间可以往前压，
-   * 但不能跨过时段边界。这里手工造一条晚上安排，因为种子数据里没有排到 18:00 之后的点。
+   * 上一版只做到「只删该时段」，时刻仍整天顺延：说「上午轻松点」，下午和晚上的安排
+   * 会被整体前移十几分钟到一小时 —— 用户眼里就是「我只说了上午，怎么全变了」。
+   * 现在 ease 把时段外的条目冻在原时刻。
+   */
+  it('ease 之后，时段外的安排一秒不差', () => {
+    const d = demand({ dayCount: 2 })
+    const base = generatePlans(d)[2]
+    const day = base.days[1]
+    const win = windowOf(day.items.find((i) => i.kind === 'place')!.startMin)
+    const apply = applyReviseOp(base, d, { op: 'ease', day: 2, window: win, reason: '测试' })
+    expect(apply.ok).toBe(true)
+    if (!apply.ok) return
+    for (const item of apply.preview.plan.days[1].items) {
+      const before = day.items.find((i) => i.id === item.id)
+      if (!before || windowOf(before.startMin) === win) continue
+      // 报了变化就说明它挪了，而它不该挪
+      expect(`${item.title}@${item.startMin}`).toBe(`${before.title}@${before.startMin}`)
+    }
+  })
+
+  /**
+   * 压缩不能跨时段。
+   *
+   * 删掉下午一站之后，晚上那条 19:00 的夜游若被顺延重排，会算到下午 14:50 —
+   * 用户的指令是「下午轻松点」，看到的却是「晚上那站没了」。
+   * 这里手工造一条晚上安排，因为种子数据里没有排到 18:00 之后的点。
    */
   it('压缩该时段时，后面的安排不会被拖进上一个时段', () => {
     const d = demand({ dayCount: 2 })
@@ -689,3 +712,68 @@ describe('固定安排不被静默改掉（N3）', () => {
     expect(r.preview.reason).toContain('已固定')
   })
 })
+
+/**
+ * 日期接上之后的闭馆判断（N3）。
+ *
+ * 这条链路的价值在于：日期填了、行程排上了、点又恰好周一闭馆 —— 三者同时成立时
+ * 用户能不能在出发前看到提示。三缺一就不该判，否则提示会变成噪音。
+ */
+describe('闭馆判断只在三件事同时成立时报警（N3 日期）', () => {
+  // 夹具城市是合成数据，闭馆标记也要在这里造：真数据里的故宫不参与这一组
+  const museum: Place = {
+    ...base,
+    id: 'closed-mon',
+    name: '周一闭馆点',
+    city: '测试城',
+    lng: 104.3,
+    lat: 30.7,
+    ticket: 0,
+    stayMin: 120,
+    closedWeekdays: [1],
+  };
+  const item: ItineraryItem = {
+    id: 'closed-1',
+    kind: 'place',
+    title: museum.name,
+    placeId: museum.id,
+    startMin: 9 * 60,
+    endMin: 11 * 60,
+    stayMin: 120,
+    transportMin: 0,
+    transportMode: 'public',
+    cost: 0,
+  };
+  const planWith = (): Plan => {
+    setPlaces([museum]);
+    return {
+      ...generatePlans(demand({ dayCount: 1 }))[0],
+      days: [{ index: 1, items: [item] }],
+    };
+  };
+
+  it('日期未知时不判：凭空提示闭馆和凭空说开门一样糟', () => {
+    const plan = planWith();
+    const issues = validatePlan(plan, demand({ dayCount: 1 }));
+    expect(issues.some((i) => i.code === 'closed-weekday')).toBe(false);
+    setPlaces(places);
+  });
+
+  it('日期落在周一且排到了闭馆点时报 error，并给出换天 / 换点两条出路', () => {
+    const plan = planWith();
+    // 2026-12-07 是周一
+    const issues = validatePlan(plan, demand({ dayCount: 1, dateFrom: '2026-12-07' }));
+    const hit = issues.find((i) => i.code === 'closed-weekday');
+    expect(hit?.level).toBe('error');
+    expect(hit?.message).toContain('周一');
+    expect(hit?.alternatives?.length).toBeGreaterThanOrEqual(2);
+    setPlaces(places);
+  });
+
+  it('同一行程换到周二就不报', () => {
+    const plan = planWith();
+    const issues = validatePlan(plan, demand({ dayCount: 1, dateFrom: '2026-12-08' }));
+    expect(issues.some((i) => i.code === 'closed-weekday')).toBe(false);
+    setPlaces(places);
+  });
+});

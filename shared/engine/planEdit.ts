@@ -118,21 +118,42 @@ const WINDOW_FLOOR: Record<DayWindow, number> = {
  * 所以到达后照旧按 OPEN 等待 + 饭点判定：早到就在原地等到最早开饭时间，
  * 晚到就顺延，超过最晚开饭时间则不留这顿饭（宁可少排一顿，也不排一顿下午三点的午饭）。
  *
- * keepWindows：每条安排不得早于它**原本所在时段**的起点。只该做「压缩」的动作
- * （删点 / 换点 / 按时段精简）必须开着它，否则去掉一站会把晚上 19:00 的夜游
- * 一路拖到下午三点 —— 用户说的是「下午轻松点」，看到的却是晚上那站消失。
- * 换序（reorder）要用 false：那是用户明确要求重排，安排本来就该跟着新顺序走。
+ * 两个约束共同决定一条安排的开始时刻：
+ * - **地板**（`keepWindows`）：不得早于它原本所属时段的起点。去掉一站不该把晚上
+ *   19:00 的夜游拖到下午三点 —— 用户说的是「下午轻松点」，看到的却是晚上那站消失。
+ * - **原时刻**（`frozen`）：命中冻结条件的条目，只要没有被前一项顶到，就停在原处。
+ *   这是「只有指定时段变化」这句验收的落点：`ease` 只许动它点名的那个时段，
+ *   时段外的安排必须一秒不差；早先它们会被顺延重排整体前移，用户看到的是
+ *   「我只说了上午，结果下午晚上全变了」。
+ *
+ * `drop` / `replace` 不冻结任何条目：那是「这一天少排一个」的整天动作，
+ * 后面的安排向前收拢、一天早结束，正是用户想要的结果。
  */
-const retime = (day: TripDay, { keepWindows = true }: { keepWindows?: boolean } = {}): TripDay => {
+const retime = (
+  day: TripDay,
+  { keepWindows = true, frozen }: { keepWindows?: boolean; frozen?: (item: ItineraryItem) => boolean } = {}
+): TripDay => {
   const original = new Map(day.items.map((i) => [i.id, i.startMin]))
   let t = day.items[0]?.startMin ?? DAY_START
   const items: ItineraryItem[] = []
   for (const [idx, item] of day.items.entries()) {
-    const arrive = idx === 0 ? t : t + item.transportMin
     // 地板用「原本」的时刻算时段：改完之后再算会随压缩一起漂移，变成自我指涉
     const was = original.get(item.id)
     const floor = keepWindows && was !== undefined ? WINDOW_FLOOR[windowOf(was)] : 0
-    const start = Math.max(item.kind === 'meal' ? Math.max(arrive, LUNCH_EARLIEST) : arrive, floor)
+    let start: number
+    if (frozen?.(item) && was !== undefined) {
+      // 冻结项：只要没和前一项撞上，就一秒不差地停在原时刻。
+      //
+      // 这里**故意不用** `arrive = t + transportMin` —— 日程生成器把餐食插在某段路
+      // 之前，那段的 transportMin 记在了下一条目上却没有再加进它的 startMin；
+      // 再按 arrive 算一次，冻结项会被自己的路上时间顶后十几分钟，
+      // 表现就是「我让它别动，它还是挪了」。
+      start = Math.max(t, was, floor)
+      if (item.kind === 'meal') start = Math.max(start, LUNCH_EARLIEST)
+    } else {
+      const arrive = idx === 0 ? t : t + item.transportMin
+      start = Math.max(item.kind === 'meal' ? Math.max(arrive, LUNCH_EARLIEST) : arrive, floor)
+    }
     if (item.kind === 'meal' && start > LUNCH_LATEST) continue
     const end = start + item.stayMin
     items.push({ ...item, startMin: start, endMin: end })
@@ -216,7 +237,17 @@ export function applyReviseOp(
     const placeCount = day.items.filter((i) => i.kind === 'place').length
     if (placeCount <= 1) return { ok: false, reason: `第 ${op.day} 天只剩一个景点，再删就没有可玩的内容了` }
     const kept: TripDay = { index: day.index, items: day.items.filter((i) => i.id !== target.id) }
-    return finish(plan, demand, day, retime(relink(kept, transport)), op.reason, by)
+    // ease 只许动它点名的那个时段：时段外的安排必须一秒不差，不能被顺延前移。
+    // 早先它们会整体前移，用户说的是「上午轻松点」，看到的却是下午晚上全变了。
+    const outside = (i: ItineraryItem) => windowOf(i.startMin) !== op.window
+    return finish(
+      plan,
+      demand,
+      day,
+      retime(relink(kept, transport), { frozen: outside }),
+      op.reason,
+      by
+    )
   }
 
   // reorder：只认这一天里真实存在的景点 id，重复与不存在的都剔掉。
