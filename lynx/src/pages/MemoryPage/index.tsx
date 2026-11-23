@@ -23,7 +23,9 @@ type Props = {
   onSaveOverview: (text: string) => void;
   onPhotos: (photos: PhotoRef[]) => void;
   /** 把结束旅行时整理的草稿采纳为整趟回顾 */
-  onAdoptDraft: () => void;
+  onAdoptDraft: () => void
+  /** 让咕噜把记录改写成人话；模型不可用时落回同一份确定性草稿 */
+  onNarrate?: () => void;
   /** 丢掉草稿，回顾不动 */
   onDiscardDraft: () => void;
   onSavePlace: (
@@ -52,6 +54,7 @@ export function MemoryPage({
   onPhotos,
   onAdoptDraft,
   onDiscardDraft,
+  onNarrate,
   onSavePlace,
   onEnd,
   onGuide,
@@ -156,10 +159,15 @@ export function MemoryPage({
           {memory.draft ? (
             <view className={cls('card')}>
               <text className={cls('card-title')}>按你记下的内容整理了一版</text>
+              {/* 来源必须说清：模型改写的和确定性重排的，对用户的承诺不一样。
+                  把后者说成「咕噜帮你写好了」，用户就分不清哪些是他自己经历过的 */}
               <text className={cls('card-note')}>
-                {memory.overview.trim()
-                  ? '只重排了你写过的东西，没替你编任何感受。你已经写过回顾，采纳会覆盖那段文字。'
-                  : '只重排了你写过的东西，没替你编任何感受。要用就点「用作回顾」，之后照常改。'}
+                {(memory.draftBy === 'model'
+                  ? '咕噜只改写了你写下的内容，每句都对应一条记录，没有新增感受。'
+                  : '只重排了你写过的东西，没替你编任何感受。') +
+                  (memory.overview.trim()
+                    ? '你已经写过回顾，采纳会覆盖那段文字。'
+                    : '要用就点「用作回顾」，之后照常改。')}
               </text>
               <view className={cls('mem-draft')}>
                 {memory.draft.split('\n').map((line, idx) =>
@@ -194,6 +202,13 @@ export function MemoryPage({
                     {memory.overview.trim() && confirmAdopt ? '确认覆盖' : '用作回顾'}
                   </text>
                 </view>
+                {onNarrate ? (
+                  <view className={cls('mem-draft-btn')} bindtap={onNarrate}>
+                    <text className={cls('mem-draft-btn-text')}>
+                      {memory.draftBy === 'model' ? '再润色一次' : '让咕噜润色'}
+                    </text>
+                  </view>
+                ) : null}
                 <view className={cls('mem-draft-btn')} bindtap={onDiscardDraft}>
                   <text className={cls('mem-draft-btn-text')}>删掉</text>
                 </view>

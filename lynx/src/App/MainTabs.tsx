@@ -46,13 +46,32 @@ type Props = {
 export function MainTabs(props: Props) {
   const { tab, demand, plans, planIndex, tripId, content, mine } = props;
 
+  /**
+   * 当前旅行卡（F01）。只挑展示需要的几个数，不把整份 Plan 传进首页 ——
+   * 首页只读展示，传整份方案会让它「顺手」开始算行程，职责就散了。
+   */
+  const active = props.trips.find((t) => t.id === props.activeId) ?? props.trips[0];
+  const currentTrip = active
+    ? {
+        id: active.id,
+        destination: active.demand.destination,
+        dayCount: active.demand.dayCount,
+        party: active.demand.party,
+        perPerson: active.plans[active.planIndex]?.budget.perPerson ?? 0,
+        ended: !!active.endedAt,
+      }
+    : null;
+
   if (tab === 'home') {
     return (
       <HomePage
         city={demand.destination}
         onPickCity={() => props.onGo('city')}
         onAllCities={() => props.onGo('cityList')}
-        onPlan={props.onPlan}
+        // 主 CTA 进助理（自然语言），表单仍从「行程规划」快捷格进
+        onPlan={() => props.onGo('assistant')}
+        onAskAssistant={(text) => props.onGo('assistant', { ask: text })}
+        trip={currentTrip}
         onTab={(t) => props.setTab(t)}
         onAdvice={() => props.onGo('advice')}
         onAssistant={() => props.onGo('assistant')}
@@ -82,6 +101,8 @@ export function MainTabs(props: Props) {
         onTogglePin={props.onTogglePin}
         impact={props.impact}
         onDismissImpact={props.onDismissImpact}
+        // 现场入口带着一句话进助理；改动仍由对话里的确认卡收口
+        onAsk={(text) => props.onGo('assistant', { ask: text })}
       />
     );
   }

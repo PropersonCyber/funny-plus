@@ -48,6 +48,8 @@ export type SubPageProps = {
   /** 结束旅行时整理的草稿：采纳 / 丢弃 */
   onAdoptDraft: () => void;
   onDiscardDraft: () => void;
+  /** 让咕噜改写回忆叙述；模型不可用时落回确定性草稿 */
+  onNarrate: () => void;
   onSavePlace: (
     patch: { planRef: string; dayIndex: number; placeId: string; placeTitle: string } & Partial<PlaceNote>
   ) => void;
@@ -148,6 +150,7 @@ export const SUB_PAGES: Record<RouteName, (p: SubPageProps) => ReactElement> = {
       onPhotos={p.onOverviewPhotos}
       onAdoptDraft={p.onAdoptDraft}
       onDiscardDraft={p.onDiscardDraft}
+      onNarrate={p.onNarrate}
       onSavePlace={p.onSavePlace}
       onEnd={() => p.onEnd(!p.endedAt)}
       onGuide={() => {
@@ -200,6 +203,7 @@ export const SUB_PAGES: Record<RouteName, (p: SubPageProps) => ReactElement> = {
       demand={p.demand}
       plan={p.plans[p.planIndex] ?? null}
       planIndex={p.planIndex}
+      initialInput={p.params.ask}
       onBack={p.back}
       onOpenItinerary={() => {
         p.back();

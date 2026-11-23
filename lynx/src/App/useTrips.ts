@@ -10,6 +10,7 @@ import { pushAllTrips, pushMemory } from '../sync.js';
 import { mergeMemories, mergeTrips } from '../syncMerge.js';
 import type { RemoteMemory } from '../syncMerge.js';
 import { draftFor } from '../memoryDraft.js';
+import { fetchNarrative } from '../memoryNarrate.js';
 
 export type Store = { trips: SavedTrip[]; activeId: string };
 
@@ -415,6 +416,32 @@ export function useTrips(booted: boolean) {
     []
   );
 
+  /**
+   * 让咕噜把回忆整理成人话（N8 之后）。
+   *
+   * 与结束旅行时自动生成的确定性草稿是两条路，共用一个 `draft` 字段：
+   * - 结束旅行 → 立刻有一份能用的草稿（不等网络）
+   * - 用户点「让咕噜润色」→ 走这条，模型改写；失败仍落回同一份确定性文本
+   *
+   * 三条必须守住的口径：
+   * 1. **不刷新 updatedAt**。它正是「否掉草稿之后有没有新记录」的判据，
+   *    刷新它等于把用户刚说过的「不要」作废。
+   * 2. **已有草稿时也允许覆盖**：这是用户主动点的按钮，不是自动端上来的第二份。
+   * 3. 生成结果为空时不写回 —— 空的 draft 在页面上是一张没有内容的卡。
+   */
+  const narrateMemory = useCallback(async (tripId: string) => {
+    const trip = storeRef.current.trips.find((t) => t.id === tripId);
+    if (!trip) return;
+    const cur = memories[tripId] ?? memoryOf(tripId);
+    const result = await fetchNarrative(trip, cur);
+    if (!result.text.trim()) return;
+    setMemories((prev) => {
+      const base = prev[tripId] ?? cur;
+      return { ...prev, [tripId]: { ...base, draft: result.text, draftBy: result.by } };
+    });
+    track('memory_narrate', { tripId, by: result.by });
+  }, [memories, memoryOf]);
+
   return {
     store,
     active,
@@ -433,6 +460,7 @@ export function useTrips(booted: boolean) {
     endTrip,
     adoptDraft,
     discardDraft,
+    narrateMemory,
     setPinned,
     memories,
     memoryOf,

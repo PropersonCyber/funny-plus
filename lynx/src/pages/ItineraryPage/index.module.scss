@@ -220,3 +220,17 @@
   color: #ffffff;
   font-weight: bold;
 }
+
+/* 现场入口：放在景点条目里而不是页脚，因为「这一站的下一站是哪」只在这个条目上说得清 */
+.tl-onsite {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  margin-top: 6px;
+}
+
+.tl-onsite-link {
+  font-size: 12px;
+  color: #2478f2;
+}

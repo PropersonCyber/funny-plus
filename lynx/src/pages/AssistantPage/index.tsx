@@ -43,6 +43,13 @@ type Props = {
   onApplyPlans: (demand: Demand, plans: Plan[], planIndex: number) => string;
   /** 确认咕噜提的修改，写到当前行程上 */
   onApplyRevise: (plan: Plan, impact: ChangeImpact) => void;
+  /**
+   * 带着一句话进来（首页当前旅行卡 / 主入口）。
+   *
+   * 只在**首次挂载**时消费一次，且只在本机这段对话还是空的时候：
+   * 用户回来接着聊时再把这句重发一遍，等于把同一句话问了两遍。
+   */
+  initialInput?: string;
 };
 
 /** 麦克风图表不在 docs/materials/icons 里，只有这一个页面用，就地内联 */
@@ -56,6 +63,9 @@ const TOOL_HINT: Record<string, string> = {
   queryPlaces: '咕噜正在查景点…',
   generatePlans: '咕噜正在排行程…',
   proposeRevise: '咕噜正在算怎么改…',
+  // 现场两个：模型在没有文案时显示空白提示，看起来像卡住
+  nearbyPlaces: '咕噜正在看附近有什么…',
+  nextStop: '咕噜正在查下一站…',
 };
 
 type Turn = {
@@ -98,6 +108,7 @@ export function AssistantPage({
   onOpenItinerary,
   onApplyPlans,
   onApplyRevise,
+  initialInput,
 }: Props) {
   // 录音通道两端都没实现，所以这里不做「聆听中」的假视觉态：按一下只说明一句实话。
   // 等壳层接上语音识别，再把 listening 的状态机加回来
@@ -314,6 +325,24 @@ export function AssistantPage({
     setDraft('');
     void runSend(text, true);
   }, [draft, sending, runSend]);
+
+  // 带着一句话进来的自动发一轮（首页当前旅行卡）。
+  // 只在挂载后跑一次，且本机这段对话还是空的时候才发：
+  // 用户回来接着聊时重发同一句，等于把同一个问题问了两遍。
+  const bootAsked = useRef(false);
+  useEffect(() => {
+    if (bootAsked.current) return;
+    bootAsked.current = true;
+    const ask = (initialInput ?? '').trim();
+    if (!ask) return;
+    if (turnsRef.current.length) return;
+    // 等 enabled 有值再发：AI 没配时消息发不出去，先让页面把不可用状态显示完
+    if (enabled === null) {
+      bootAsked.current = false;
+      return;
+    }
+    void runSend(ask, true);
+  }, [initialInput, enabled, runSend]);
 
   /** 重试：先删掉失败那条气泡再重发，成功后不留一份「失败」挂在对话里 */
   const retry = useCallback(

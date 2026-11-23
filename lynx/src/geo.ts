@@ -47,6 +47,22 @@ const STALE_MS = 5 * 60 * 1000;
 const WAIT_MS = 8000;
 const POLL_MS = 150;
 
+/**
+ * 当前有没有一份可用的定位快照（同步、不等待）。
+ *
+ * 给对话用：用户问「附近有什么」时，服务端要知道有没有坐标。
+ * 与 `locate()` 的区别是它**不等**、也不申请权限 —— 对话不该为了一个可选参数
+ * 卡住 8 秒等定位；没拿到就不带定位，让咕噜去追问。过期快照不给，
+ * 五分钟前的坐标足够让人走到另一个街区。
+ */
+export function currentFix(): { lng: number; lat: number; accuracy?: number; at?: number } | null {
+  const snap = snapshot();
+  if (!snap || !valid(snap)) return null;
+  const at = Number(snap.at) || undefined;
+  if (at && Date.now() - at > STALE_MS) return null;
+  return { lng: Number(snap.lng), lat: Number(snap.lat), accuracy: Number(snap.accuracy) || undefined, at };
+}
+
 export type LocateResult =
   | { ok: true; point: GeoPoint }
   | { ok: false; reason: 'unsupported' | 'denied' | 'failed' | 'stale' | 'pending' };

@@ -178,6 +178,7 @@ export function App() {
             onSaveOverview={(text) => trips.saveOverview(trips.active?.id ?? '', text)}
             onAdoptDraft={() => trips.adoptDraft(trips.active?.id ?? '')}
             onDiscardDraft={() => trips.discardDraft(trips.active?.id ?? '')}
+            onNarrate={() => void trips.narrateMemory(trips.active?.id ?? '')}
             onOverviewPhotos={(photos) => trips.setOverviewPhotos(trips.active?.id ?? '', photos)}
             onSavePlace={(patch) => trips.savePlaceNote(trips.active?.id ?? '', patch)}
             draft={guides.draftOf(trips.active?.id ?? '')}

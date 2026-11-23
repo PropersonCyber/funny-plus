@@ -39,13 +39,14 @@ function dateLabel(d: Demand): string {
 }
 
 // 单选维度的选择器配置集中在这里：以后加城市/加预算档只改数据，不动布局
-type PickerKey = 'destination' | 'dayCount' | 'budgetLevel' | 'transport' | 'dateFrom';
+type PickerKey = 'destination' | 'dayCount' | 'budgetLevel' | 'transport' | 'dateFrom' | 'hours';
 const PICKER_TITLE: Record<PickerKey, string> = {
   destination: '目的地',
   dayCount: '玩几天',
   budgetLevel: '人均预算',
   transport: '交通方式',
   dateFrom: '出发日期',
+  hours: '只安排几个小时',
 };
 // 只放引擎真能映射到地点 tags 的偏好（planner PREF_TAGS），映射不上的选了也是白选
 const PREFERENCES = ['美食探店', '经典打卡', '拍照出片', '亲子慢游', '夜景江湖'];
@@ -68,6 +69,11 @@ const PICKER_OPTIONS: Record<PickerKey, PickerOption[]> = {
   })),
   // 出发日期的选项要按「今天」算出来，所以在渲染时生成，不放进这张静态表
   dateFrom: [],
+  // 当地临时规划（F04）：只排接下来几个小时。0 = 不启用，走整天规划
+  hours: [
+    { value: '0', label: '不限定（整天）' },
+    ...[2, 3, 4, 6, 8].map((h) => ({ value: String(h), label: `${h} 小时` })),
+  ],
 };
 
 /** 底部弹窗：每行一个决策项，行内左图标右控件；只放引擎真吃得下的四维 */
@@ -106,6 +112,8 @@ export function PlanSheet({ demand, cities, onClose, onPlanned }: Props) {
       else if (picker === 'destination') patch({ destination: v });
       // 空串 = 用户选了「还不确定」：把字段清掉，而不是存一个空字符串冒充日期
       else if (picker === 'dateFrom') patch({ dateFrom: v || undefined });
+      // 0 = 不限定，清掉 hours 走整天规划；其它值就是「只排这么多小时」
+      else if (picker === 'hours') patch(v === '0' ? { hours: undefined } : { hours: Number(v) });
     },
     [picker, patch],
   );
@@ -119,7 +127,9 @@ export function PlanSheet({ demand, cities, onClose, onPlanned }: Props) {
           ? draft.transport
           : picker === 'dateFrom'
             ? (draft.dateFrom ?? '')
-            : draft.destination;
+            : picker === 'hours'
+              ? String(draft.hours ?? 0)
+              : draft.destination;
   // 日期候选按「今天」生成。渲染期算一次即可：这个弹窗不会跨天停留
   const pickerOptions =
     picker === 'dateFrom' ? dateOptions(new Date().toISOString().slice(0, 10)) : picker ? PICKER_OPTIONS[picker] : [];
@@ -283,6 +293,19 @@ export function PlanSheet({ demand, cities, onClose, onPlanned }: Props) {
             <text className={cls('ps-label')}>交通方式</text>
             <view className={cls('ps-select')} bindtap={() => setPicker('transport')}>
               <text className={cls('ps-select-text')}>{TRANSPORTS.find((t) => t.value === draft.transport)?.label ?? '公共交通'}</text>
+              <IconSvg content={svgIcon('chevronRight', '#8A99B3')} style={{ width: '14px', height: '14px' }} />
+            </view>
+          </view>
+
+          {/* 只排几个小时（F04）：选了它就走轻量规划，不再按整天排 —— 
+              「下午还有四小时」和「玩两天」是两种需求，用同一个天数控件表达不了 */}
+          <view className={cls('ps-row')}>
+            <view className={cls('ps-icon ps-icon-violet')}>
+              <IconSvg content={svgIcon('clock', '#8B7CFF')} style={{ width: '16px', height: '16px' }} />
+            </view>
+            <text className={cls('ps-label')}>时长</text>
+            <view className={cls('ps-select')} bindtap={() => setPicker('hours')}>
+              <text className={cls('ps-select-text')}>{draft.hours ? `接下来 ${draft.hours} 小时` : '整天'}</text>
               <IconSvg content={svgIcon('chevronRight', '#8A99B3')} style={{ width: '14px', height: '14px' }} />
             </view>
           </view>

@@ -35,9 +35,16 @@ export type RouteParams = {
   cityId: string;
   /** 分享页要展示的 token；只有分享路由用 */
   shareToken: string;
+  /**
+   * 带着一句话进助理（首页当前旅行卡用）。
+   *
+   * 空串 = 不预填。助理挂载时若拿到非空值，会把这句当作已经输入的用户消息发出去，
+   * 所以它必须是**用户语义上的一个完整诉求**，不能塞半句话进去。
+   */
+  ask: string;
 };
 
-const EMPTY_PARAMS: RouteParams = { guideId: '', playId: '', cityId: '', shareToken: '' };
+const EMPTY_PARAMS: RouteParams = { guideId: '', playId: '', cityId: '', shareToken: '', ask: '' };
 
 export function useRoute() {
   // 设计稿里的「智能建议」不是 tab，是从首页快捷入口进的子页，所以 route 与 tab 并存

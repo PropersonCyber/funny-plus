@@ -30,7 +30,22 @@ type Props = {
       定位胶囊是「我人在哪」，查看更多是「还有哪些城市」。
       胶囊文案不读 city，city 只用来把当前目的地排到热门推荐最前 */
   onAllCities: () => void;
+  /** 主 CTA：进助理（自然语言），不再进表单 —— 表单仍可从「行程规划」快捷入口进 */
   onPlan: () => void;
+  /** 带着一句话直接问咕噜（当前旅行卡的「继续调整」用它） */
+  onAskAssistant: (text: string) => void;
+  /**
+   * 当前旅行（F01）。null = 还没有行程，首页不显示旅行卡。
+   * 只读展示用，不改任何行程状态。
+   */
+  trip: {
+    id: string;
+    destination: string;
+    dayCount: number;
+    party: number;
+    perPerson: number;
+    ended: boolean;
+  } | null;
   onTab: (tab: 'map' | 'itinerary' | 'guide' | 'profile') => void;
   onAdvice: () => void;
   onAssistant: () => void;
@@ -68,7 +83,24 @@ const QUICK = [
   { id: 'itinerary', title: '行程规划', img: QICON.calendar, tint: 'rgba(36,120,242,0.12)' },
 ] as const;
 
-export function HomePage({ city, onPickCity, onAllCities, onOpenCity, onPlan, onTab, onAdvice, onAssistant, onGuide, onAllGuides, onPlay, cities, guides, plays }: Props) {
+export function HomePage({
+  city,
+  onPickCity,
+  onAllCities,
+  onOpenCity,
+  onPlan,
+  onAskAssistant,
+  trip,
+  onTab,
+  onAdvice,
+  onAssistant,
+  onGuide,
+  onAllGuides,
+  onPlay,
+  cities,
+  guides,
+  plays
+}: Props) {
   // 胶囊是「我人在哪」，和城市页「当前定位」读同一份，不要把已选目的地填进来
   const located = useLocationFace();
   // 当前城市排在最前，帮用户确认「切过去了」
@@ -122,18 +154,46 @@ export function HomePage({ city, onPickCity, onAllCities, onOpenCity, onPlan, on
           </view>
 
         <view className={cls('home-in')}>
+          {/* 主入口是自然语言（F01）：点它直接进助理，不再先填表单。
+              表单没消失 —— 「行程规划」快捷格还在，两条路都能到同一份行程 */}
           <view className={cls('ai-card')} bindtap={onPlan}>
             <view className={cls('ai-icon-box')}>
               <IconSvg content={filledIcon('sparkle', '#FFFFFF')} style={{ width: '20px', height: '20px' }} />
             </view>
             <view className={cls('ai-text')}>
-              <text className={cls('ai-title')}>AI 规划你的专属旅行</text>
-              <text className={cls('ai-sub')}>告诉我想法，生成最佳行程</text>
+              <text className={cls('ai-title')}>跟咕噜说说你想去哪</text>
+              <text className={cls('ai-sub')}>
+                {trip ? `正在规划${trip.destination}，可以直接改` : '一句话就能开始，不用填表'}
+              </text>
             </view>
             <view className={cls('ai-go')}>
               <IconSvg content={svgIcon('chevronRight', '#8A99B3')} style={{ width: '14px', height: '14px' }} />
             </view>
           </view>
+
+          {/* 当前旅行卡（F01）：有行程才出现。放在主入口下面而不是最顶上，
+              是因为它只对「已经有行程的人」有用，对新人占位等于一上来就给个空壳 */}
+          {trip ? (
+            <view
+              className={cls('ai-card')}
+              bindtap={() => onAskAssistant(trip.ended ? `我想重新规划${trip.destination}的行程` : `继续调整${trip.destination}的行程`)}
+            >
+              <view className={cls('ai-icon-box')}>
+                <IconSvg content={svgIcon(trip.ended ? 'calendar' : 'itinerary', '#FFFFFF')} style={{ width: '20px', height: '20px' }} />
+              </view>
+              <view className={cls('ai-text')}>
+                <text className={cls('ai-title')}>
+                  {trip.destination} · {trip.dayCount} 天{trip.ended ? ' · 已结束' : ''}
+                </text>
+                <text className={cls('ai-sub')}>
+                  {trip.party} 人 · 人均 ¥{trip.perPerson} · {trip.ended ? '看看回忆或重新安排' : '继续调整或查看行程'}
+                </text>
+              </view>
+              <view className={cls('ai-go')}>
+                <IconSvg content={svgIcon('chevronRight', '#8A99B3')} style={{ width: '14px', height: '14px' }} />
+              </view>
+            </view>
+          ) : null}
 
           <view className={cls('quick-card')}>
             {QUICK.map((q) => (

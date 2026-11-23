@@ -2,6 +2,7 @@ import { hostApiBase } from './hostBridge.js';
 import { trackJourney, trackSessionId } from './track.js';
 import { api, authToken } from './api.js';
 import { readToolResult } from './chatPayload.js';
+import { currentFix } from './geo.js';
 import type { ChatPayload } from './chatPayload.js';
 import type { Demand, Plan, RevisePreview, TripContext } from '../../shared/types/index.js';
 
@@ -144,8 +145,12 @@ function chatBodyOf(
   opts?: { sessionId?: string; input?: string }
 ): ChatBody {
   const input = typeof opts?.input === 'string' ? opts.input.trim() : '';
-  if (input && authToken()) return { sessionId: opts?.sessionId ?? '', input, slots, trip };
-  return { messages, slots, trip };
+  // 定位只在这一刻可读：宿主下发的坐标在 hostBridge 里，没授权时拿不到。
+  // 拿不到就不带这个字段 —— 服务端据此知道「没有定位」，去追问用户而不是推断
+  const loc = currentFix();
+  const base = loc ? { loc } : {};
+  if (input && authToken()) return { sessionId: opts?.sessionId ?? '', input, slots, trip, ...base };
+  return { messages, slots, trip, ...base };
 }
 
 /** 兜底通道：一次拿全文，方案和修改预览都要交出去 */

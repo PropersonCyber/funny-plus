@@ -44,7 +44,7 @@
 | N11 | 对话回归集 | `server/src/ai/eval/`（6 类用例 + 判定纯函数 + SSE runner）+ `scripts/chat-eval.ts`；runner 保留 `tool_result`，判定新增 `noInventedPrices`（金额须在工具返回里有出处）、`engineIssues`（引擎真的判出 over-budget / empty-day）、`expectPlans`、`slotsAbsent`；every `mustMention` alternative 拆成独立「或」组 | `eval/checks.test.ts` 18 例；真实模型跑批未执行（需 key + 起 `dev:api`） |
 | C1/C2/C3 | 数据飞轮 | `server/src/data/trustRules.ts`（阈值集中）；`GET /api/facts`、`GET /api/content`、AI `getFacts` **三处共用 `factWithTrust`**（反馈 + 有效期，AI 不再用进程级缓存）；`POST /api/submit` 按**归一化后的值**凑票（`17:00` 与 `1020` 算同一票）、只在原列为空时写入、**写入同时把行压到 `experience`**（`capTrust`）、写 0 行时不再谎报 `promoted`、**凑票只认登录账号**（`isAgreed`，自报 `clientId` 不算数） | `trustRules.test.ts` 19 例 + `submit.test.ts` 5 例（真库） |
 
-门禁现状（2026-11-23 最终复跑）：lynx typecheck 0 / lynx test **235** / `check:css` 835 class 通过 / server typecheck 0 / **server test 160 例全绿（17 个文件，含连库的 7 个）**。连库测试是本次先起 `docker compose -f server/docker-compose.yml up -d` + `db:migrate` + `db:seed` 之后真跑通的，不再是「本机无 Postgres 未跑」。
+门禁现状（2026-11-23 第三轮复跑）：lynx typecheck 0 / lynx test **280** / `check:css` 837 class 通过 / server typecheck 0 / **server test 180 例全绿（19 个文件，含连库的 8 个）**。连库测试是本次先起 `docker compose -f server/docker-compose.yml up -d` + `db:migrate` + `db:seed` 之后真跑通的，不再是「本机无 Postgres 未跑」。
 
 ### 0.1.1 2026-11-23 复核五个「已完成」项发现的缺陷
 
@@ -75,6 +75,31 @@
 未做（仍需裁决）：首页咕噜迎接与主卡入口权重（N1/N2，与 `docs/ai-native-plan.md:26` 的「不动入口权重」冲突，属 D1）；固定安排与时段粒度修改（N3/N4，D1 口径）；现场推荐与下一站（N6/N7，D4 数据供给为零）；登录三通道（N5，D3）；攻略照片勾选「不默认带出」（N9，`useGuides.ts:72` 仍自动带前 3 张，改它要同时定「重生成时是否保留用户已选」）；DOC1–DOC5。
 
 **技术栈未定的地方只留了接口位，没有擅自选型**：G7 的聚合口径集中在 `ai/metrics.ts`，命令行只负责打印，将来接看板不改编排；G5/G6 的会话与行程存储都走既有的 drizzle + Postgres，没有引入新组件；N5 的三项外部依赖（短信服务商 / 微信开放平台 / Sign in with Apple）仍等 D3 定责任人后才落实现。
+
+### 0.1.2 2026-11-23 第三轮：补五项缺能力，并修掉过程中暴露的三处真缺陷
+
+这一轮补的是产品清单上「仍未做」的能力。补的过程中，新写的测试反过来抓出三处真缺陷 ——
+共同点还是老样子：不会报错，只在某个具体时刻给出错的结论。
+
+| # | 能力 | 做了什么 | 验证 |
+|---|---|---|---|
+| 1 | 首页咕噜迎接（N1/N2） | 主 CTA 从「进表单」改为「进助理」，有行程时多一张当前旅行卡（点它带一句「继续调整」进对话）。表单没删，仍从「行程规划」快捷格进 —— 两条路都到同一份行程 | 门禁 + 手工核对 |
+| 2 | 轻量规划（F04 任务 B） | 新增 `shared/engine/lightPlan.ts`：`Demand.hours` + `startMin` 走单日规划，从指定时刻起算、到点就停、不计住宿。表单加「时长」行 | `lightPlan.test.ts` 18 例 |
+| 3 | 到达判定与下一站（F04/F05） | 新增 `shared/engine/onSite.ts`：到达半径 + 精度阈值（>500m 不判）、过期快照不判、共三档结论；下一站按行程顺序算，未核验班次不标已核验；城市交通**如实地报不可用**。行程页每条景点有「我在这附近 / 下一站」 | `onSite.test.ts` 19 例 |
+| 4 | 季节性营业时间 | `Place.seasons`（人工摘录，不从 `openText` 正则解析）+ `shared/engine/opening.ts`。只在日期已知时按季节取档；无档或日期未知退回全年最保守值。迁移 `0019`，7→5 个地点有档 | `opening.test.ts` 8 例 |
+| 5 | 登录三通道（N5） | 短信真接阿里云（`server/src/auth/sms.ts`）；微信接 unionid 兑换、Apple 接 identityToken 本地验签（含 alg/aud/iss/exp 四道闸）；三者共用一个签发入口 `issueSession`。未配置时如实 501/503，**不再假装发出短信** | `loginProviders.test.ts` 13 例（含 7 个 Apple 拒绝分支） |
+| 6 | 回忆 AI 叙述（F07） | `POST /api/ai/memory-narrative`：模型只改写用户写过的内容，每段必须挂靠一条真实记录，`applyNarrative` 把指不上的句子丢弃；不可用落回确定性草稿。`memoryDraft` 移到 `shared/` 供两端共用 | `narrate.test.ts` 7 例 + 既有 15 例迁移后仍绿 |
+
+**这一轮被测试抓出来的三处真缺陷**：
+
+| # | 问题 | 实际行为 | 改动 |
+|---|---|---|---|
+| A | 轻量规划只判「时长放得下」，不判「到的时候还开着」 | 「四小时」从 21:00 起算会排进 23:00 关门、却要停留一小时的点 —— 用户到门口进不去。测试 `时长不够排下任何一站时给可读原因` 先红 | 加 `end > window[1]` 这个门槛，与截止时刻并列判 |
+| B | 季节档的 `open` 语义与 `Place.open` 不一致 | `Place.open` 存的是「最晚可进入」（`lightsOffCap` 把「16:00 停止检票」收在这里），我第一版季节档填的是名义关门时间（故宫 17:00）。真数据冒烟直接红：夏季应判 16:00 而不是 17:00 | 五条季节档全部改成「最晚入园」口径；`Place.open` 与 `OpenSeason.open` 的类型注释把这条钉死 |
+| C | `db:seed` 的 upsert 不会清除已删除的可选字段 | 从 `data/places.json` 删掉一条季节档后重跑 seed，库里那份原样留着 —— 「数据已经改了」和「线上还在按旧数据判」同时成立。天坛与长江索道的档就是这样残留在库里的 | seed 对 `seasons` / `closedRanges` / `closedWeekdays` 显式置 null/空 |
+
+**仍未做（能力已备，缺数据）**：吃/拍/买事实 0 条、城市公交地铁 0 条、POI 到达半径未逐个核、
+`dateTo` 无独立入口、攻略照片勾选（N9）未动。这些不是代码问题，是数据与产品口径问题。
 
 ## 1. 待裁决策（阻塞项，先答再动 §5）
 
@@ -121,13 +146,13 @@ J1 证据链：`lynx/src/pages/AssistantPage/index.tsx:265` → `lynx/src/App/su
 
 | 编号 | 现状 | 主要缺口 | 工作项 |
 |---|---|---|---|
-| F01 首页与咕噜 | 形态不符 | 城市卡发现页，无问候 / 无输入框 / 无当前旅行卡；主 CTA 进表单非助理 | N1、N2 |
+| F01 首页与咕噜 | 已完成 | 主 CTA 进助理、当前旅行卡已上首页；表单仍作为第二入口保留 | — |
 | F02 旅行上下文 | 完成 | 固定安排与日期范围均已接入（N3） | — |
-| F03 规划与修改 | 部分 | 预览确认闭环成立；但无时段粒度，兜底会误吃句子 | N4、G2 |
-| F04 现场推荐 | 全缺 | 定位只到城市级，无到达判定，三分支零代码 | D4 → N6 |
-| F05 下一站 | 全缺 | 离开意图 / 候选 / 城市交通零代码 | D4 → N7 |
-| F06 账号与同步 | 占位为主 | 短信未接服务商；微信 501；Apple 通道不存在；只推不拉 | R1、R2、G5、N5 |
-| F07 收藏与回忆 | 部分 | 结束旅行生成草稿已落地（N8）；缺 AI 叙述性整理 | — |
+| F03 规划与修改 | 已完成 | 预览确认、时段粒度（ease）、轻量规划（hours）均已落 | — |
+| F04 现场推荐 | 判定已做、数据缺 | 到达判定（半径 + 精度阈值）与附近检索已落；吃/拍/买事实 0 条，只答避坑/进出 | D4 → N6 |
+| F05 下一站 | 部分 | 下一站候选与景区交通已落；城市公交 0 条，如实报不可用 | D4 → N7 |
+| F06 账号与同步 | 代码已通、差凭证 | 短信接阿里云、微信接 unionid、Apple 本地验签；未配时如实 501/503 | 外部凭证 |
+| F07 收藏与回忆 | 已完成 | 结束旅行草稿 + AI 叙述整理（每段挂靠真实记录，不编感受） | — |
 | F08 攻略与分享 | 部分 | 快照冻结与撤回已真实现；无照片勾选、无更新发布 | R6、N9、X4 |
 | F09 可信与失败 | 部分 | 未知票价告知被截断；页脚 trust 自相矛盾；无重试入口 | G3、X5 |
 | F10 评估 | 部分 | 事件已落库，但无聚合口径、无旅程标识 | G7 |

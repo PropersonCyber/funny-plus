@@ -36,6 +36,13 @@ type Props = {
   /** 上一次局部修改的变更影响；切天不消失，方便对照 */
   impact: ChangeImpact | null;
   onDismissImpact: () => void;
+  /**
+   * 现场能力（F04/F05）：带着一句话去问咕噜。
+   *
+   * 不做成「点一下就改行程」：到达判定与下一站都是**读**，改动仍要用户确认。
+   * 所以这里只负责把问题交给助理，结果由对话里的确认卡收口。
+   */
+  onAsk?: (text: string) => void;
 };
 
 const CITY_IMG: Record<string, string> = { 成都: chengdu, 重庆: chongqing, 北京: beijing };
@@ -64,6 +71,7 @@ export function ItineraryPage({
   onTogglePin,
   impact,
   onDismissImpact,
+  onAsk,
 }: Props) {
   const [dayIndex, setDayIndex] = useState(1);
   const [revising, setRevising] = useState(false);
@@ -269,6 +277,18 @@ export function ItineraryPage({
                       {/* 路上时间必须带来源：直线折算和真实路线混着显示，等于让用户信错那个到达时刻 */}
                       {item.transportMin > 0 ? (
                         <text className={cls('tl-meta')}>{legNote(item.transportMin, item.transportSource)}</text>
+                      ) : null}
+                      {/* 现场入口（F04/F05）：只负责把问题交给咕噜，改动仍由对话里的确认卡收口。
+                          排进每个景点而不是页脚，是因为「这一站的下一站是哪」只有在这个条目上才说得清 */}
+                      {item.kind === 'place' && onAsk ? (
+                        <view className={cls('tl-onsite')}>
+                          <text className={cls('tl-onsite-link')} bindtap={() => onAsk(`我到了「${item.title}」，附近有什么值得看的？`)}>
+                            我在这附近
+                          </text>
+                          <text className={cls('tl-onsite-link')} bindtap={() => onAsk(`「${item.title}」的下一站去哪，怎么过去？`)}>
+                            下一站
+                          </text>
+                        </view>
                       ) : null}
                     </view>
                   </view>
