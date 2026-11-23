@@ -21,6 +21,8 @@ export type AiCallKind = 'chat' | 'revise' | 'plan' | 'memory'
 
 export type AiObservation = {
   kind: AiCallKind
+  /** 对话附带任务标识，沿用按提示词版本聚合的度量。 */
+  promptVersion?: string
   /** 客户端会话 id；同一个 id 下的多行就是同一轮对话 */
   sessionId?: string | null
   userId?: string | null
@@ -49,7 +51,7 @@ function row(o: AiObservation) {
     sessionId: o.sessionId || null,
     userId: o.userId || null,
     kind: o.kind,
-    promptVersion: PROMPT_VERSION,
+    promptVersion: o.promptVersion ?? PROMPT_VERSION,
     model: o.model || null,
     durationMs: Math.max(0, Math.round(o.durationMs)),
     toolCalls: o.toolCalls ?? 0,

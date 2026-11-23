@@ -17,11 +17,11 @@ import { cityTransitFor, nextStopAfter, reachabilityOf } from '@/engine/onSite.t
 import type { Reachability } from '@/engine/onSite.ts'
 import { NO_KEYWORD_HINT, generatePlans, keywordReviseOp } from '@/engine/planner.ts'
 import { isLight } from '@/engine/lightPlan.ts'
-import { applyReviseOp, dayBrief } from '@/engine/planEdit.ts'
+import { applyReviseOp } from '@/engine/planEdit.ts'
 import { toApi as dbPlaceToApi } from './places.ts'
 import { factWithTrust, feedbackStats } from './facts.ts'
 import { lineToApi } from './lines.ts'
-import { CHAT_SYSTEM_PROMPT } from '../ai/prompt.ts'
+import { buildChatPrompt } from '../ai/chatPrompt.ts'
 import { applyPatch, missingOf, toDemand } from '../ai/slots.ts'
 import type { Slots } from '../ai/slots.ts'
 import { proposePlanOrder } from '../ai/propose.ts'
@@ -53,25 +53,6 @@ function locOf(raw: unknown): { lng: number; lat: number; accuracy?: number; at?
     ...(Number.isFinite(accuracy) ? { accuracy } : {}),
     ...(Number.isFinite(at) ? { at } : {})
   }
-}
-
-/**
- * 定位怎么讲给模型听。
- *
- * 只说事实：坐标有没有、精度多少。**不把坐标本身写进提示词** —— 模型会把一串数字
- * 当成地名来源开始推断，而它推断出的位置我们无从核对。坐标只用来算距离，
- * 结果由工具返回。
- */
-function locPrompt(loc: { accuracy?: number } | null): string {
-  if (!loc) {
-    return '## 当前定位\n没有拿到用户定位。用户在问「附近」时先追问位置或让他手动指定，不要推断。'
-  }
-  const acc = loc.accuracy
-  const note =
-    acc !== undefined && acc > 500
-      ? `定位精度约 ${Math.round(acc)} 米，偏差较大；说「附近」时要提这一点`
-      : '定位精度可用于判断附近'
-  return `## 当前定位\n有用户定位（${note}）。只能通过 nearbyPlaces 工具算距离，不要自己推断位置或距离。`
 }
 
 export const aiRoute = new Hono()
@@ -194,25 +175,6 @@ function tripContextOf(raw: unknown): TripContext | null {
   if (!trip?.plan?.days?.length || !trip?.demand?.destination) return null
   if (trip.demand.destination !== trip.plan.destination) return null
   return trip
-}
-
-/** 把行程压成模型能读懂的清单：只给 id、地名、时刻、票价，票价未核实就写「未核实」 */
-function tripPrompt(trip: TripContext): string {
-  const lines = trip.plan.days.map(
-    (d) =>
-      `第 ${d.index} 天：` +
-      dayBrief(d)
-        .map((i) => `${i.title}（id=${i.id}，${i.start}-${i.end}${i.cost === null ? '，票价未核实' : ''}）`)
-        .join('；')
-  )
-  return [
-    '',
-    '## 当前旅行（工作台上正在看的那一份）',
-    `目的地：${trip.demand.destination}；天数：${trip.demand.dayCount}；人数：${trip.demand.party}；交通：${trip.demand.transport}`,
-    ...lines,
-    '用户说「改一下 / 轻松点 / 换个地方」时，指的是上面这份行程',
-    ''
-  ].join('\n')
 }
 
 /**
@@ -346,17 +308,17 @@ aiRoute.post('/chat', async (c) => {
 
   const messages = session
     ? [...history, { role: 'user' as const, content: input }]
-    : (body?.messages ?? []).filter((m) => typeof m?.content === 'string' && m.content.trim())
-  if (!messages.length) return c.json({ error: '缺少对话内容', code: 'bad_param' }, 400)
+    : (Array.isArray(body?.messages) ? body.messages : []).filter((m) =>
+      (m?.role === 'user' || m?.role === 'assistant') && typeof m.content === 'string' && m.content.trim()
+    )
+  const userText = lastUserText(messages)
+  if (!userText) return c.json({ error: '缺少对话内容', code: 'bad_param' }, 400)
 
   // 槽位跟着整轮对话走：工具里写入，结束时回传给前端，下一轮原样带回来
   const slots: Slots = { ...(body?.slots ?? {}) }
   // 同一轮里 generatePlans 调了几次。第二次仍有硬冲突就停，不能让模型一直重排
   let planAttempts = 0
-  // 有当前行程时按「改这份行程」聊；没有时按「从零规划」聊
-  const system = [trip ? `${CHAT_SYSTEM_PROMPT}\n${tripPrompt(trip)}` : CHAT_SYSTEM_PROMPT, locPrompt(loc)]
-    .filter(Boolean)
-    .join('\n')
+  const prompt = buildChatPrompt({ text: userText, trip, loc, slots })
 
   // ---- G7 服务端度量：本轮对话的服务端侧账 ----
   // journey 由客户端标注（plan = 从零规划，revise = 改已有行程），空表示日常使用。
@@ -369,6 +331,7 @@ aiRoute.post('/chat', async (c) => {
   const record = (extra: { durationMs: number; error?: string | null }) =>
     recordAiCall({
       kind: 'chat',
+      promptVersion: prompt.version,
       sessionId,
       userId: actor?.userId ?? null,
       model: modelName(),
@@ -384,7 +347,8 @@ aiRoute.post('/chat', async (c) => {
 
   const result = streamText({
     model: chatModel(),
-    system,
+    system: prompt.system,
+    activeTools: prompt.activeTools,
     messages: messages.map((m) => ({ role: m.role, content: m.content })),
     // 补槽位、查事实、生成、硬冲突后再松一版、改一天。再多就是空转
     stopWhen: stepCountIs(8),
@@ -662,15 +626,13 @@ aiRoute.post('/chat', async (c) => {
         inputSchema: z.object({
           instruction: z.string().describe('用户这一句原话，原样抄过来，不要改写')
         }),
-        execute: async ({ instruction }) => {
+        execute: async () => {
           if (!trip) {
             return { ok: false, error: '当前没有正在编辑的行程，先用 generatePlans 生成一份' }
           }
           // 以用户原话为准，不采用模型改写后的 instruction：
           // 行程页拿的也是用户敲进去的那句，两边必须是同一句才谈得上同一种改动
-          const said = lastUserText(messages) || instruction.trim()
-          if (!said) return { ok: false, error: '没有听到要改什么' }
-          const { preview, reason } = await resolveRevision(trip, said)
+          const { preview, reason } = await resolveRevision(trip, userText)
           if (!preview) return { ok: false, error: reason }
           return { ok: true, preview }
         }
