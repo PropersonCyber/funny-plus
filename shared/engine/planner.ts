@@ -87,7 +87,13 @@ export function generatePlans(demand: Demand, opts: { order?: string[] } = {}): 
       : (['relaxed', 'balanced', 'packed'] as Pace[]).map((pace) => ({ pace, transport: demand.transport }))
 
   return variants.map((v) => {
-    const variantDemand: Demand = { ...demand, transport: v.transport }
+    // 必去点反推出的出发时刻要真的用于排程，不是只在提示里说一句。
+    // 否则工作台仍是 09:00 起排，和「建议 12:10 出发」自相矛盾。
+    // 返回时刻已经作为窗口参与了选点（buildDayFitting），出发时刻同理参与排程。
+    const reverse = must.length ? reverseWindow(must, { ...demand, transport: v.transport }) : null
+    const startMin =
+      reverse && windowFeasible(reverse) && demand.startMin === undefined ? reverse.startMin : demand.startMin
+    const variantDemand: Demand = { ...demand, transport: v.transport, ...(startMin !== undefined ? { startMin } : {}) }
     const days = buildDays(variantDemand, ordered, PER_DAY[v.pace])
     const plan: Plan = {
       id: `${demand.destination}-${v.pace}-${v.transport}`,
@@ -105,6 +111,21 @@ export function generatePlans(demand: Demand, opts: { order?: string[] } = {}): 
     // 必去模式下要把「为什么是这个出发时间」讲出来：用户只说了要去哪几个点，
     // 时间是程序倒推的，不说清楚他会以为是我们随便定的
     if (must.length) {
+      // 最要紧的一条：用户点名的点有没有真的进到行程里。
+      // 窗口放不下时 buildDayFitting 会让某些天变空，必去点就被静默丢了 ——
+      // 用户不会去数行程里有几个点，他只会发现「我要去的地方少了」。
+      const placedIds = new Set(days.flatMap((d) => d.items.map((i) => i.placeId)).filter(Boolean))
+      const dropped = must.filter((p) => !placedIds.has(p.id))
+      if (dropped.length) {
+        plan.issues.unshift({
+          id: 'must-visit-dropped',
+          code: 'must-visit-dropped',
+          level: 'error',
+          message: `你点名的 ${must.length} 个点里，有 ${dropped.length} 个放不进这个行程：「${dropped
+            .map((p) => p.name)
+            .join('」「')}」。要么多给一天，要么放宽返回时间，要么换成这几个点附近的安排`
+        })
+      }
       const w = reverseWindow(must, variantDemand)
       if (w && windowFeasible(w)) {
         plan.issues.unshift({
@@ -183,6 +204,9 @@ function orderByPreference(ordered: Place[], tags: string[]): Place[] {
 
 /** 按最近邻排景点顺序，避免行程在地图上反复横跳 */
 function orderByProximity(pool: Place[]): Place[] {
+  // 空池直接返回空：以前这里对空数组会产出 [undefined]，
+  // 必去模式「所有点都是必去、其余为空」时正好走到这条路上
+  if (!pool.length) return []
   const rest = [...pool]
   const out: Place[] = [rest.shift()!]
   while (rest.length) {
@@ -196,11 +220,59 @@ function orderByProximity(pool: Place[]): Place[] {
 
 function buildDays(demand: Demand, ordered: Place[], perDay: number): TripDay[] {
   const days: TripDay[] = []
+  // 必去模式：先把用户点名的点平均分到每一天，再补剩下的。
+  // 不这么做的话，必去点会全挤在第 1 天，后面的天拿到的只是「凑数」，
+  // 而用户要的是「这几个必去，其他随意」。
+  const mustIds = new Set(demand.mustVisit ?? [])
+  const mustPlaces = ordered.filter((p) => mustIds.has(p.id))
+  const others = ordered.filter((p) => !mustIds.has(p.id))
+  const queue = mustPlaces.length ? spreadMust(mustPlaces, others, demand.dayCount) : ordered
+
+  let cursor = 0
   for (let d = 0; d < demand.dayCount; d++) {
-    const slice = ordered.slice(d * perDay, d * perDay + perDay)
-    days.push(buildDay(d + 1, slice, demand))
+    // 每天能放下几个点由窗口决定，不由节奏档决定：用户说「14 点回来」，
+    // 排 3 个点全超时等于没听。先探测放得下几个，再切这一天
+    const day = buildDayFitting(d + 1, queue.slice(cursor), demand, perDay)
+    cursor += day.consumed
+    days.push({ index: d + 1, items: day.items })
   }
   return days
+}
+
+/**
+ * 必去点按天均分，其余点补在每天末尾。
+ *
+ * 顺序仍沿用必去点原来的先后；均分只是决定「哪几个点落在哪一天」，
+ * 不重排用户说的先后。
+ */
+function spreadMust(must: Place[], others: Place[], dayCount: number): Place[] {
+  const perDay = Math.ceil(must.length / dayCount)
+  const out: Place[] = []
+  for (let d = 0; d < dayCount; d++) {
+    out.push(...must.slice(d * perDay, d * perDay + perDay))
+  }
+  // 必去点分完还剩的天，用其它点补；不过 buildDayFitting 会按窗口再截
+  return [...out, ...others]
+}
+
+/**
+ * 按窗口能放下几个点来切这一天的安排。
+ *
+ * `buildDay` 是贪心排到底、事后再由 validate 报超时；那对「14 点必须回来」是错的：
+ * 报了超时也没有任何东西被改动，工作台照样显示一份走不完的行程。
+ * 这里改成**先探测再落盘**：能放下几个就放几个，放不下的留给下一天。
+ * 一个都放不下时返回空天，由 validate 报 empty-day —— 那才是「这个窗口排不下」的实话。
+ */
+function buildDayFitting(index: number, slice: Place[], demand: Demand, perDay: number): { items: ItineraryItem[]; consumed: number } {
+  const limit = Number.isFinite(demand.returnBy) ? demand.returnBy! : Infinity
+  // 先按节奏档上限试，放不下就减一个再试；最少试到 0
+  const cap = Math.min(perDay, slice.length)
+  for (let n = cap; n >= 1; n--) {
+    const { items } = buildDay(index, slice.slice(0, n), demand)
+    const end = items.length ? Math.max(...items.map((i) => i.endMin)) : Infinity
+    if (end <= limit) return { items, consumed: n }
+  }
+  return { items: [], consumed: 0 }
 }
 
 function buildDay(index: number, slice: Place[], demand: Demand): TripDay {

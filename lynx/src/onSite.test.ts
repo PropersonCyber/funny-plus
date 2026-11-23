@@ -8,6 +8,7 @@ import {
   cityTransitFor,
   nearbyTidbits,
   nextStopAfter,
+  reachabilityOf,
   remainingStops,
 } from '../../shared/engine/onSite.js';
 import type { Demand, ItineraryItem, Place, Plan, TransitLine } from '../../shared/types/index.js';
@@ -239,5 +240,47 @@ describe('线路交通：未核验的班次不标成已核验', () => {
     const next = nextStopAfter(plan(items), 'i1');
     expect(next!.line?.verified).toBe(false);
     setLines([]);
+  });
+});
+
+describe('附近推荐的可执行性（F04）', () => {
+  const spot = (open: [number, number], stayMin = 90): Place => ({
+    ...base,
+    id: 'near-x',
+    name: '测试点',
+    city: '现场城',
+    lng: 104.0,
+    lat: 30.0,
+    open,
+    stayMin,
+  })
+
+  it('已过停止入场时间：说已关门，不是含糊的「可能来不及」', () => {
+    const r = reachabilityOf(spot([9 * 60, 17 * 60]), 17 * 60 + 30);
+    expect(r.reach).toBe('closed');
+    expect(r.note).toContain('关门');
+  });
+
+  it('还没开门也说清楚，不推荐现在去', () => {
+    const r = reachabilityOf(spot([9 * 60, 17 * 60]), 8 * 60);
+    expect(r.reach).toBe('closed');
+    expect(r.note).toContain('才开门');
+  });
+
+  it('剩的时间不够逛完：标成 closing 并给出还剩多久', () => {
+    // 17:00 停检，16:00 到、要逛 90 分钟 → 不够
+    const r = reachabilityOf(spot([9 * 60, 17 * 60], 90), 16 * 60);
+    expect(r.reach).toBe('closing');
+    expect(r.note).toContain('60 分钟');
+  });
+
+  it('用户只剩两小时、点要逛两小时以上：标成 tight', () => {
+    const r = reachabilityOf(spot([9 * 60, 21 * 60], 150), 10 * 60, 2);
+    expect(r.reach).toBe('tight');
+  });
+
+  it('时间充裕时判 fits，不会误报紧张', () => {
+    const r = reachabilityOf(spot([9 * 60, 21 * 60], 90), 10 * 60, 4);
+    expect(r.reach).toBe('fits');
   });
 });

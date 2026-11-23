@@ -4,6 +4,7 @@ import { placeById } from './placeIndex'
 import { canJudgeHard, lineById, nextDeparture } from './lines'
 import { closureIssue, closureOf, dayDateOf } from './dayDate'
 import { openingForDay } from './opening'
+import { startOf } from './timeWindow'
 
 // PRD 六：模型负责理解和规划，程序负责计算和验证。这里就是那层「确定性校验」。
 const DAY_START = 8 * 60 + 30
@@ -113,7 +114,24 @@ function checkDay(
   }
 
   if (day.items.length === 0) {
-    soft.push({ id: `empty-day-d${day.index}`, code: 'empty-day', level: 'error', dayIndex: day.index, message: `第 ${day.index} 天没有安排` })
+    // 用户给了返回时刻时，空天不是「没安排」而是「这个窗口排不下任何一站」：
+    // 必须说清是窗口的问题、以及要放宽到多久，否则他只会看到一份空行程
+    const shortWindow = Number.isFinite(demand.returnBy)
+    soft.push({
+      id: `empty-day-d${day.index}`,
+      code: 'empty-day',
+      level: 'error',
+      dayIndex: day.index,
+      message: shortWindow
+        ? `第 ${day.index} 天在 ${fmt(startOf(demand))}-${fmt(demand.returnBy!)} 这个窗口里排不下任何一站（景点本身要停留、还要排队和路上时间），把返回时间往后放或换更近的点`
+        : `第 ${day.index} 天没有安排`,
+      alternatives: shortWindow
+        ? [
+            { kind: 'advance', label: '把返回时间往后放，容得下一站停留' },
+            { kind: 'change-spot', label: '换一个更近、停留更短的点' }
+          ]
+        : undefined
+    })
   }
 }
 

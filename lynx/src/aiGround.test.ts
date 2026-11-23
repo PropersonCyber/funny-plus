@@ -121,10 +121,25 @@ describe('逐段交通比较（F05）', () => {
     expect(v.walkFaster).toBe(true);
   });
 
-  it('没有线路数据时只给步行/打车，明确说别编班次', () => {
-    const v = segmentView(undefined, 2, 20, 25);
+  it('没有线路数据时仍要算出打车：几辆、多少钱、多久', () => {
+    // 评审复现过：6 人问「怎么走」只回一句「可以打车」，等于没回答
+    const v = segmentView(undefined, 6, 20, 25);
     expect(v.ok).toBe(false);
     expect(v.note).toContain('不要编造');
+    if (v.ok) return;
+    expect(v.taxi.cars).toBe(2);
+    expect(v.taxi.cost).toBe(120);
+    expect(v.taxi.minutes).toBe(20);
+    expect(v.taxi.assumptions.join()).toContain('2 辆');
+  });
+
+  it('2 人打车一辆车，6 人两辆：人数真的改变了结论', () => {
+    const two = segmentView(undefined, 2, 20, 25);
+    const six = segmentView(undefined, 6, 20, 25);
+    if (two.ok || six.ok) throw new Error('无线路数据时 ok 应为 false');
+    expect(two.taxi.cars).toBe(1);
+    expect(six.taxi.cars).toBe(2);
+    expect(six.taxi.cost).toBeGreaterThan(two.taxi.cost);
   });
 
   it('票价未核实时只比时间，不假装能比钱', () => {

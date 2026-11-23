@@ -59,24 +59,40 @@ describe('出发时刻', () => {
 });
 
 describe('返回时刻是约束', () => {
-  it('排超过 returnBy 时报 over-return，并说清晚多久', () => {
+  it('窗口放不下任何一站时，给出空天并说清是窗口的问题', () => {
+    // 以前是照排到底再报 over-return：报了超时但工作台仍是一份走不完的行程。
+    // 现在窗口参与选点，放不下就真的是空的，且必须解释为什么。
     const [plan] = generatePlans(demand({ startMin: 14 * 60, returnBy: 15 * 60 }));
-    const over = plan!.issues.find((i) => i.code === 'over-return');
-    expect(over).toBeTruthy();
-    expect(over!.level).toBe('error');
-    expect(over!.message).toContain('晚');
+    expect(plan!.days[0]!.items).toHaveLength(0);
+    const empty = plan!.issues.find((i) => i.code === 'empty-day');
+    expect(empty).toBeTruthy();
+    expect(empty!.message).toContain('排不下');
   });
 
-  it('放得下时不报 over-return', () => {
+  it('放得下时不报空天，也不报 over-return', () => {
     const [plan] = generatePlans(demand({ startMin: 9 * 60, returnBy: 20 * 60 }));
+    expect(plan!.days[0]!.items.length).toBeGreaterThan(0);
     expect(plan!.issues.some((i) => i.code === 'over-return')).toBe(false);
   });
 
-  it('超时同时给延长备选，说清多玩什么', () => {
-    const [plan] = generatePlans(demand({ startMin: 14 * 60, returnBy: 14 * 60 + 30 }));
-    const ext = plan!.issues.find((i) => i.code === 'extend-option');
-    expect(ext).toBeTruthy();
-    expect(ext!.message).toContain('晚约');
+  it('窗口只够一站时只排一站，不硬塞第二站', () => {
+    // 用户说 14 点回来就 14 点回来：排两站走不完，排一站刚好
+    const [plan] = generatePlans(demand({ startMin: 9 * 60, returnBy: 12 * 60 }));
+    const places = plan!.days[0]!.items.filter((i) => i.kind === 'place');
+    expect(places).toHaveLength(1);
+    expect(plan!.issues.some((i) => i.code === 'empty-day')).toBe(false);
+  });
+});
+
+describe('必去点被窗口挤掉', () => {
+  it('点名的点放不下时明确说出来，不静默丢掉', () => {
+    // 用户不会去数行程里有几个点，他只会发现「我要去的地方少了」
+    const [plan] = generatePlans(
+      demand({ mustVisit: ['w-a', 'w-b', 'w-c'], startMin: 9 * 60, returnBy: 12 * 60 })
+    );
+    const dropped = plan!.issues.find((i) => i.code === 'must-visit-dropped');
+    expect(dropped).toBeTruthy();
+    expect(dropped!.level).toBe('error');
   });
 });
 

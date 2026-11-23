@@ -1,6 +1,6 @@
 import type { Demand, Plan, Place, TransitLine, TravelFact } from '@/types'
 import { splitByFreshness } from '@/engine/facts'
-import { transportAdvice } from '@/engine/lines'
+import { taxiOption, transportAdvice } from '@/engine/lines'
 import { validatePlan } from '@/engine/validate'
 
 /** 分钟数换成工具里的时刻。模型只能引用这个字符串，不能自己换算。 */
@@ -153,14 +153,17 @@ export function segmentView(
   rideMinutes: number,
   walkMinutes: number
 ) {
-  // 没有线路数据时只给步行与打车两种现实选择，并明确说线路「未接入」，
-  // 不能给一个假的班次对比
+  // 没有线路数据时仍要把打车算出来：6 人问「怎么走」时，
+  // 只回一句「可以打车」不解决任何问题 —— 几辆车、多少钱、多久才是他要比较的
   if (!line) {
+    const taxi = taxiOption(party, rideMinutes)
     return {
       ok: false as const,
       party,
-      walk: { minutes: walkMinutes },
-      note: '这一段没有已收录的线路型交通，只能步行或打车；不要编造班次'
+      walk: { minutes: walkMinutes, note: '能走下去时不必打车' },
+      taxi,
+      walkFaster: walkMinutes < (taxi.minutes ?? Infinity),
+      note: '这一段没有已收录的线路型交通，只有步行和打车两种；不要编造班次或地铁线路'
     }
   }
   const advice = transportAdvice(line, party, rideMinutes)

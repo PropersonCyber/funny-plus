@@ -172,3 +172,40 @@ export function demandConflictNote(line: TransitLine, demand: Demand): string | 
 }
 
 export { fmtMin as fmtMinutes }
+
+/**
+ * 没有景区线路时的两种现实选择（F05）。
+ *
+ * 评审复现的问题：6 个人问「怎么走」，只回了步行时长和一句「可以打车」，
+ * 没有打车耗时、费用和分乘 —— 而这正是 6 人场景唯一要比较的东西。
+ *
+ * 打车按实际人数算几辆车，钱与时间并列；不合成「哪个更好」的总分，
+ * 让用户按自己的取舍选。
+ */
+export function taxiOption(party: number, rideMinutes: number): {
+  mode: 'taxi'
+  cars: number
+  cost: number
+  minutes: number | null
+  label: string
+  basis: string
+  assumptions: string[]
+} {
+  const cars = Math.ceil(party / TAXI.perCar)
+  const cost = cars * TAXI.pricePerCar
+  const assumptions = [
+    party > TAXI.perCar
+      ? `${party} 人需 ${cars} 辆（按 ${TAXI.perCar} 人/车）`
+      : '1 辆车够坐',
+    `按 ¥${TAXI.pricePerCar}/车估（起步价口径，不含高速与拥堵加价）`
+  ]
+  return {
+    mode: 'taxi',
+    cars,
+    cost,
+    minutes: rideMinutes > 0 ? rideMinutes : null,
+    label: `打车 ${cars} 辆`,
+    basis: `${cars} 辆 × ¥${TAXI.pricePerCar}`,
+    assumptions
+  }
+}

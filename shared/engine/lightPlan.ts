@@ -94,8 +94,18 @@ export function generateLightPlan(demand: Demand): Plan {
   }
 
   const start = clampStart(demand.startMin)
-  const endsAt = start + Math.round(hours * 60)
+  // 用户同时说了时长和返回时刻时，两个都是约束：取更早的那个截止。
+  // 「接下来四小时，但 14 点前必须回来」如果只按四小时排，排出来的行程
+  // 到点也回不去 —— 那正是这次评审复现出来的问题
+  const byHours = start + Math.round(hours * 60)
+  const endsAt = Number.isFinite(demand.returnBy) ? Math.min(byHours, demand.returnBy!) : byHours
+  if (endsAt <= start) {
+    throw new LightPlanError(
+      `返回时间 ${clock(demand.returnBy!)} 早于出发时间 ${clock(start)}，先确认这两个时刻`
+    )
+  }
   const ordered = orderFrom(pool, demand.origin)
+
 
   const items = fillUntil(ordered, demand, start, endsAt)
   if (!items.some((i) => i.kind === 'place')) {
@@ -121,12 +131,16 @@ export function generateLightPlan(demand: Demand): Plan {
     issues: []
   }
   plan.issues = validatePlan(plan, lightDemand)
-  // 终点要显式讲清楚：用户给的是「四小时」，行程编排页只显示时刻，没这句话他对不上
+  // 终点要显式讲清楚：用户给的是「四小时」，行程编排页只显示时刻，没这句话他对不上。
+  // 被返回时刻提前截断时要说清是哪个约束生效了，否则用户以为是四小时排不下
+  const clipped = endsAt < byHours
   plan.issues.push({
     id: 'light-window',
     code: 'light-window',
     level: 'info',
-    message: `按 ${clock(start)} 至 ${clock(endsAt)} 安排，共 ${hours} 小时`
+    message: clipped
+      ? `按 ${clock(start)} 至 ${clock(endsAt)} 安排：你要求 ${clock(demand.returnBy!)} 前回来，比「${hours} 小时」更早，所以只排到 ${clock(endsAt)}`
+      : `按 ${clock(start)} 至 ${clock(endsAt)} 安排，共 ${hours} 小时`
   })
   return plan
 }
@@ -165,9 +179,12 @@ function fillUntil(ordered: Place[], demand: Demand, start: number, endsAt: numb
     // 到得比开门早就在门口等；等完再判放不放得下
     const began = Math.max(arrive, window[0])
     const end = began + place.stayMin
-    // 两个门槛都要过：这趟时间窗放得下，而且到的时候它还开着。
+    // 三个门槛：时间窗放得下、到的时候它还开着、走完还能回到起点。
+    // 第三条只在有起点坐标时才有意义 —— 用户说「14 点前回来」是回到起点，
+    // 不是回到最后一个景点，漏掉这段回程他会以为卡点，实际晚半小时。
+    const back = demand.origin ? travelMinutes(place, demand.origin as Place, demand.transport !== 'public') : 0
     // 只看 endsAt 会把「23:00 关门、22:30 到、停留一小时」排进去 —— 用户到了门口进不去。
-    if (end > endsAt || end > window[1]) continue
+    if (end + back > endsAt || end > window[1]) continue
     items.push(placeItem(place, began, leg, demand))
     t = end
     prev = place
@@ -204,9 +221,12 @@ const clock = (min: number): string =>
   `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`
 
 /** 用户那句话里的时长 → 一句可读的确认（用在预览卡上，让他核对是不是这个意思） */
-export const lightWindowLabel = (demand: Pick<Demand, 'hours' | 'startMin'>): string => {
+export const lightWindowLabel = (demand: Pick<Demand, 'hours' | 'startMin' | 'returnBy'>): string => {
   if (!isLight(demand)) return ''
   const start = clampStart(demand.startMin)
-  const endsAt = start + Math.round((demand.hours ?? 0) * 60)
+  const byHours = start + Math.round((demand.hours ?? 0) * 60)
+  // 与 generateLightPlan 同一口径：返回时刻更早就以它为准，
+  // 否则卡片上写的窗口和实际排出来的对不上
+  const endsAt = Number.isFinite(demand.returnBy) ? Math.min(byHours, demand.returnBy!) : byHours
   return `${clock(start)}-${clock(endsAt)}`
 }

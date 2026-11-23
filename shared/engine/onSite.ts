@@ -169,3 +169,55 @@ export const remainingStops = (day: TripDay, afterItemId: string): number => {
   if (idx < 0) return 0
   return day.items.slice(idx + 1).filter((i) => i.kind === 'place').length
 }
+
+/**
+ * 附近推荐的可执行性（F04 3.3）。
+ *
+ * 只按直线距离排序是不够的：一个 20 米外的景点，如果 16:00 就停止入场、
+ * 而现在是 15:30，推荐它等于让用户白走一趟。产品要的是「现在能去哪」，
+ * 不是「离我最近的地方有哪些」。
+ *
+ * `now` 与 `hours` 都由调用方给：没有可用时间时只说「营业中/已关门」，
+ * 不替用户假设他有多少时间。
+ */
+export type Reachability = 'fits' | 'tight' | 'closing' | 'closed' | 'unknown'
+
+export type NearbyOption = {
+  place: Place
+  km: number
+  reach: Reachability
+  /** 给人看的一句说明，直接能拼进回答 */
+  note: string
+}
+
+/**
+ * 判断一个点「现在去还来不来得及」。
+ *
+ * 采用地点自身的 `open`（全年最保守那档），不按季节取：现场推荐手里没有出行日期，
+ * 拿一个猜的日期去取季节档会把「夏天还开着」说成「已关门」。
+ * 保守档的代价是夏天下班会早说一会儿，但说错方向是「劝你别去」，不会让人白跑。
+ */
+export function reachabilityOf(place: Place, nowMin: number, hours?: number): { reach: Reachability; note: string } {
+  const [open, close] = place.open
+  const stay = place.stayMin
+  if (nowMin >= close) {
+    return { reach: 'closed', note: `${clock(open)}-${clock(close)} 开放，现在已经关门` }
+  }
+  if (nowMin < open) {
+    return { reach: 'closed', note: `${clock(open)} 才开门，现在还没开` }
+  }
+  // 到点前留 30 分钟：卡着停止入场那一刻到，实际常常进不去
+  const left = close - nowMin
+  // 用户还说了「我只有两小时」时，两小时也是门槛：逛完超出他的空档一样不可行
+  const budget = hours !== undefined ? Math.min(left, hours * 60) : left
+  if (left < stay + 30) {
+    return { reach: 'closing', note: `${clock(close)} 停止入场，只剩 ${left} 分钟，逛不完（建议停留 ${stay} 分钟）` }
+  }
+  if (budget < stay + 30) {
+    return { reach: 'tight', note: `你只剩约 ${Math.round(budget / 60 * 10) / 10} 小时，这里建议停留 ${stay} 分钟，偏紧` }
+  }
+  return { reach: 'fits', note: `${clock(open)}-${clock(close)} 开放，现在去来得及` }
+}
+
+const clock = (min: number): string =>
+  `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`
