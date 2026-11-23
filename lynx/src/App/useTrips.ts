@@ -9,7 +9,7 @@ import { toast } from '../toast.js';
 import { pushAllTrips, pushMemory } from '../sync.js';
 import { mergeMemories, mergeTrips } from '../syncMerge.js';
 import type { RemoteMemory } from '../syncMerge.js';
-import { buildMemoryDraft } from '../memoryDraft.js';
+import { draftFor } from '../memoryDraft.js';
 
 export type Store = { trips: SavedTrip[]; activeId: string };
 
@@ -254,7 +254,8 @@ export function useTrips(booted: boolean) {
    * visited 仍由用户自己点，未确认的到访不会被写成实际经历。
    *
    * 同时把已有记录整理成一份草稿（N8）：只重排用户写过的东西，不生成任何感受。
-   * 用户自己写过回顾就不再塞草稿 —— 他要的是保存，不是被整理。
+   * 生成条件全在 `draftFor` 里 —— 写过回顾、已有草稿、刚否掉过、整理不出内容，
+   * 这四种都不生成。
    */
   const endTrip = useCallback((id: string, ended: boolean) => {
     const at = new Date().toISOString();
@@ -268,7 +269,16 @@ export function useTrips(booted: boolean) {
     if (ended && id) {
       setMemories((prev) => {
         const cur = prev[id];
-        const base: TripMemory = cur ?? {
+        // 已有回忆就不必重建一份空壳：只更新空壳会刷新 updatedAt，
+        // 而「否掉草稿之后没再改过」正是靠 updatedAt 判断的 —— 刷新它等于把否掉记录作废
+        if (cur) {
+          // 生成规则全部在 draftFor 里：已有回顾 / 已有草稿 / 用户否掉过 / 整理不出内容，
+          // 四种情形都不该再端一份上来。重开再结束时也必须过同一套规则。
+          const draft = trip ? draftFor(trip, cur) : null;
+          if (!draft) return prev;
+          return { ...prev, [id]: { ...cur, draft } };
+        }
+        const base: TripMemory = {
           tripId: id,
           overview: '',
           photos: [],
@@ -276,12 +286,8 @@ export function useTrips(booted: boolean) {
           createdAt: at,
           updatedAt: at,
         };
-        // 已有回顾或已有未处理的草稿都不覆盖：重开再结束不能把用户的字冲掉
-        const skip = base.overview.trim().length > 0 || !!base.draft;
-        const draft = skip || !trip ? '' : buildMemoryDraft(trip, base);
-        const next: TripMemory = { ...base, updatedAt: at };
-        if (draft) next.draft = draft;
-        return { ...prev, [id]: next };
+        const draft = trip ? draftFor(trip, base) : null;
+        return { ...prev, [id]: draft ? { ...base, draft } : base };
       });
     }
     track(ended ? 'trip_end' : 'trip_reopen', { tripId: id });
@@ -318,7 +324,10 @@ export function useTrips(booted: boolean) {
       const cur = prev[tripId];
       if (!cur?.draft) return prev;
       const { draft, ...rest } = cur;
-      return { ...prev, [tripId]: { ...rest, overview: draft, updatedAt: new Date().toISOString() } };
+      return {
+        ...prev,
+        [tripId]: { ...rest, overview: draft, draftDismissedAt: undefined, updatedAt: new Date().toISOString() },
+      };
     });
     track('memory_draft_adopt', { tripId });
   }, []);
@@ -329,7 +338,8 @@ export function useTrips(booted: boolean) {
       const cur = prev[tripId];
       if (!cur?.draft) return prev;
       const { draft, ...rest } = cur;
-      return { ...prev, [tripId]: { ...rest, updatedAt: new Date().toISOString() } };
+      // 记下「用户否掉了」：不记的话，重开再结束会用同一份 places 生成出一模一样的草稿
+      return { ...prev, [tripId]: { ...rest, draftDismissedAt: new Date().toISOString() } };
     });
     track('memory_draft_discard', { tripId });
   }, []);

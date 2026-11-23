@@ -7,7 +7,7 @@ import { describe, expect, it } from '@rstest/core';
  * 「下午很惬意」，页面不会报错、分享页也不会崩，但用户从此分不清哪些话是他自己写的。
  * 所以每个用例都从一个「多写了东西」的失败态反着断言。
  */
-import { buildMemoryDraft } from './memoryDraft.js';
+import { buildMemoryDraft, draftFor } from './memoryDraft.js';
 import type { Demand, Plan, PlaceNote, TripMemory } from './data.js';
 import type { ItineraryItem } from '../../shared/types/index.js';
 
@@ -116,7 +116,9 @@ describe('回忆草稿只重排用户写过的东西', () => {
       { demand: demand(), plans: [plan([{ index: 1, items: [item('a', '熊猫基地')] }])], planIndex: 0 },
       memory({})
     );
-    expect(out).toBe('还没记：熊猫基地');
+    // 整份草稿只有一串地点名时，它在页面上是一张带「用作回顾」按钮的卡：
+    // 点一下就把待补清单变成了公开攻略的概述。空态该由页面邀请补充，不是伪造一份整理结果
+    expect(out).toBe('');
   });
 
   it('餐食条目不算地点，不追问「午餐去没去」', () => {
@@ -166,5 +168,42 @@ describe('回忆草稿只重排用户写过的东西', () => {
     );
     expect(out.indexOf('Day 1')).toBeLessThan(out.indexOf('Day 2'));
     expect(out.split('\n')).toContain('Day 2');
+  });
+});
+
+/**
+ * 什么时候该生成草稿（N8 的三条防骚扰规则）。
+ *
+ * 这些规则全是「不该再打扰用户」：页面不会报错，用户只会觉得「怎么又来了」。
+ */
+describe('endTrip 生成草稿的条件', () => {
+  const trip = { demand: demand(), plans: [plan([{ index: 1, items: [item('a', '熊猫基地')] }])], planIndex: 0 };
+  const recorded = () => memory({ a: note('a', { visited: 'yes', text: '早上人少' }) });
+
+  it('有记录、没回顾、没草稿时正常生成', () => {
+    expect(draftFor(trip, recorded())).toContain('熊猫基地（去了）');
+  });
+
+  it('已经写过回顾就不生成：他要的是保存，不是被整理', () => {
+    expect(draftFor(trip, { ...recorded(), overview: '我自己写的' })).toBeNull();
+  });
+
+  it('已有一份没处理的草稿时不覆盖', () => {
+    expect(draftFor(trip, { ...recorded(), draft: '上一版' })).toBeNull();
+  });
+
+  it('用户否掉过、之后什么都没改，就不再端同一份上来', () => {
+    const dismissed = { ...recorded(), draftDismissedAt: '2026-11-10T00:00:00.000Z' };
+    // updatedAt 早于否掉的时刻 = 之后没有新的记录
+    expect(draftFor(trip, { ...dismissed, updatedAt: '2026-11-09T00:00:00.000Z' })).toBeNull();
+  });
+
+  it('否掉之后又写了新记录，允许重新整理一次', () => {
+    const dismissed = { ...recorded(), draftDismissedAt: '2026-11-10T00:00:00.000Z' };
+    expect(draftFor(trip, { ...dismissed, updatedAt: '2026-11-12T00:00:00.000Z' })).toContain('熊猫基地');
+  });
+
+  it('整理不出任何内容时返回 null，交给页面邀请补充', () => {
+    expect(draftFor(trip, memory({}))).toBeNull();
   });
 });

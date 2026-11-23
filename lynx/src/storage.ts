@@ -353,6 +353,10 @@ export function loadMemory(): MemoryBook {
         overview: typeof m.overview === 'string' ? m.overview : '',
         // 草稿按需带上：读档时丢掉它，用户会看到自己整理到一半的草稿凭空消失
         ...(typeof m.draft === 'string' && m.draft ? { draft: m.draft } : {}),
+        // 同理带上「已否掉」的时刻：丢了它，重新结束旅行会把同一份草稿又端上来
+        ...(typeof m.draftDismissedAt === 'string' && m.draftDismissedAt
+          ? { draftDismissedAt: m.draftDismissedAt }
+          : {}),
         photos: Array.isArray(m.photos) ? m.photos.filter(isPhoto) : [],
         places,
         createdAt: typeof m.createdAt === 'string' ? m.createdAt : new Date().toISOString(),

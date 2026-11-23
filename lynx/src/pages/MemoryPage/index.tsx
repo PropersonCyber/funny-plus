@@ -65,6 +65,13 @@ export function MemoryPage({
    * 代价是采纳草稿后改 memory.overview 不会反映到框里，只能靠换 key 强制重挂一次。
    */
   const [overviewKey, setOverviewKey] = useState(0);
+  /**
+   * 采纳草稿前的二次确认。
+   *
+   * 只在「已经有回顾文字」时启用：草稿卡在回顾框上方，用户很可能先写了两句
+   * 再回到上面点「用作回顾」。静默覆盖等于删掉他刚写的东西，而本机没有历史版本。
+   */
+  const [confirmAdopt, setConfirmAdopt] = useState(false);
   const photoOk = canPickPhoto();
 
   /**
@@ -150,7 +157,9 @@ export function MemoryPage({
             <view className={cls('card')}>
               <text className={cls('card-title')}>按你记下的内容整理了一版</text>
               <text className={cls('card-note')}>
-                只重排了你写过的东西，没替你编任何感受。要用就点「用作回顾」，之后照常改。
+                {memory.overview.trim()
+                  ? '只重排了你写过的东西，没替你编任何感受。你已经写过回顾，采纳会覆盖那段文字。'
+                  : '只重排了你写过的东西，没替你编任何感受。要用就点「用作回顾」，之后照常改。'}
               </text>
               <view className={cls('mem-draft')}>
                 {memory.draft.split('\n').map((line, idx) =>
@@ -166,11 +175,24 @@ export function MemoryPage({
                 )}
               </view>
               <view className={cls('mem-draft-actions')}>
-                <view className={cls('mem-draft-btn on')} bindtap={() => {
-                  onAdoptDraft();
-                  setOverviewKey((n) => n + 1);
-                }}>
-                  <text className={cls('mem-draft-btn-text on')}>用作回顾</text>
+                <view
+                  className={cls('mem-draft-btn on')}
+                  bindtap={() => {
+                    // 已经写过回顾时二次确认：草稿卡和下面的回顾框同时在场，用户
+                    // 很可能先写了几个字再回来点「用作回顾」，静默覆盖等于把他的字删了，
+                    // 而本机没有历史版本可回退
+                    if (memory.overview.trim() && !confirmAdopt) {
+                      setConfirmAdopt(true);
+                      return;
+                    }
+                    setConfirmAdopt(false);
+                    onAdoptDraft();
+                    setOverviewKey((n) => n + 1);
+                  }}
+                >
+                  <text className={cls('mem-draft-btn-text on')}>
+                    {memory.overview.trim() && confirmAdopt ? '确认覆盖' : '用作回顾'}
+                  </text>
                 </view>
                 <view className={cls('mem-draft-btn')} bindtap={onDiscardDraft}>
                   <text className={cls('mem-draft-btn-text')}>删掉</text>

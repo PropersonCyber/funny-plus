@@ -572,6 +572,15 @@ export interface TripMemory {
    * 而草稿是一份待确认的整理结果，默认不该变成用户要公开的那段话。
    */
   draft?: string
+  /**
+   * 用户已经把这份草稿否掉了。
+   *
+   * 没有它的话「删掉」只是删掉这一个字段：重新结束同一趟旅行，`buildMemoryDraft`
+   * 会用同一份 places 生成出一模一样的一份草稿，用户刚说过「不要」却又要再说一次。
+   * 记一个时刻而不是布尔值，是为了让「后来又写了新记录」能名正言顺地再次整理
+   * （见 useTrips.endTrip：草稿之后有了更新的记录才允许重建）。
+   */
+  draftDismissedAt?: string
   /** 整趟旅行的照片 */
   photos: PhotoRef[]
   /** 按地点的记录，key 为 PlanItem.id */

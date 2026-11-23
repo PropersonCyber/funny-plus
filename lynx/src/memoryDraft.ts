@@ -26,8 +26,15 @@ function hasRecord(note: { visited?: string; text?: string; photos?: unknown[] }
 }
 
 /**
- * 生成草稿正文。没有可整理的内容时返回空串，由页面去邀请补充 ——
- * 返回一句「这趟旅行真棒」是最省事也最坏的做法。
+ * 生成草稿正文。**没有任何记录时返回空串**，由页面去邀请补充。
+ *
+ * 为什么连「还没记：A、B」也不给：N8 的空态要求是「留空或邀请补充」，
+ * 而一整份只有待补清单的草稿，在页面上是带着「用作回顾」按钮的 ——
+ * 点一下就把一串地点名变成了公开攻略的概述。邀请补充该由页面自己做，
+ * 不该伪装成一份可采纳的整理结果。
+ *
+ * 只在「至少有一条记录」时，末尾才附上待补清单：那时它确实是补充提示，
+ * 而不是这份草稿的全部内容。
  */
 export function buildMemoryDraft(trip: TripLike, memory: TripMemory): string {
   const plan = trip.plans[Math.min(Math.max(0, trip.planIndex), trip.plans.length - 1)] ?? trip.plans[0];
@@ -59,9 +66,31 @@ export function buildMemoryDraft(trip: TripLike, memory: TripMemory): string {
     if (lines.length) blocks.push(`Day ${day.index}\n${lines.join('\n')}`);
   }
 
+  // 一条记录都没有：整份草稿就只有一串地点名，那不是整理结果，是空态
+  if (!blocks.length) return '';
+
   if (unrecorded.length) {
     blocks.push(`还没记：${unrecorded.join('、')}`);
   }
 
   return blocks.join('\n');
+}
+
+/**
+ * 结束旅行时该不该生成草稿、生成哪一份。
+ *
+ * 抽成纯函数是因为这里每条规则都在防一件事，而每件事错了页面都不报错：
+ * - 已经写过回顾 → 不生成（他要的是保存，不是被整理）
+ * - 已经有一份没处理的草稿 → 不覆盖（会把他正在看的那份换掉）
+ * - 用户已经否掉过，且之后什么都没改 → 不再生成（同一份内容再端一次是骚扰）
+ * - 否掉之后又写了新记录 → 允许重新整理（新内容确实值得再整理一次）
+ * - 整理出来是空的 → 不生成（空态交给页面邀请补充）
+ */
+export function draftFor(trip: TripLike, memory: TripMemory): string | null {
+  if (memory.overview.trim()) return null;
+  if (memory.draft) return null;
+  // updatedAt 是「这份回忆最后一次被改」的时刻：任何一处记录/照片改动都会刷新它
+  if (memory.draftDismissedAt && memory.updatedAt <= memory.draftDismissedAt) return null;
+  const draft = buildMemoryDraft(trip, memory);
+  return draft || null;
 }
