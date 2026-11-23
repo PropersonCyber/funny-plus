@@ -30,6 +30,8 @@ type Props = {
   onMap: () => void;
   onDetail: () => void;
   onRevise: (planIndex: number, plan: Plan, impact: ChangeImpact) => void;
+  /** 固定 / 取消固定一条安排：固定的条目不会被 AI 改动或关键词兜底删掉 */
+  onTogglePin: (planItemId: string, pinned: boolean) => void;
   /** 上一次局部修改的变更影响；切天不消失，方便对照 */
   impact: ChangeImpact | null;
   onDismissImpact: () => void;
@@ -58,6 +60,7 @@ export function ItineraryPage({
   onMap,
   onDetail,
   onRevise,
+  onTogglePin,
   impact,
   onDismissImpact,
 }: Props) {
@@ -242,6 +245,18 @@ export function ItineraryPage({
                     )}
                     <view className={cls('tl-text')}>
                       <text className={cls('tl-title')}>{item.title}</text>
+                      {/* 固定按钮放在标题旁而不是长按菜单里：这是「别动它」的开关，
+                          藏起来的开关等于没有，用户不会去长按找 */}
+                      {item.kind === 'place' ? (
+                        <view
+                          className={cls(item.pinned ? 'tl-pin on' : 'tl-pin')}
+                          bindtap={() => onTogglePin(item.id, !item.pinned)}
+                        >
+                          <text className={cls(item.pinned ? 'tl-pin-text on' : 'tl-pin-text')}>
+                            {item.pinned ? '已固定' : '固定'}
+                          </text>
+                        </view>
+                      ) : null}
                       <text className={cls('tl-meta')}>
                         {/* 「立即入园」是设计稿的固定文案，票种还没接；这里只说能确定的事 */}
                         {item.kind === 'meal'

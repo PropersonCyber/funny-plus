@@ -9,6 +9,14 @@ export type TrustLevel = 'official' | 'credible' | 'experience' | 'pending'
 export interface Demand {
   destination: string
   dayCount: number
+  /**
+   * 旅行日期范围，`YYYY-MM-DD`，允许未知。
+   *
+   * 两个都不填 = 用户没说什么时候去。绝不能拿今天充数——
+   * 一充数，行程页上就会出现一个用户从没定过的日期，而营业时间、周几闭馆全按它算。
+   */
+  dateFrom?: string
+  dateTo?: string
   /** 同行人数，按实际人数参与预算与核载计算，不存区间 */
   party: number
   budgetLevel: 'low' | 'mid' | 'high' | 'flexible'
@@ -96,6 +104,13 @@ export interface ItineraryItem {
   kind: ItemKind
   title: string
   placeId?: string
+  /**
+   * 用户固定了这条安排。
+   *
+   * 约束范围只有「不被静默删掉 / 换掉」——时刻仍会随顺延变。
+   * 如果连时刻都锁死，同一天里其他项重排后会与它撞时间，得靠堆警告来掩盖。
+   */
+  pinned?: boolean
   startMin: number
   endMin: number
   stayMin: number
@@ -239,6 +254,13 @@ export interface TravelFact {
   validUntil?: string
   trust: TrustLevel
   /**
+   * 降档原因（C1 反馈 / C3 过期）。
+   *
+   * 服务端把 trust 往下调时必须说什么 —— 惄惄把「官方已核验」改成「可靠来源」而不解释，
+   * 用户会以为数据坏了，而不是以为有人反馈了不适用。
+   */
+  trustNote?: string
+  /**
    * 这条信息挂到哪个 POI（FR-04）。区域级条目（如「渝中半岛」）不填 placeId，
    * 靠 scope 文字说明适用范围——不填就是「不针对某个点」，不能默认人人都适用。
    */
@@ -264,10 +286,30 @@ export interface ChangeImpact {
  * 改哪个点由模型选，改成几点、花多少钱由引擎按收录数据算。
  * 一旦允许模型自己写数字，它就会给出一个自洽但错误的价格，而用户没有能力分辨。
  */
+/** 一天里的三个时段。边界写在这里而不是散在引擎里，改口径只改一处 */
+export type DayWindow = 'morning' | 'afternoon' | 'evening'
+
+export const DAY_WINDOW_LABEL: Record<DayWindow, string> = {
+  morning: '上午',
+  afternoon: '下午',
+  evening: '晚上'
+}
+
+/** 某时刻（当日分钟数）落在哪个时段：中午 12 点前算上午，18 点前算下午 */
+export const windowOf = (min: number): DayWindow =>
+  min < 12 * 60 ? 'morning' : min < 18 * 60 ? 'afternoon' : 'evening'
+
 export type ReviseOp =
   | { op: 'drop'; day: number; targetId: string; reason: string }
   | { op: 'replace'; day: number; targetId: string; withPlaceId: string; reason: string }
   | { op: 'reorder'; day: number; order: string[]; reason: string }
+  /**
+   * 定向放松：只动某一天的某个时段。
+   *
+   * 「第二天下午轻松点」以前只能退化成「删当天最后一个景点」（关键词兜底恒删末位），
+   * 下午想出就把它删了。这个动作把范围说清楚，才配得上用户那句话。
+   */
+  | { op: 'ease'; day: number; window: DayWindow; reason: string }
 
 /** 一条受影响的安排：确认前要逐条告诉用户「哪条变了、变成什么」，只给一个总差额不够 */
 export interface AffectedChange {
@@ -523,6 +565,13 @@ export interface TripMemory {
   tripId: string
   /** 整趟旅行的回顾文字 */
   overview: string
+  /**
+   * 结束旅行时按已有记录整理出的草稿，等用户决定采纳还是丢弃。
+   *
+   * 不直接写进 overview：overview 会被当成攻略概述带出去（useGuides.draftFromMemory），
+   * 而草稿是一份待确认的整理结果，默认不该变成用户要公开的那段话。
+   */
+  draft?: string
   /** 整趟旅行的照片 */
   photos: PhotoRef[]
   /** 按地点的记录，key 为 PlanItem.id */

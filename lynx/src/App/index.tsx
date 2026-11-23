@@ -169,12 +169,15 @@ export function App() {
             onCity={onCity}
             onPlanned={onPlanned}
             onRevise={trips.revisePlan}
+            onTogglePin={(id, pinned) => trips.setPinned(trips.active?.id ?? '', id, pinned)}
             onToggleCollect={content.toggleCollect}
             onCheckIn={content.checkIn}
             endedAt={trips.active?.endedAt}
             memory={trips.memoryOf(trips.active?.id ?? '')}
             onEnd={(ended) => trips.endTrip(trips.active?.id ?? '', ended)}
             onSaveOverview={(text) => trips.saveOverview(trips.active?.id ?? '', text)}
+            onAdoptDraft={() => trips.adoptDraft(trips.active?.id ?? '')}
+            onDiscardDraft={() => trips.discardDraft(trips.active?.id ?? '')}
             onOverviewPhotos={(photos) => trips.setOverviewPhotos(trips.active?.id ?? '', photos)}
             onSavePlace={(patch) => trips.savePlaceNote(trips.active?.id ?? '', patch)}
             draft={guides.draftOf(trips.active?.id ?? '')}
@@ -264,6 +267,7 @@ export function App() {
             onPlan={openSheet}
             onPickPlan={trips.pickPlan}
             onRevise={trips.revisePlan}
+            onTogglePin={(id, pinned) => trips.setPinned(trips.active?.id ?? '', id, pinned)}
             onDismissImpact={trips.dismissImpact}
             onSwitchTrip={trips.switchTrip}
             onDeleteTrip={trips.deleteTrip}

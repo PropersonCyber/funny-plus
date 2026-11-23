@@ -217,3 +217,54 @@
   line-height: 17px;
   color: #8a99b3;
 }
+
+/* 结束旅行时整理的草稿：逐行渲染而不是丢进一个 textarea ——
+   Lynx 不保证 white-space: pre-wrap 生效，按行拆开才不会把换行吃掉 */
+.mem-draft {
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background-color: #f7f9fd;
+}
+
+.mem-draft-head {
+  font-size: 12px;
+  font-weight: bold;
+  color: #172b4d;
+  margin-top: 6px;
+}
+
+.mem-draft-line {
+  font-size: 12px;
+  line-height: 19px;
+  color: #5b6b86;
+}
+
+.mem-draft-actions {
+  display: flex;
+  flex-direction: row;
+  margin-top: 10px;
+}
+
+.mem-draft-btn {
+  padding: 8px 18px;
+  border-radius: 16px;
+  background-color: #eef4ff;
+  margin-right: 10px;
+}
+
+.mem-draft-btn.on {
+  background-color: #2478f2;
+}
+
+.mem-draft-btn-text {
+  font-size: 13px;
+  color: #2478f2;
+}
+
+.mem-draft-btn-text.on {
+  color: #ffffff;
+  font-weight: bold;
+}

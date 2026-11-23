@@ -196,3 +196,27 @@
 .head-compare {
   margin-right: 12px;
 }
+
+/* 固定开关：从「别动它」的约束入口，所以用低饱和的常态 + 高对比的选中态，
+   而不是两个按钮 —— 用户扫一眼就要能看出哪几条已经被锁住 */
+.tl-pin {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 3px 10px;
+  border-radius: 10px;
+  background-color: #f2f6ff;
+}
+
+.tl-pin.on {
+  background-color: #172b4d;
+}
+
+.tl-pin-text {
+  font-size: 11px;
+  color: #5b6b86;
+}
+
+.tl-pin-text.on {
+  color: #ffffff;
+  font-weight: bold;
+}

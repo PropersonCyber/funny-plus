@@ -21,8 +21,12 @@ import type { Demand, Plan, ReviseOp } from '@/types/index.ts'
 /** 工具入参：字段全部可选，缺什么由引擎判「执行不了」，不在 schema 上偷偷兜底 */
 const opSchema = z.object({
   op: z
-    .enum(['drop', 'replace', 'reorder', 'none'])
+    .enum(['drop', 'replace', 'reorder', 'ease', 'none'])
     .describe('要做的动作。判断不出可执行的动作时用 none'),
+  window: z
+    .enum(['morning', 'afternoon', 'evening'])
+    .optional()
+    .describe('ease 时只动哪个时段：上午 / 下午 / 晚上。用户没说时段就不要填'),
   day: z.number().int().describe('改哪一天，用行程里已有的天的序号'),
   targetId: z.string().optional().describe('要删掉或替换的行程项 id，必须来自输入的 items，不得自造'),
   withPlaceId: z.string().optional().describe('replace 时换成哪个地点 id，必须来自输入的 candidates，不得自造'),
@@ -89,6 +93,11 @@ export async function proposeReviseOp(
   }
   if (picked.op === 'reorder' && !picked.order?.length) {
     return { ok: false, reason: '没听出想换成什么顺序，说具体一点？' }
+  }
+  if (picked.op === 'ease') {
+    // 没给时段就不能当 ease 执行：那会把范围悄悄放大到整天，删掉用户没提到的那条
+    if (!picked.window) return { ok: false, reason: '是想上午、下午还是晚上轻松点？' }
+    return { ok: true, op: { op: 'ease', day: picked.day, window: picked.window, reason: picked.reason } }
   }
   if (picked.op !== 'reorder' && !picked.targetId) {
     return { ok: false, reason: '没听出要动哪一个安排，说具体一点？' }

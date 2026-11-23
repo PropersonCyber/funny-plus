@@ -351,6 +351,8 @@ export function loadMemory(): MemoryBook {
       out[tripId] = {
         tripId,
         overview: typeof m.overview === 'string' ? m.overview : '',
+        // 草稿按需带上：读档时丢掉它，用户会看到自己整理到一半的草稿凭空消失
+        ...(typeof m.draft === 'string' && m.draft ? { draft: m.draft } : {}),
         photos: Array.isArray(m.photos) ? m.photos.filter(isPhoto) : [],
         places,
         createdAt: typeof m.createdAt === 'string' ? m.createdAt : new Date().toISOString(),

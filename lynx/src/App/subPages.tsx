@@ -35,6 +35,8 @@ export type SubPageProps = {
   onCity: (city: string) => void;
   onPlanned: (demand: Demand, plans: Plan[], pickedIndex?: number) => string;
   onRevise: (index: number, plan: Plan, impact: ChangeImpact) => void;
+  /** 固定 / 取消固定一条安排（N3） */
+  onTogglePin: (planItemId: string, pinned: boolean) => void;
   onToggleCollect: (target: 'place' | 'fact' | 'guide' | 'play', id: string) => void;
   onCheckIn: (placeId: string) => void;
   /** 行程是否已结束；回忆页据此显示「结束」还是「重新标记为进行中」 */
@@ -43,6 +45,9 @@ export type SubPageProps = {
   onEnd: (ended: boolean) => void;
   onSaveOverview: (text: string) => void;
   onOverviewPhotos: (photos: PhotoRef[]) => void;
+  /** 结束旅行时整理的草稿：采纳 / 丢弃 */
+  onAdoptDraft: () => void;
+  onDiscardDraft: () => void;
   onSavePlace: (
     patch: { planRef: string; dayIndex: number; placeId: string; placeTitle: string } & Partial<PlaceNote>
   ) => void;
@@ -141,6 +146,8 @@ export const SUB_PAGES: Record<RouteName, (p: SubPageProps) => ReactElement> = {
       onBack={p.back}
       onSaveOverview={p.onSaveOverview}
       onPhotos={p.onOverviewPhotos}
+      onAdoptDraft={p.onAdoptDraft}
+      onDiscardDraft={p.onDiscardDraft}
       onSavePlace={p.onSavePlace}
       onEnd={() => p.onEnd(!p.endedAt)}
       onGuide={() => {

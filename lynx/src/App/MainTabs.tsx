@@ -26,6 +26,8 @@ type Props = {
   onPlan: () => void;
   onPickPlan: (index: number) => void;
   onRevise: (index: number, plan: Plan, impact: ChangeImpact) => void;
+  /** 固定 / 取消固定一条安排（N3）：固定的条目不会被 AI 改动或关键词兜底删掉 */
+  onTogglePin: (planItemId: string, pinned: boolean) => void;
   onDismissImpact: () => void;
   onSwitchTrip: (id: string) => void;
   onDeleteTrip: (id: string) => void;
@@ -77,6 +79,7 @@ export function MainTabs(props: Props) {
         onMap={() => props.setTab('map')}
         onDetail={() => props.onGo('detail')}
         onRevise={props.onRevise}
+        onTogglePin={props.onTogglePin}
         impact={props.impact}
         onDismissImpact={props.onDismissImpact}
       />

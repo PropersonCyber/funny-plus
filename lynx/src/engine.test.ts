@@ -8,6 +8,7 @@ import { applyReviseOp } from '../../shared/engine/planEdit.js';
 import { canJudgeHard, lineSegmentFor, setLines } from '../../shared/engine/lines.js';
 import { validatePlan } from '../../shared/engine/validate.js';
 import { legsOf } from './legs.js';
+import { windowOf } from '../../shared/types/index.js';
 import type { Demand, ItineraryItem, Place, Plan, TransitLine, TravelFact } from '../../shared/types/index.js';
 
 // 引擎是纯函数，「确定性」是产品卖点，这里用固定地点池把口径钉住：
@@ -527,5 +528,103 @@ describe('未核实项不能被挤掉（G3）', () => {
     const budget = estimateBudget(demand({ dayCount: 2 }), patched)
     expect(budget.uncertain.some((u) => u.includes('住宿'))).toBe(true)
     expect(budget.uncertain.some((u) => u.includes('票价未核实'))).toBe(true)
+  })
+})
+
+// N10：表单主链路的模型提案只决定「去哪儿、先哪个」，不许碰时刻与钱。
+// 所以这条契约钉在两件事上：模型给的顺序被采纳；模型给错 id 时点一个不少。
+describe('模型提案只改顺序，不改点数（N10）', () => {
+  const firstDayIds = (plans: Plan[]) => plans[0].days[0].items.filter((i) => i.kind === 'place').map((i) => i.placeId)
+
+  it('给出的顺序排在最前，其余点仍按就近接在后面', () => {
+    const plain = generatePlans(demand({ dayCount: 1 }))[0]
+    const ids = plain.days.flatMap((d) => d.items.map((i) => i.placeId)).filter(Boolean) as string[]
+    const target = ids[ids.length - 1]
+    const ordered = generatePlans(demand({ dayCount: 1 }), { order: [target] })[0]
+    expect(firstDayIds([ordered])[0]).toBe(target)
+  })
+
+  it('模型编造的 id 不认，行程点数与没给顺序时一致', () => {
+    const plain = generatePlans(demand({ dayCount: 1 }))[0]
+    const faked = generatePlans(demand({ dayCount: 1 }), { order: ['编造-1', '编造-2'] })[0]
+    const count = (p: Plan) => p.days.reduce((s, d) => s + d.items.filter((i) => i.kind === 'place').length, 0)
+    expect(count(faked)).toBe(count(plain))
+  })
+
+  it('给空数组时完全退化成就近排序', () => {
+    const a = generatePlans(demand({ dayCount: 1 }), { order: [] })[0]
+    const b = generatePlans(demand({ dayCount: 1 }))[0]
+    expect(firstDayIds([a])).toEqual(firstDayIds([b]))
+  })
+})
+
+// N4：时段粒度。「第二天下午轻松点」以前恒删当天最后一个景点——
+// 下午的安排原封不动，反而把晚上那个删了，用户一眼就能看出改错了地方。
+describe('定向修改只动指定时段（N4）', () => {
+  it('关键词里的时段被认出来，产出 ease 而不是整天 drop', () => {
+    const plan = generatePlans(demand({ dayCount: 2 }))[0]
+    const guess = keywordReviseOp(plan, demand({ dayCount: 2 }), '第二天下午轻松点')
+    expect(guess && 'op' in guess ? guess.op : null).toBe('ease')
+    expect(guess && 'window' in guess ? guess.window : null).toBe('afternoon')
+  })
+
+  it('没写时段时仍按整天 drop，不退化成忽略指令', () => {
+    const plan = generatePlans(demand({ dayCount: 2 }))[0]
+    const guess = keywordReviseOp(plan, demand({ dayCount: 2 }), '第二天轻松点')
+    expect(guess && 'op' in guess ? guess.op : null).toBe('drop')
+  })
+
+  it('ease 只删该时段的景点，其他时段与其他天的安排一字不改', () => {
+    const plan = generatePlans(demand({ dayCount: 2 }))[0]
+    // 拿第一天第一个景点的实际时段来测：固定写 'afternoon' 会随排点规则变化而空转
+    const first = plan.days[0].items.find((i) => i.kind === 'place')!
+    const window = windowOf(first.startMin)
+    const apply = applyReviseOp(plan, demand({ dayCount: 2 }), {
+      op: 'ease',
+      day: 1,
+      window,
+      reason: '测试',
+    })
+    expect(apply.ok).toBe(true)
+    if (!apply.ok) return
+    const before = plan.days[0].items.map((i) => i.id)
+    const after = apply.preview.plan.days[0].items.map((i) => i.id)
+    // 只少了 1 条
+    expect(before.length - after.length).toBe(1)
+    // 第 2 天完全没动
+    expect(apply.preview.plan.days[1].items.map((i) => i.id)).toEqual(plan.days[1].items.map((i) => i.id))
+  })
+})
+
+// N3：固定安排是约束，不是提示。删掉它必须让用户自己动手。
+describe('固定安排不被静默改掉（N3）', () => {
+  const withPin = (p: Plan, id: string) => {
+    const next = structuredClone(p) as Plan
+    for (const d of next.days) for (const i of d.items) if (i.id === id) i.pinned = true
+    return next
+  }
+
+  it('drop 指向固定项时拒绝执行并说明原因', () => {
+    const plan = generatePlans(demand({ dayCount: 1 }))[0]
+    // 必须挑景点：餐食走的是另一条前置分支（「只能精简景点」），测不到固定项
+    const target = [...plan.days[0].items].reverse().find((i) => i.kind === 'place')!
+    const pinned = withPin(plan, target.id)
+    const r = applyReviseOp(pinned, demand({ dayCount: 1 }), {
+      op: 'drop',
+      day: 1,
+      targetId: target.id,
+      reason: '测试',
+    })
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.reason).toContain('固定')
+  })
+
+  it('关键词兜底跳过固定项，不把最后一个固定项当成可删对象', () => {
+    const plan = generatePlans(demand({ dayCount: 1 }))[0]
+    const placesInDay = plan.days[0].items.filter((i) => i.kind === 'place')
+    const pinned = withPin(plan, placesInDay[placesInDay.length - 1].id)
+    const guess = keywordReviseOp(pinned, demand({ dayCount: 1 }), '轻松点')
+    // 挑到的必须不是被固定的那一个
+    expect(guess && 'targetId' in guess ? guess.targetId : null).not.toBe(placesInDay[placesInDay.length - 1].id)
   })
 })

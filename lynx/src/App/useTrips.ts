@@ -9,6 +9,7 @@ import { toast } from '../toast.js';
 import { pushAllTrips, pushMemory } from '../sync.js';
 import { mergeMemories, mergeTrips } from '../syncMerge.js';
 import type { RemoteMemory } from '../syncMerge.js';
+import { buildMemoryDraft } from '../memoryDraft.js';
 
 export type Store = { trips: SavedTrip[]; activeId: string };
 
@@ -48,6 +49,12 @@ export function useTrips(booted: boolean) {
   const [impact, setImpact] = useState<ChangeImpact | null>(null);
   // 持久层写不进去只提醒一次，别每改一下弹一条
   const warned = useRef(false);
+
+  // endTrip 要读「这趟旅行排了什么」才能整理草稿，而草稿必须在 setMemories 的 updater 里
+  // 一次算完（updater 得是纯的，不能在里面读 store 这份 state）。用 ref 取当下的值，
+  // 不把 store 加进依赖 —— 加了之后每改一次行程 endTrip 就换个身份，下游 bindtap 全部重绑。
+  const storeRef = useRef(store);
+  storeRef.current = store;
 
   const active = useMemo(
     () => store.trips.find((t) => t.id === store.activeId) ?? store.trips[0],
@@ -245,9 +252,13 @@ export function useTrips(booted: boolean) {
    * 结束这一刻顺手建一份空的回忆记录：回忆页的每条安排都从 `memory.places` 取，
    * 没有记录时整页只能显示「还没记录」。建一条空记录不写入任何「去过」——
    * visited 仍由用户自己点，未确认的到访不会被写成实际经历。
+   *
+   * 同时把已有记录整理成一份草稿（N8）：只重排用户写过的东西，不生成任何感受。
+   * 用户自己写过回顾就不再塞草稿 —— 他要的是保存，不是被整理。
    */
   const endTrip = useCallback((id: string, ended: boolean) => {
     const at = new Date().toISOString();
+    const trip = storeRef.current.trips.find((t) => t.id === id);
     setStore((prev) => ({
       ...prev,
       trips: prev.trips.map((t) =>
@@ -256,15 +267,71 @@ export function useTrips(booted: boolean) {
     }));
     if (ended && id) {
       setMemories((prev) => {
-        // 已写过内容就不动：重开再结束不能把用户的文字冲掉
-        if (prev[id]) return { ...prev, [id]: { ...prev[id], updatedAt: at } };
-        return {
-          ...prev,
-          [id]: { tripId: id, overview: '', photos: [], places: {}, createdAt: at, updatedAt: at },
+        const cur = prev[id];
+        const base: TripMemory = cur ?? {
+          tripId: id,
+          overview: '',
+          photos: [],
+          places: {},
+          createdAt: at,
+          updatedAt: at,
         };
+        // 已有回顾或已有未处理的草稿都不覆盖：重开再结束不能把用户的字冲掉
+        const skip = base.overview.trim().length > 0 || !!base.draft;
+        const draft = skip || !trip ? '' : buildMemoryDraft(trip, base);
+        const next: TripMemory = { ...base, updatedAt: at };
+        if (draft) next.draft = draft;
+        return { ...prev, [id]: next };
       });
     }
     track(ended ? 'trip_end' : 'trip_reopen', { tripId: id });
+  }, []);
+
+  /**
+   * 固定 / 取消固定一条安排（N3）。
+   *
+   * 这是「后续修改的约束」，不是视觉标记：applyReviseOp 见到 pinned 就拒绝 drop /
+   * replace。所以这里只改当前这套方案的该条安排，不碰其他套方案 —— 用户固定的是
+   * 他正在看的这一套。
+   */
+  const setPinned = useCallback((tripId: string, planItemId: string, pinned: boolean) => {
+    setStore((prev) => ({
+      ...prev,
+      trips: prev.trips.map((t) => {
+        if (t.id !== tripId) return t;
+        const plans = t.plans.map((p) => ({
+          ...p,
+          days: p.days.map((d) => ({
+            ...d,
+            items: d.items.map((i) => (i.id === planItemId ? { ...i, pinned } : i)),
+          })),
+        }));
+        return { ...t, plans, savedAt: new Date().toISOString() };
+      }),
+    }));
+    track(pinned ? 'item_pin' : 'item_unpin', { planItemId });
+  }, []);
+
+  /** 采纳草稿：抄进整趟回顾并清空草稿，用户接着在原处改 */
+  const adoptDraft = useCallback((tripId: string) => {
+    setMemories((prev) => {
+      const cur = prev[tripId];
+      if (!cur?.draft) return prev;
+      const { draft, ...rest } = cur;
+      return { ...prev, [tripId]: { ...rest, overview: draft, updatedAt: new Date().toISOString() } };
+    });
+    track('memory_draft_adopt', { tripId });
+  }, []);
+
+  /** 丢弃草稿：回顾一个字不动，只是不要这份整理结果 */
+  const discardDraft = useCallback((tripId: string) => {
+    setMemories((prev) => {
+      const cur = prev[tripId];
+      if (!cur?.draft) return prev;
+      const { draft, ...rest } = cur;
+      return { ...prev, [tripId]: { ...rest, updatedAt: new Date().toISOString() } };
+    });
+    track('memory_draft_discard', { tripId });
   }, []);
 
   /** 改整趟回顾。空串也存：用户清空内容是他自己的决定，不该被当成「没保存」 */
@@ -354,6 +421,9 @@ export function useTrips(booted: boolean) {
     switchTrip,
     deleteTrip,
     endTrip,
+    adoptDraft,
+    discardDraft,
+    setPinned,
     memories,
     memoryOf,
     saveOverview,

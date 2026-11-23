@@ -9,6 +9,7 @@ import type {
   RevisePreview,
   TripDay
 } from '@/types'
+import { DAY_WINDOW_LABEL, windowOf } from '@/types'
 import { hasRoute, placeById, placesOf, travelMinutes } from '@/engine/placeIndex'
 import { estimateBudget } from '@/engine/budget'
 import { fmt, validatePlan } from '@/engine/validate'
@@ -154,6 +155,8 @@ export function applyReviseOp(
     if (!target) return { ok: false, reason: '这句话指到的安排不在这一天里，换个说法试试' }
     // 餐食不单独删：删掉午餐只会让时间轴空一块，不是用户说的「轻松点」
     if (target.kind !== 'place') return { ok: false, reason: '只能精简景点，用餐时间不单独删' }
+    // 固定安排不能被静默删掉：用户定过它，删了必须是他自己动手
+    if (target.pinned) return { ok: false, reason: `「${target.title}」是你固定过的安排，先取消固定再调整` }
     const placeCount = day.items.filter((i) => i.kind === 'place').length
     if (placeCount <= 1) return { ok: false, reason: `第 ${op.day} 天只剩一个景点，再删就没有可玩的内容了` }
     const kept: TripDay = { index: day.index, items: day.items.filter((i) => i.id !== op.targetId) }
@@ -164,6 +167,7 @@ export function applyReviseOp(
     const target = day.items.find((i) => i.id === op.targetId)
     if (!target) return { ok: false, reason: '这句话指到的安排不在这一天里，换个说法试试' }
     if (target.kind !== 'place' || !target.placeId) return { ok: false, reason: '只能替换景点，用餐不能换成景点' }
+    if (target.pinned) return { ok: false, reason: `「${target.title}」是你固定过的安排，先取消固定再调整` }
     const place = placeById(op.withPlaceId)
     if (!place) return { ok: false, reason: '提议的地点不在已收录数据里，换个地点试试' }
     if (place.city !== demand.destination) {
@@ -172,6 +176,24 @@ export function applyReviseOp(
     const used = new Set(plan.days.flatMap((d) => d.items.map((i) => i.placeId)))
     if (used.has(place.id)) return { ok: false, reason: `「${place.name}」已经在行程里了，不重复排` }
     return finish(plan, demand, day, retime(replaceItem(day, target, place, transport)), op.reason, by)
+  }
+
+  // ease：只动指定时段。中午/下午/晚上各自独立，其他时段与其他天一字不改。
+  // 挑「该时段里最靠后、且没被固定」的那一个景点删掉：
+  // 靠后的项删掉对当天节奏影响最小，而固定项是用户明确要求保留的。
+  if (op.op === 'ease') {
+    const inWindow = day.items.filter((i) => i.kind === 'place' && windowOf(i.startMin) === op.window)
+    if (!inWindow.length) {
+      return { ok: false, reason: `第 ${op.day} 天${DAY_WINDOW_LABEL[op.window]}没有可精简的景点` }
+    }
+    const target = [...inWindow].reverse().find((i) => !i.pinned)
+    if (!target) {
+      return { ok: false, reason: `第 ${op.day} 天${DAY_WINDOW_LABEL[op.window]}的安排都被你固定了，先取消固定再精简` }
+    }
+    const placeCount = day.items.filter((i) => i.kind === 'place').length
+    if (placeCount <= 1) return { ok: false, reason: `第 ${op.day} 天只剩一个景点，再删就没有可玩的内容了` }
+    const kept: TripDay = { index: day.index, items: day.items.filter((i) => i.id !== target.id) }
+    return finish(plan, demand, day, retime(relink(kept, transport)), op.reason, by)
   }
 
   // reorder：只认这一天里真实存在的景点 id，重复与不存在的都剔掉。

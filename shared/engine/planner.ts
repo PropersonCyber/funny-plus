@@ -1,6 +1,7 @@
 import type {
   ChangeImpact,
   AffectedChange,
+  DayWindow,
   Demand,
   ItineraryItem,
   Pace,
@@ -10,6 +11,7 @@ import type {
   TransportMode,
   TripDay
 } from '@/types'
+import { DAY_WINDOW_LABEL } from '@/types'
 import { distanceKm, hasRoute, placesLoaded, placesOf, travelMinutes } from '@/engine/placeIndex'
 import { estimateBudget } from '@/engine/budget'
 import { validatePlan } from '@/engine/validate'
@@ -44,7 +46,7 @@ const PREF_TAGS: Record<string, string[]> = {
 
 export class UnsupportedDestination extends Error {}
 
-export function generatePlans(demand: Demand): Plan[] {
+export function generatePlans(demand: Demand, opts: { order?: string[] } = {}): Plan[] {
   if (!placesLoaded()) throw new UnsupportedDestination('地点数据还没取到，请检查网络后重试')
   const pool = placesOf(demand.destination)
   if (pool.length === 0) {
@@ -57,7 +59,11 @@ export function generatePlans(demand: Demand): Plan[] {
     )
   }
   const tags = demand.preferences.flatMap((p) => PREF_TAGS[p] ?? [])
-  const ordered = orderByPreference(orderByProximity(pool), tags)
+  // 模型提案只决定「去哪儿、先哪个」，遮挡不住偏好排序以外的任何东西。
+  // 给了顺序就不再按偏好重排：两套排序叠在一起，谁也说不清为什么最终是这个顺序。
+  const ordered = opts.order?.length
+    ? applyPreferredOrder(pool, opts.order)
+    : orderByPreference(orderByProximity(pool), tags)
   const unmatched = demand.preferences.filter((p) => !(PREF_TAGS[p] ?? []).some((t) => pool.some((place) => place.tags.includes(t))))
   const variants: { pace: Pace; transport: TransportMode }[] =
     demand.transport === 'compare'
@@ -94,6 +100,27 @@ export function generatePlans(demand: Demand): Plan[] {
     }
     return plan
   })
+}
+
+/**
+ * 模型给的顺序 → 实际的点序。
+ *
+ * 只认池子里真实存在的 id，且只用来把它们排到前面：模型编造或漏掉的 id 一律不认，
+ * 剩下的仍按就近接在后面。模型报错一个 id 不能让行程少一个点。
+ */
+function applyPreferredOrder(pool: Place[], order: string[]): Place[] {
+  const byId = new Map(pool.map((p) => [p.id, p]))
+  const picked: Place[] = []
+  const used = new Set<string>()
+  for (const id of order) {
+    const p = byId.get(id)
+    if (!p || used.has(id)) continue
+    used.add(id)
+    picked.push(p)
+  }
+  if (!picked.length) return orderByProximity(pool)
+  const rest = orderByProximity(pool).filter((p) => !used.has(p.id))
+  return [...picked, ...rest]
 }
 
 /** 命中偏好 tag 多的排前面；同分保持就近顺序，所以路线不会因为偏好被打乱 */
@@ -266,13 +293,27 @@ export function keywordReviseOp(
     const placesInDay = day.items.filter((i) => i.kind === 'place')
     // 与 applyReviseOp 同一条底线：这一天只剩一个景点就没什么可精简的
     if (placesInDay.length <= 1) return null
-    const last = placesInDay[placesInDay.length - 1]
+    // 说了时段就只动那个时段。「第二天下午轻松点」以前恒删当天最后一条，
+    // 下午的安排还好好待着，反而把晚上那个删了 —— 这是用户能一眼看出来的错。
+    const window = parseWindow(instruction)
+    if (window) {
+      return {
+        op: 'ease',
+        day: dayIndex,
+        window,
+        reason: `第 ${dayIndex} 天${DAY_WINDOW_LABEL[window]}减少一个景点，节奏放缓`
+      }
+    }
+    // 没说时段：挑最后一个**没被固定**的景点，固定项不能静默吃掉
+    const last = [...placesInDay].reverse().find((i) => !i.pinned)
+    if (!last) return { unsupported: `第 ${dayIndex} 天的安排都被你固定了，先取消固定再精简` }
     return { op: 'drop', day: dayIndex, targetId: last.id, reason: `第 ${dayIndex} 天减少一个景点，节奏放缓` }
   }
 
   if (/省|便宜|预算|贵/.test(instruction)) {
     // 票价未核实（cost === null）的景点不参与「最贵」比较：拿 null 排序会把未知当成 0，选出错的替换目标
-    const expensive = [...day.items.filter((i) => i.kind === 'place' && i.cost !== null)].sort(
+    // 固定项也不参与：用户定过的安排不能被「省钱」悄悄换掉
+    const expensive = [...day.items.filter((i) => i.kind === 'place' && i.cost !== null && !i.pinned)].sort(
       (a, b) => (b.cost ?? 0) - (a.cost ?? 0)
     )[0]
     if (!expensive || (expensive.cost ?? 0) === 0) return { unsupported: '这一天已没有收费景点，省钱空间主要在其他支出' }
@@ -292,7 +333,7 @@ export function keywordReviseOp(
   }
 
   if (/换|替代|改成|不要/.test(instruction)) {
-    const target = [...day.items.filter((i) => i.kind === 'place')].pop()
+    const target = [...day.items.filter((i) => i.kind === 'place' && !i.pinned)].pop()
     if (!target) return null
     const replacement = nearest(
       prevPlace(day, target),
@@ -314,6 +355,14 @@ export function keywordReviseOp(
   }
 
   return null
+}
+
+/** 「第二天下午」「晚上」这些时段词；没写就返回 undefined，交给调用方按整天处理 */
+function parseWindow(text: string): DayWindow | undefined {
+  if (/上午|早上|早晨/.test(text)) return 'morning'
+  if (/下午|午后/.test(text)) return 'afternoon'
+  if (/晚上|傍晚|夜间/.test(text)) return 'evening'
+  return undefined
 }
 
 /** 「第二天」「第3天」两种写法都要认；没写天数时由调用方给当前天 */

@@ -22,6 +22,10 @@ type Props = {
   onBack: () => void;
   onSaveOverview: (text: string) => void;
   onPhotos: (photos: PhotoRef[]) => void;
+  /** 把结束旅行时整理的草稿采纳为整趟回顾 */
+  onAdoptDraft: () => void;
+  /** 丢掉草稿，回顾不动 */
+  onDiscardDraft: () => void;
   onSavePlace: (
     patch: { planRef: string; dayIndex: number; placeId: string; placeTitle: string } & Partial<PlaceNote>
   ) => void;
@@ -46,6 +50,8 @@ export function MemoryPage({
   onBack,
   onSaveOverview,
   onPhotos,
+  onAdoptDraft,
+  onDiscardDraft,
   onSavePlace,
   onEnd,
   onGuide,
@@ -54,6 +60,11 @@ export function MemoryPage({
   const days = plan?.days ?? [];
   const [draft, setDraft] = useState<string | null>(null);
   const overview = draft ?? memory.overview;
+  /**
+   * 回顾文本框是受控于 default-value 的（不用 value：中文输入法下 bindinput 不一定逐字来）。
+   * 代价是采纳草稿后改 memory.overview 不会反映到框里，只能靠换 key 强制重挂一次。
+   */
+  const [overviewKey, setOverviewKey] = useState(0);
   const photoOk = canPickPhoto();
 
   /**
@@ -134,6 +145,40 @@ export function MemoryPage({
             </text>
           </view>
 
+          {/* 结束旅行时整理的草稿：先看再用，不直接盖掉下面那张「这趟旅行」 */}
+          {memory.draft ? (
+            <view className={cls('card')}>
+              <text className={cls('card-title')}>按你记下的内容整理了一版</text>
+              <text className={cls('card-note')}>
+                只重排了你写过的东西，没替你编任何感受。要用就点「用作回顾」，之后照常改。
+              </text>
+              <view className={cls('mem-draft')}>
+                {memory.draft.split('\n').map((line, idx) =>
+                  line.startsWith('Day ') || line.startsWith('还没记：') ? (
+                    <text key={idx} className={cls('mem-draft-head')}>
+                      {line}
+                    </text>
+                  ) : (
+                    <text key={idx} className={cls('mem-draft-line')}>
+                      {line}
+                    </text>
+                  )
+                )}
+              </view>
+              <view className={cls('mem-draft-actions')}>
+                <view className={cls('mem-draft-btn on')} bindtap={() => {
+                  onAdoptDraft();
+                  setOverviewKey((n) => n + 1);
+                }}>
+                  <text className={cls('mem-draft-btn-text on')}>用作回顾</text>
+                </view>
+                <view className={cls('mem-draft-btn')} bindtap={onDiscardDraft}>
+                  <text className={cls('mem-draft-btn-text')}>删掉</text>
+                </view>
+              </view>
+            </view>
+          ) : null}
+
           {/* 整趟回顾 */}
           <view className={cls('card')}>
             <text className={cls('card-title')}>这趟旅行</text>
@@ -141,6 +186,7 @@ export function MemoryPage({
               写下整体感受。没写就是没写，不会替你编。
             </text>
             <textarea
+              key={`overview-${overviewKey}`}
               className={cls('mem-input')}
               default-value={memory.overview}
               placeholder="比如：带爸妈走的，节奏偏慢，第二天下午最舒服。"
