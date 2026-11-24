@@ -1,6 +1,8 @@
 import { useCallback, useState } from '@lynx-js/react';
 
 import { maskPhone } from '../../App/useAuth.js';
+import { visibleProviders } from '../../authProviders.js';
+import type { AuthProvider } from '../../authProviders.js';
 import { syncState } from '../../sync.js';
 import styles from './index.module.scss';
 
@@ -26,9 +28,22 @@ export type LoginPageProps = {
   onLogout: () => void;
   /** 非生产环境提示固定验证码用；生产环境传空串 */
   devHint: string;
+  /**
+   * 服务端已配置的三方通道。
+   *
+   * 空数组 = 没配或还没问到 —— 此时一个按钮都不显示。
+   * 凭证明明没配却先渲染按钮，用户点下去才收到 501，是最差的「不知道自己撞了什么」。
+   */
+  providers: AuthProvider[];
+  /** 正在拉起的通道 id；该按钮显示进行中，其余禁用 */
+  providerBusy: string;
+  providerError: string;
+  onProviderLogin: (provider: string) => void;
 };
 
 export function LoginPage(props: LoginPageProps) {
+  // 只显示服务端确认配置好的通道；没配的连入口都不出现（判定逻辑见 visibleProviders）
+  const providers = visibleProviders(props.providers);
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   // 登录页停留时间短，进来那一刻的状态够了，不订阅
@@ -119,7 +134,33 @@ export function LoginPage(props: LoginPageProps) {
       </view>
 
       {props.devHint ? <text className={styles['lg-hint']}>{props.devHint}</text> : null}
-      <text className={styles['lg-hint']}>首期只支持手机号登录。微信与 Apple 登录后续开放。</text>
+
+      {providers.length > 0 ? (
+        <view className={styles['lg-alt']}>
+          <view className={styles['lg-divider']}>
+            <view className={styles['lg-divider-line']} />
+            <text className={styles['lg-divider-text']}>或</text>
+            <view className={styles['lg-divider-line']} />
+          </view>
+          {providers.map((p) => {
+            const busy = props.providerBusy === p.id;
+            // 有任何通道在拉起时，其余按钮一起禁用：并发拉起两次授权会互相覆盖回跳
+            const disabled = !!props.providerBusy;
+            return (
+              <view
+                key={p.id}
+                className={disabled && !busy ? styles['lg-alt-btn-off'] : styles['lg-alt-btn']}
+                bindtap={() => {
+                  if (!disabled) props.onProviderLogin(p.id);
+                }}
+              >
+                <text className={styles['lg-alt-text']}>{busy ? '正在拉起…' : p.label}</text>
+              </view>
+            );
+          })}
+          {props.providerError ? <text className={styles['lg-error']}>{props.providerError}</text> : null}
+        </view>
+      ) : null}
 
       <view className={styles['lg-skip']} bindtap={props.onBack}>
         <text className={styles['lg-skip-text']}>先不登录，继续本机使用</text>

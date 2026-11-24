@@ -72,7 +72,7 @@ npm run dev:api      # http://127.0.0.1:8787
 | 固定安排（pin）不被静默改掉 | ✅ 已做：行程页每条安排有「固定」开关，引擎遇到 pinned 拒绝 drop / replace 并说明原因 |
 | 「第二天下午轻松点」只动下午 | ✅ 已做：`ReviseOp.ease` 带 `window`，只删该时段的景点 |
 | 现场推荐与到达判定、下一站 | ⚠️ 判定逻辑与工具已做（`shared/engine/onSite.ts`：到达半径 + 精度阈值、下一站、附近检索），行程页每条景点有「我在这附近 / 下一站」入口。**数据仍缺**：吃/拍/买 0 条、城市公交 0 条，所以只答「有什么避坑/怎么进出」，不编附近餐厅或地铁班次 |
-| 微信 / Apple 登录 | ⚠️ 代码已通，差凭证：`/api/auth/login` 真接微信 unionid 兑换与 Apple identityToken 验签（含 aud/iss/exp/alg 校验）；`/api/auth/sms-code` 真接阿里云短信。三者都需要在 `.env` 配 `SMS_*` / `WECHAT_*` / `APPLE_CLIENT_ID`，未配置时如实 501/503，不再假装发出短信 |
+| 微信 / Apple 登录 | ⚠️ 服务端与客户端都已接，差原生 SDK 与凭证：`/api/auth/login` 真接微信 unionid 兑换与 Apple identityToken 验签（含 aud/iss/exp/alg 校验）；登录页按 `/api/auth/status` 显示**已配置**的通道按钮，未配置一个都不显示。壳推回 `__fpAuth` 后自动兑换。仍需：`.env` 配 `SMS_*` / `WECHAT_*` / `APPLE_CLIENT_ID`，以及 iOS 接 WXApi 与 AuthenticationServices（`HostBridge.startAuth` 目前如实返回 false） |
 | 回忆的 AI 叙述整理 | ✅ 已做：`POST /api/ai/memory-narrative`，模型只改写用户写过的内容，每段必须挂靠一条真实记录（`applyNarrative` 剪枝），不可用则落回确定性草稿 |
 | 分享「更新发布」保持链接 | ✅ 已做：同一草稿再发布会刷新快照、token 不变，草稿页有「更新已发布内容」 |
 | 攻略照片由用户勾选 | ✅ 已做：默认一张不带，草稿页从回忆里逐张勾选 |

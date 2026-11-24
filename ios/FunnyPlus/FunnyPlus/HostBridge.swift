@@ -49,6 +49,32 @@ final class FPBridge {
         return true
     }
 
+    /// JS 侧请求拉起三方授权（`__fpStartAuth('wechat')`）。
+    ///
+    /// 微信要 WXApi.sendAuthReq、Apple 要 ASAuthorizationController，两者都只有原生能做。
+    /// 这里不假装已经支持：SDK 未接入时返回 false，由 JS 显示「当前环境不支持」，
+    /// 而不是让用户点一个永远没有反应的按钮。
+    func startAuth(_ provider: String) -> Bool {
+        switch provider {
+        case "wechat":
+            #if canImport(WechatOpenSDK)
+            // 接上 SDK 后在这里构造 SendAuthReq 并注册 WXApi，见 docs/spec-ai-native-gap.md N5
+            return false
+            #else
+            return false
+            #endif
+        case "apple":
+            #if canImport(AuthenticationServices)
+            // 接上后：ASAuthorizationAppleIDProvider → 拿 identityToken → 走 funnyplus://auth 回跳
+            return false
+            #else
+            return false
+            #endif
+        default:
+            return false
+        }
+    }
+
     private func replay() {
         guard hasResult else { return }
         if let lynxView {

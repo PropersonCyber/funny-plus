@@ -73,6 +73,11 @@ export type SubPageProps = {
   onLogout: () => void;
   /** 非生产环境的固定验证码提示；生产为空串 */
   devCodeHint: string;
+  /** 三方登录：服务端已配置的通道（空数组 = 没配，登录页不显示按钮） */
+  providers: { id: 'wechat' | 'onetap' | 'apple'; label: string; configured: boolean }[];
+  providerBusy: string;
+  providerError: string;
+  onProviderLogin: (provider: string) => void;
   /** 分享页 token；只有 share 路由用，其他页面忽略 */
   /** 当前草稿的分享；null 表示未发布 */
   publishedDraft: { token: string; url: string } | null;
@@ -301,6 +306,10 @@ export const SUB_PAGES: Record<RouteName, (p: SubPageProps) => ReactElement> = {
       verifying={p.smsVerifying}
       error={p.smsError}
       devHint={p.devCodeHint}
+      providers={p.providers}
+      providerBusy={p.providerBusy}
+      providerError={p.providerError}
+      onProviderLogin={p.onProviderLogin}
       onSend={p.onSendCode}
       onVerify={p.onVerifyCode}
       onLogout={p.onLogout}

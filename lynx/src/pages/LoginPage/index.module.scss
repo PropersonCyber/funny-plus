@@ -132,3 +132,55 @@
   font-size: 13px;
   color: #7183a2;
 }
+
+/* 三方登录：只在服务端确认配置后出现，所以这里的样式不用考虑「灰掉但存在」的常态 */
+.lg-alt {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.lg-divider {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0;
+}
+
+.lg-divider-line {
+  flex: 1;
+  height: 1px;
+  background-color: #e6ebf3;
+}
+
+.lg-divider-text {
+  font-size: 12px;
+  color: #a5b2c7;
+}
+
+.lg-alt-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 46px;
+  border-radius: 23px;
+  background-color: #ffffff;
+  border: 1px solid #dbe3ef;
+}
+
+.lg-alt-btn-off {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 46px;
+  border-radius: 23px;
+  background-color: #f5f7fb;
+  border: 1px solid #eef1f6;
+}
+
+.lg-alt-text {
+  font-size: 15px;
+  color: #2b3a55;
+}

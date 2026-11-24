@@ -248,6 +248,10 @@ export function App() {
             onVerifyCode={auth.verify}
             onLogout={auth.logout}
             devCodeHint={auth.devHint}
+            providers={auth.providers}
+            providerBusy={auth.providerBusy}
+            providerError={auth.providerError}
+            onProviderLogin={(p) => void auth.startProviderLogin(p)}
             shareToken={route.params.shareToken}
           />
         ) : (

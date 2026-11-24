@@ -33,6 +33,36 @@ let platform = '';
  */
 let shareToken = '';
 
+/**
+ * 三方登录回跳（F06）。
+ *
+ * iOS 壳把 `funnyplus://auth?provider=wechat&code=xxx` 解析后写进 globalProps 的
+ * `__fpAuth`（见 HostBridge.handle）。这里只是落一下，真正的兑换由 useAuth 做 ——
+ * 分成两层是因为「壳拿到了 code」和「登录成功」是两件事，中间还要过一次服务端。
+ *
+ * 带 `at` 时间戳：同一个 code 被重复投递（壳重放 globalProps）时，靠它判断是不是新的，
+ * 否则用户成功登录后又会被同一个 code 再登一次。
+ */
+export type HostAuth = { provider?: unknown; code?: unknown; at?: unknown };
+
+let authCallback: HostAuth | null = null;
+
+/**
+ * 回跳凭证的订阅者。
+ *
+ * 凭证是壳异步推上来的（用户授权 → 回跳 → 壳写 globalProps），
+ * 只在挂载时读一次会漏掉「页面已经开着，用户才完成授权」这种最常见的情形。
+ * 用订阅而不是轮询：轮询要么太密费电，要么太疏让用户等。
+ */
+const authListeners = new Set<(auth: HostAuth) => void>();
+
+export function onHostAuth(fn: (auth: HostAuth) => void): () => void {
+  authListeners.add(fn);
+  return () => {
+    authListeners.delete(fn);
+  };
+}
+
 /** App 根组件调：把 useGlobalProps() 的结果落进来 */
 export function setHostProps(props: unknown): void {
   if (!props || typeof props !== 'object') return;
@@ -46,8 +76,34 @@ export function setHostProps(props: unknown): void {
   const pf = p.__fpPlatform;
   if (typeof st === 'string' && st) shareToken = st;
 
+  // 回跳凭证：只认带 code 的对象，空壳（壳初始化时写的空值）不覆盖已有值
+  const au = p.__fpAuth;
+  if (au && typeof au === 'object' && typeof (au as HostAuth).code === 'string' && (au as HostAuth).code) {
+    authCallback = au as HostAuth;
+    // 通知订阅者。复制一份再遍历：回调里可能取消订阅，直接遍历原集合会在迭代中修改它
+    for (const fn of [...authListeners]) {
+      try {
+        fn(authCallback);
+      } catch {
+        // 单个订阅者抛错不该影响其它订阅者与主流程
+      }
+    }
+  }
+
   if (typeof pf === 'string' && pf) platform = pf;
   if (typeof base === 'string' && base) apiBase = base;
+}
+
+/** 最近一次三方回跳凭证；没有回过跳为 null */
+export function getHostAuth(): HostAuth | null {
+  return authCallback;
+}
+
+/** 消费掉回跳凭证：兑换过一次就清空，防止同一 code 被重复提交 */
+export function takeHostAuth(): HostAuth | null {
+  const got = authCallback;
+  authCallback = null;
+  return got;
 }
 
 /** 最近一次宿主下发的定位快照；没下发过为 null */
