@@ -136,7 +136,11 @@ export const CASES: EvalCase[] = [
     // 那条用例判的其实是「城市未收录」，引擎那边 errorCount=0，与「时间排不下」
     // 是两回事。要证明「时间不够时要如实说」，场景必须让引擎真的报出来。
     mustMention: [['天'], ['排'], ['不够', '来不及', '冲突', '塞不下', '空着', '排不进去', '走不完']],
-    slots: { destination: '成都', dayCount: 5 },
+    // 用户没说人数与预算：按产品口径要先追问，不能替他编。
+    // 这条要验的是「排不下时引擎能判出 empty-day」，
+    // 所以人数预算放进输入槽位，让对话直接走到生成阶段 ——
+    // 追问本身由 missing-slot-1 与 window-return-1 覆盖
+    slots: { destination: '成都', dayCount: 5, party: 2, budgetLevel: 'mid' },
     // 两个 code 都算：空出一天是「排不下」，步行强度爆表（有数据时）也是当天塞太满
     engineIssues: { mustIncludeAny: ['empty-day', 'too-much-walking'] },
     expectPlans: true
@@ -179,7 +183,11 @@ export const CASES: EvalCase[] = [
     // 两种规划起点里的「按时间」。出发与返回都要落进槽位，否则引擎仍从 9:00 排、
     // 也不知道 20:00 是约束 —— 排出来的行程用户赶不上。
     slots: { destination: '北京', startMin: 12 * 60, returnBy: 20 * 60 },
-    expectPlans: true
+    // 用户没说人数与预算：按产品口径要先追问，不能替他编。
+    // 答过之后槽位会跟着会话走，下一轮不再重复问（见 AssistantPage 的槽位恢复）。
+    slotsAbsent: ['party', 'budgetLevel'],
+    mustMention: [['几'], ['预算']],
+    expectPlans: false
   },
   {
     id: 'nearby-eat-1',

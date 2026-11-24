@@ -142,9 +142,38 @@ function costOf(rows: AiCallRow[]): Pick<Summary, 'inputTokens' | 'outputTokens'
  * 按调用数倒序：正在用的那一版排最前。
  */
 export function byPromptVersion(rows: AiCallRow[]): { version: string; summary: Summary }[] {
+  return groupBy(rows, (r) => r.promptVersion || '(未记录)')
+}
+
+/**
+ * 从复合版本里取出某一块的号。
+ *
+ * 落库的版本形如 `base@2026-11-24.1/plan@2026-11-24.1`。
+ * 想回答「改了 nearby 之后效果如何」，就得只按 nearby 那一段分组 ——
+ * 按整串分组会把「base 相同、任务不同」拆成好几组，
+ * 正好和「对比某块改动前后」的目的相反。
+ *
+ * 老数据没有 `@`（单值版本），原样返回，归到 `(旧版)` 那一组里，
+ * 不与新格式混在一起比。
+ */
+export function blockVersion(version: string, block: string): string {
+  for (const seg of version.split('/')) {
+    const at = seg.indexOf('@')
+    if (at <= 0) continue
+    if (seg.slice(0, at) === block) return seg.slice(at + 1)
+  }
+  return version.includes('@') ? '(未记录)' : '(旧版)'
+}
+
+/** 按某一块的版本分组，用于「只改了这一块」的前后对比 */
+export function byPromptBlock(rows: AiCallRow[], block: string): { version: string; summary: Summary }[] {
+  return groupBy(rows, (r) => blockVersion(r.promptVersion, block))
+}
+
+function groupBy(rows: AiCallRow[], keyOf: (r: AiCallRow) => string): { version: string; summary: Summary }[] {
   const groups = new Map<string, AiCallRow[]>()
   for (const r of rows) {
-    const key = r.promptVersion || '(未记录)'
+    const key = keyOf(r)
     const list = groups.get(key) ?? []
     list.push(r)
     groups.set(key, list)

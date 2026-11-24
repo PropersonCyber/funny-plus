@@ -50,6 +50,14 @@ export type AiObservation = {
 }
 
 /** 提示词版本集中从这里取：调用点写死字符串的话，改了提示词忘了改埋点就白记了 */
+/**
+ * 默认版本 = base 这一块的号。
+ *
+ * 只作兜底：对话端点会显式传 `composePromptVersion(...)` 带上任务块；
+ * 没有显式传的调用点（如 plan / revise / memory）必须自己传对应块的号，
+ * 否则它们会被记成 base 版本 —— 看起来「和对话用了同一版提示词」，
+ * 实际用的是完全不同的那份，回滚对照时对不上。
+ */
 export function promptVersion(): string {
   return PROMPT_VERSION
 }

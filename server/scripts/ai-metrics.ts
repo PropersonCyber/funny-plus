@@ -11,13 +11,18 @@
  * 改字段等于破坏兼容；命令行改完自己看，没有这个负担。
  * 将来要做看板，从 `ai/metrics.ts` 取同一套口径，不在这里加接口。
  */
-import { byPromptVersion, loadAiCalls, loadTrackEvents, journeyFunnels, pct, summarize } from '../src/ai/metrics.ts'
+import { byPromptBlock, byPromptVersion, loadAiCalls, loadTrackEvents, journeyFunnels, pct, summarize } from '../src/ai/metrics.ts'
 
 function argDays(): number {
   const i = process.argv.indexOf('--days')
   const raw = i >= 0 ? process.argv[i + 1] : undefined
   const n = raw ? Number(raw) : NaN
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 7
+}
+
+function argBlock(): string {
+  const i = process.argv.indexOf('--block')
+  return i >= 0 ? (process.argv[i + 1] ?? '') : ''
 }
 
 function line(label: string, value: string): void {
@@ -45,9 +50,12 @@ async function main(): Promise<void> {
   line('单次均价', s.avgCostYuan === null ? '无可用样本' : `¥${s.avgCostYuan.toFixed(5)}`)
 
   // 按提示词版本分组：改完话术要能对比新版与旧版，回滚才有依据
-  const versions = byPromptVersion(calls)
+  // 按 base 块比：任务不同不该把同一版提示词拆成多组。
+  // 要对比某个任务块（比如只改了 nearby），用 `--block nearby`。
+  const block = argBlock()
+  const versions = block ? byPromptBlock(calls, block) : byPromptVersion(calls)
   if (versions.length > 1) {
-    console.log('\n[按提示词版本]')
+    console.log(`\n[按提示词${block ? `的 ${block} 块` : '版本'}]`)
     for (const v of versions) {
       const x = v.summary
       line(

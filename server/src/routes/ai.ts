@@ -7,6 +7,7 @@ import { facts, lines, places } from '../db/schema.ts'
 import { aiConfigured, chatModel, modelName } from '../ai/model.ts'
 import { proposeReviseOp } from '../ai/revise.ts'
 import { recordAiCall, startedAt, elapsedMs } from '../ai/observe.ts'
+import { composePromptVersion, PROMPT_VERSIONS } from '../ai/prompt.ts'
 import type { TokenUsage } from '../ai/cost.ts'
 import { appendTurn, latestTurnsOf, loadTurns, resolveSession } from '../ai/history.ts'
 import { resolveActorQuietly } from '../auth/middleware.ts'
@@ -234,6 +235,7 @@ aiRoute.post('/plans', async (c) => {
   } catch (err) {
     await recordAiCall({
       kind: 'plan',
+      promptVersion: composePromptVersion({ proposal: PROMPT_VERSIONS.proposal }),
       sessionId,
       userId: actor?.userId ?? null,
       model: modelName(),
@@ -252,6 +254,7 @@ aiRoute.post('/plans', async (c) => {
   // 这不算降级：把它记成降级会让「模型不可用率」凭空变高
   await recordAiCall({
     kind: 'plan',
+    promptVersion: composePromptVersion({ proposal: PROMPT_VERSIONS.proposal }),
     sessionId,
     userId: actor?.userId ?? null,
     model: modelName(),
@@ -797,6 +800,7 @@ aiRoute.post('/revise', async (c) => {
   // 这一条要单独能查 —— 「模型不可用触发降级」是 G7 的验收项之一。
   await recordAiCall({
     kind: 'revise',
+    promptVersion: composePromptVersion({ revision: PROMPT_VERSIONS.revision }),
     sessionId,
     userId: actor?.userId ?? null,
     model: modelName(),
@@ -899,6 +903,7 @@ aiRoute.post('/memory-narrative', async (c) => {
 
   await recordAiCall({
     kind: 'memory',
+    promptVersion: composePromptVersion({ narrative: PROMPT_VERSIONS.narrative }),
     sessionId,
     userId: actor?.userId ?? null,
     model: modelName(),
