@@ -39,6 +39,11 @@ async function main(): Promise<void> {
   line('工具调用', `${s.toolCalls} 次，失败 ${s.toolFailures} 次，成功率 ${pct(s.toolSuccessRate)}`)
   line('延迟', `平均 ${s.avgDurationMs}ms / p95 ${s.p95DurationMs}ms`)
 
+  // 成本：未知笔数单独说，不让总额看起来是全部（只加已知的会偏低）
+  const costLine = `输入 ${s.inputTokens} / 输出 ${s.outputTokens} tokens · 合计 ¥${s.costYuan.toFixed(4)}`
+  line('用量与成本', s.costUnknown > 0 ? `${costLine}（另有 ${s.costUnknown} 笔未记到用量）` : costLine)
+  line('单次均价', s.avgCostYuan === null ? '无可用样本' : `¥${s.avgCostYuan.toFixed(5)}`)
+
   // 按提示词版本分组：改完话术要能对比新版与旧版，回滚才有依据
   const versions = byPromptVersion(calls)
   if (versions.length > 1) {
@@ -47,7 +52,7 @@ async function main(): Promise<void> {
       const x = v.summary
       line(
         v.version,
-        `${x.calls} 次 · 方案 ${pct(x.planRate)} · 降级 ${pct(x.degradeRate)} · 工具 ${pct(x.toolSuccessRate)} · p95 ${x.p95DurationMs}ms`
+        `${x.calls} 次 · 方案 ${pct(x.planRate)} · 降级 ${pct(x.degradeRate)} · 工具 ${pct(x.toolSuccessRate)} · p95 ${x.p95DurationMs}ms · ¥${x.costYuan.toFixed(4)}${x.costUnknown ? ` (+${x.costUnknown} 未记)` : ''}`
       )
     }
   }

@@ -1,6 +1,7 @@
 import { generateText, stepCountIs, tool } from 'ai'
 import { z } from 'zod'
 import { chatModel } from './model.ts'
+import type { TokenUsage } from './cost.ts'
 
 /**
  * 回忆的叙述整理（N8 之后：从「确定性拼串」到「人话叙述」）。
@@ -27,7 +28,13 @@ const narrativeSchema = z.object({
 })
 
 export type NarrativeParagraph = { sourceRef: string; text: string }
-export type NarrativeResult = { ok: true; paragraphs: NarrativeParagraph[] } | { ok: false; degraded: true }
+/**
+ * `usage` 由调用点落库折算成本；degraded 分支也带用量 ——
+ * 模型答得不对不代表这次没花钱。
+ */
+export type NarrativeResult =
+  | { ok: true; paragraphs: NarrativeParagraph[]; usage: TokenUsage | null }
+  | { ok: false; degraded: true; usage: TokenUsage | null }
 
 /** 一条喂给模型的记录：ref 是它在输入里的唯一标识，也是模型唯一被允许挂靠的锚点 */
 export type NarrativeSource = {
@@ -56,9 +63,10 @@ export const NARRATIVE_SYSTEM_PROMPT = `你是「咕噜」，正在把一趟旅�
 6. 保持第一人称、口语、简短。不要加标题、不要加 emoji、不要用分点符号。`
 
 export async function narrateMemory(sources: NarrativeSource[]): Promise<NarrativeResult> {
-  if (!sources.length) return { ok: false, degraded: true }
+  if (!sources.length) return { ok: false, degraded: true, usage: null }
 
   let raw: unknown
+  let usage: TokenUsage | null = null
   try {
     const result = await generateText({
       model: chatModel(),
@@ -84,14 +92,15 @@ export async function narrateMemory(sources: NarrativeSource[]): Promise<Narrati
       stopWhen: stepCountIs(1)
     })
     raw = result.toolCalls?.[0]?.input
+    usage = { inputTokens: result.usage?.inputTokens ?? null, outputTokens: result.usage?.outputTokens ?? null }
   } catch (err) {
     console.error('[ai] memory narrative failed:', err)
-    return { ok: false, degraded: true }
+    return { ok: false, degraded: true, usage }
   }
 
   const parsed = narrativeSchema.safeParse(raw)
-  if (!parsed.success) return { ok: false, degraded: true }
-  return { ok: true, paragraphs: applyNarrative(parsed.data.paragraphs, sources) }
+  if (!parsed.success) return { ok: false, degraded: true, usage }
+  return { ok: true, paragraphs: applyNarrative(parsed.data.paragraphs, sources), usage }
 }
 
 /**

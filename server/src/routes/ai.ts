@@ -7,6 +7,7 @@ import { facts, lines, places } from '../db/schema.ts'
 import { aiConfigured, chatModel, modelName } from '../ai/model.ts'
 import { proposeReviseOp } from '../ai/revise.ts'
 import { recordAiCall, startedAt, elapsedMs } from '../ai/observe.ts'
+import type { TokenUsage } from '../ai/cost.ts'
 import { appendTurn, latestTurnsOf, loadTurns, resolveSession } from '../ai/history.ts'
 import { resolveActorQuietly } from '../auth/middleware.ts'
 import { nearestTo, placeById, placesOf, placesLoaded, setPlaces, travelMinutes } from '@/engine/placeIndex.ts'
@@ -211,8 +212,11 @@ aiRoute.post('/plans', async (c) => {
   // 轻量规划只有一套、顺序由「离我最近」决定，模型提的顺序会被引擎丢掉 ——
   // 这一步照样会花掉一次模型调用，不如省掉
   const light = isLight(demand)
+  // 模型调用的用量要带进度量：降级分支也拿得到（模型答得不对不代表没花钱）
+  let usage: TokenUsage | null = null
   if (aiConfigured() && !light) {
     const proposed = await proposePlanOrder(demand)
+    usage = proposed.usage
     if ('ok' in proposed) {
       by = 'model'
       order = proposed.order
@@ -237,7 +241,8 @@ aiRoute.post('/plans', async (c) => {
       toolCalls: by === 'model' ? 1 : 0,
       degraded: true,
       degradeReason: 'generate_failed',
-      durationMs: elapsedMs(started)
+      durationMs: elapsedMs(started),
+      usage
     })
     const msg = err instanceof Error ? err.message : '生成方案失败'
     return c.json({ error: msg, code: 'plan_failed' }, 400)
@@ -254,7 +259,8 @@ aiRoute.post('/plans', async (c) => {
     toolCalls: by === 'model' ? 1 : 0,
     degraded: !light && by !== 'model',
     degradeReason: by === 'model' || light ? null : 'model_unavailable_or_unparsable',
-    durationMs: elapsedMs(started)
+    durationMs: elapsedMs(started),
+    usage
   })
   return c.json({ plans, by, reason })
 })
@@ -328,7 +334,7 @@ aiRoute.post('/chat', async (c) => {
   const sessionId = session?.id ?? (typeof body?.sessionId === 'string' && body.sessionId ? body.sessionId.slice(0, 64) : null)
   const started = startedAt()
   const counters = { toolCalls: 0, toolFailures: 0, plans: 0 }
-  const record = (extra: { durationMs: number; error?: string | null }) =>
+  const record = (extra: { durationMs: number; error?: string | null; usage?: TokenUsage | null }) =>
     recordAiCall({
       kind: 'chat',
       promptVersion: prompt.version,
@@ -342,8 +348,25 @@ aiRoute.post('/chat', async (c) => {
       planGenerated: counters.plans > 0,
       planAttempts,
       durationMs: extra.durationMs,
-      error: extra.error ?? null
+      error: extra.error ?? null,
+      usage: extra.usage ?? null
     })
+
+  /**
+   * 读这次调用的用量。
+   *
+   * `totalUsage` 是 Promise：流式响应要等整轮结束才拿得到，
+   * 所以只能在 record 之前 await。拿不到就当 null，绝不让计量失败影响回答本身 ——
+   * 少一行成本记录远好过让用户的对话变成 500。
+   */
+  const usageOf = async (): Promise<TokenUsage | null> => {
+    try {
+      const u = await result.totalUsage
+      return { inputTokens: u?.inputTokens ?? null, outputTokens: u?.outputTokens ?? null }
+    } catch {
+      return null
+    }
+  }
 
   const result = streamText({
     model: chatModel(),
@@ -680,7 +703,7 @@ aiRoute.post('/chat', async (c) => {
         console.error('[ai] history append failed:', err)
       )
     }
-    await record({ durationMs: elapsedMs(started) })
+    await record({ durationMs: elapsedMs(started), usage: await usageOf() })
     // revise 必须跟 plans 一起回：Lynx 读不了流时走这条，漏了的话对话里永远出不了确认卡
     return c.json({ text, slots, plans, revise, sessionId: session?.id ?? null })
   }
@@ -733,8 +756,11 @@ aiRoute.post('/chat', async (c) => {
         console.error('[ai] history append failed:', err)
       )
     }
-    // 先记度量再发 done：done 之后前端就收流了，这次写库不该占用用户的时间
-    void record({ durationMs: elapsedMs(started), error: failed })
+    // 先记度量再发 done：done 之后前端就收流了，这次写库不该占用用户的时间。
+    // usageOf 要等整轮结束才 resolve，所以先 await 拿用量，再 fire-and-forget 写库 ——
+    // 反过来（不 await 就直接读 promise）会拿到 undefined，成本列永远是 null
+    const usage = await usageOf()
+    void record({ durationMs: elapsedMs(started), error: failed, usage })
     await stream.writeSSE({
       event: 'done',
       data: JSON.stringify({ slots, sessionId: session?.id ?? null })
@@ -766,7 +792,7 @@ aiRoute.post('/revise', async (c) => {
   await ensureEngine()
   if (!placesLoaded()) return c.json({ error: '地点数据未载入', code: 'not_ready' }, 503)
 
-  const { preview, reason, by } = await resolveRevision(trip, instruction, body?.currentDay)
+  const { preview, reason, by, usage } = await resolveRevision(trip, instruction, body?.currentDay)
   // by === 'engine' 就是降级：模型没配置 / 挂了 / 输出不可解析，改走本地关键词兜底。
   // 这一条要单独能查 —— 「模型不可用触发降级」是 G7 的验收项之一。
   await recordAiCall({
@@ -778,7 +804,8 @@ aiRoute.post('/revise', async (c) => {
     toolCalls: by === 'model' ? 1 : 0,
     degraded: by !== 'model',
     degradeReason: by === 'model' ? null : 'model_unavailable_or_unparsable',
-    durationMs: elapsedMs(started)
+    durationMs: elapsedMs(started),
+    usage
   })
   if (!preview) {
     return c.json({ supported: false as const, reason, by })
@@ -795,24 +822,33 @@ async function resolveRevision(
   trip: TripContext,
   instruction: string,
   currentDay?: number
-): Promise<{ preview: RevisePreview | null; reason: string; by: RevisePreview['by'] }> {
+): Promise<{ preview: RevisePreview | null; reason: string; by: RevisePreview['by']; usage: TokenUsage | null }> {
   if (aiConfigured()) {
     const proposed = await proposeReviseOp(trip.plan, trip.demand, instruction, currentDay)
+    // 用量在模型这一段就定了：后面无论落地成功还是落回兜底，这次调用都已经发生
+    const usage = proposed.usage
     if ('op' in proposed) {
       const applied = applyReviseOp(trip.plan, trip.demand, proposed.op, 'model')
-      if (applied.ok) return { preview: applied.preview, reason: '', by: 'model' }
-      return { preview: null, reason: applied.reason, by: 'model' }
+      if (applied.ok) return { preview: applied.preview, reason: '', by: 'model', usage }
+      return { preview: null, reason: applied.reason, by: 'model', usage }
     }
-    if ('reason' in proposed) return { preview: null, reason: proposed.reason, by: 'model' }
+    if ('reason' in proposed) return { preview: null, reason: proposed.reason, by: 'model', usage }
+    // 走到这里说明模型不可用：用量仍可能非空（调用发生过但输出不可解析）
+    const guess = keywordReviseOp(trip.plan, trip.demand, instruction, currentDay)
+    if (!guess) return { preview: null, reason: NO_KEYWORD_HINT, by: 'engine', usage }
+    if ('unsupported' in guess) return { preview: null, reason: guess.unsupported, by: 'engine', usage }
+    const applied = applyReviseOp(trip.plan, trip.demand, guess, 'engine')
+    if (applied.ok) return { preview: applied.preview, reason: '', by: 'engine', usage }
+    return { preview: null, reason: applied.reason, by: 'engine', usage }
   }
 
-  // 模型没配置 / 挂了 / 输出不可解析：落回同一套关键词表，界面会标明这次是本地兜底
+  // 模型没配置：一次调用都没发生，用量就是 null（不是 0）
   const guess = keywordReviseOp(trip.plan, trip.demand, instruction, currentDay)
-  if (!guess) return { preview: null, reason: NO_KEYWORD_HINT, by: 'engine' }
-  if ('unsupported' in guess) return { preview: null, reason: guess.unsupported, by: 'engine' }
+  if (!guess) return { preview: null, reason: NO_KEYWORD_HINT, by: 'engine', usage: null }
+  if ('unsupported' in guess) return { preview: null, reason: guess.unsupported, by: 'engine', usage: null }
   const applied = applyReviseOp(trip.plan, trip.demand, guess, 'engine')
-  if (applied.ok) return { preview: applied.preview, reason: '', by: 'engine' }
-  return { preview: null, reason: applied.reason, by: 'engine' }
+  if (applied.ok) return { preview: applied.preview, reason: '', by: 'engine', usage: null }
+  return { preview: null, reason: applied.reason, by: 'engine', usage: null }
 }
 
 /**
@@ -847,8 +883,10 @@ aiRoute.post('/memory-narrative', async (c) => {
 
   let text = baseline
   let by: 'model' | 'engine' = 'engine'
+  let usage: TokenUsage | null = null
   if (aiConfigured() && sources.length) {
     const narrated = await narrateMemory(sources)
+    usage = narrated.usage
     if (narrated.ok) {
       const joined = joinNarrative(narrated.paragraphs)
       // 模型给的内容真的可用才替换基线。空串或只剩待补清单时保留基线
@@ -868,7 +906,8 @@ aiRoute.post('/memory-narrative', async (c) => {
     toolCalls: by === 'model' ? 1 : 0,
     degraded: by !== 'model',
     degradeReason: by === 'model' ? null : 'model_unavailable_or_unparsable',
-    durationMs: elapsedMs(started)
+    durationMs: elapsedMs(started),
+    usage
   })
 
   return c.json({ text, by })

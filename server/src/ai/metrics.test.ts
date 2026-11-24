@@ -13,6 +13,10 @@ const row = (over: Partial<AiCallRow> = {}): AiCallRow => ({
   planAttempts: 0,
   degraded: false,
   promptVersion: '2026-11-22.1',
+  // 默认「没记到用量」而不是 0：测试与线上一样，缺省不该被当成免费
+  inputTokens: null,
+  outputTokens: null,
+  costMicros: null,
   ...over
 })
 

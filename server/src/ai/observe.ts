@@ -16,6 +16,8 @@
 import { db } from '../db/client.ts'
 import { aiCalls } from '../db/schema.ts'
 import { PROMPT_VERSION } from './prompt.ts'
+import { priceUsage } from './cost.ts'
+import type { TokenUsage } from './cost.ts'
 
 export type AiCallKind = 'chat' | 'revise' | 'plan' | 'memory'
 
@@ -38,6 +40,13 @@ export type AiObservation = {
   journey?: string | null
   stream?: boolean
   error?: string | null
+  /**
+   * 模型返回的用量（input / output tokens）。
+   *
+   * 缺省或拿不到时 three cost 列都写 null —— 「不知道」不是「免费」。
+   * 由 `recordAiCall` 内部折算成费用，调用点不需要知道单价。
+   */
+  usage?: TokenUsage | null
 }
 
 /** 提示词版本集中从这里取：调用点写死字符串的话，改了提示词忘了改埋点就白记了 */
@@ -46,6 +55,7 @@ export function promptVersion(): string {
 }
 
 function row(o: AiObservation) {
+  const priced = priceUsage(o.model, o.usage)
   return {
     id: crypto.randomUUID(),
     sessionId: o.sessionId || null,
@@ -62,7 +72,10 @@ function row(o: AiObservation) {
     degradeReason: o.degradeReason || null,
     journey: o.journey || null,
     stream: o.stream ?? false,
-    error: o.error ? o.error.slice(0, 500) : null
+    error: o.error ? o.error.slice(0, 500) : null,
+    inputTokens: priced.inputTokens,
+    outputTokens: priced.outputTokens,
+    costMicros: priced.costMicros
   }
 }
 

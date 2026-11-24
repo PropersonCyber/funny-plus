@@ -624,6 +624,20 @@ export const aiCalls = pgTable(
     stream: boolean('stream').notNull().default(false),
     /** 失败时的一句原因；成功为 null */
     error: text('error'),
+    /**
+     * 输入 / 输出 token 与折算费用（F10 成本口径）。
+     *
+     * 为什么必须落库而不是现场算：模型单价会变，而「这次花了多少」是历史事实。
+     * 只在查询时乘当前单价，等于用今天的价格重写昨天的账单，对不上账。
+     * 所以单价在写入时固定成 `costMicros`（微元，整数避免浮点累积误差）。
+     *
+     * 全为 null 表示这次调用没拿到用量（模型没回 usage，或走了本地兜底）。
+     * **不能用 0 顶替**：0 的意思是「这次免费」，和「不知道」是两回事。
+     */
+    inputTokens: integer('input_tokens'),
+    outputTokens: integer('output_tokens'),
+    /** 折算后的费用，单位 1/1,000,000 元；null = 未计价或没拿到用量 */
+    costMicros: integer('cost_micros'),
     at: timestamp('at', { withTimezone: true }).notNull().defaultNow()
   },
   (t) => [

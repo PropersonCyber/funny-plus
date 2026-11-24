@@ -1,6 +1,7 @@
 import { generateText, stepCountIs, tool } from 'ai'
 import { z } from 'zod'
 import { chatModel } from './model.ts'
+import type { TokenUsage } from './cost.ts'
 import { REVISE_SYSTEM_PROMPT } from './prompt.ts'
 import { dayBrief } from '@/engine/planEdit.ts'
 import { placesOf } from '@/engine/placeIndex.ts'
@@ -50,11 +51,19 @@ const brief = (plan: Plan, demand: Demand) => ({
 
 export type ProposeResult =
   /** 模型给出一条可执行动作；能不能真执行还要过 applyReviseOp */
-  | { ok: true; op: ReviseOp }
+  | { ok: true; op: ReviseOp; usage: TokenUsage | null }
   /** 模型明确判断做不到，reason 可以直接给用户看 */
-  | { ok: false; reason: string }
+  | { ok: false; reason: string; usage: TokenUsage | null }
   /** 模型不可用或输出不可解析：调用方落回本地兜底，不要给用户看技术错误 */
-  | { degraded: true }
+  | { degraded: true; usage: TokenUsage | null }
+
+/**
+ * 用量用 out 参数带出来，而不是让每个 return 都手写一遍。
+ *
+ * 这个函数有十来个返回点（每种「听不清」都给不同的话），
+ * 逐个补 `usage` 一定会漏一个 —— 而漏掉的那个分支会在成本报表里静默变成「未记录」。
+ */
+type UsageBox = { value: TokenUsage | null }
 
 export async function proposeReviseOp(
   plan: Plan,
@@ -62,6 +71,24 @@ export async function proposeReviseOp(
   instruction: string,
   currentDay?: number
 ): Promise<ProposeResult> {
+  const box: UsageBox = { value: null }
+  const parsed = await parseReviseOp(plan, demand, instruction, currentDay, box)
+  return { ...parsed, usage: box.value } as ProposeResult
+}
+
+/** 内部结果：与对外的 ProposeResult 同形但缺 usage —— 由外层统一补 */
+type ParsedReviseOp =
+  | { ok: true; op: ReviseOp }
+  | { ok: false; reason: string }
+  | { degraded: true }
+
+async function parseReviseOp(
+  plan: Plan,
+  demand: Demand,
+  instruction: string,
+  currentDay: number | undefined,
+  box: UsageBox
+): Promise<ParsedReviseOp> {
   let raw: unknown
   try {
     const result = await generateText({
@@ -78,6 +105,8 @@ export async function proposeReviseOp(
       stopWhen: stepCountIs(1)
     })
     raw = result.toolCalls?.[0]?.input
+    // 解析失败也要记：模型输出了内容只是格式不对，钱照样花了
+    box.value = { inputTokens: result.usage?.inputTokens ?? null, outputTokens: result.usage?.outputTokens ?? null }
   } catch (err) {
     console.error('[ai] revise proposal failed:', err)
     return { degraded: true }

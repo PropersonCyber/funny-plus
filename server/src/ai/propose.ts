@@ -1,6 +1,7 @@
 import { generateText, stepCountIs, tool } from 'ai'
 import { z } from 'zod'
 import { chatModel } from './model.ts'
+import type { TokenUsage } from './cost.ts'
 import { PLAN_SYSTEM_PROMPT } from './prompt.ts'
 import { placesOf } from '@/engine/placeIndex.ts'
 import type { Demand } from '@/types/index.ts'
@@ -25,13 +26,20 @@ const orderSchema = z.object({
   reason: z.string().describe('一句话说明为什么这么排，不超过 40 字')
 })
 
-export type PlanProposal = { ok: true; order: string[]; reason: string } | { degraded: true }
+/**
+ * `usage` 是这次调用的 token 用量；由调用点落库折算成本。
+ * degraded 分支也带用量 —— 模型答得不对不代表没花钱。
+ */
+export type PlanProposal =
+  | { ok: true; order: string[]; reason: string; usage: TokenUsage | null }
+  | { degraded: true; usage: TokenUsage | null }
 
 export async function proposePlanOrder(demand: Demand): Promise<PlanProposal> {
   const pool = placesOf(demand.destination)
-  if (!pool.length) return { degraded: true }
+  if (!pool.length) return { degraded: true, usage: null }
 
   let raw: unknown
+  let usage: TokenUsage | null = null
   try {
     const result = await generateText({
       model: chatModel(),
@@ -54,13 +62,15 @@ export async function proposePlanOrder(demand: Demand): Promise<PlanProposal> {
       stopWhen: stepCountIs(1)
     })
     raw = result.toolCalls?.[0]?.input
+    usage = { inputTokens: result.usage?.inputTokens ?? null, outputTokens: result.usage?.outputTokens ?? null }
   } catch (err) {
     console.error('[ai] plan proposal failed:', err)
-    return { degraded: true }
+    return { degraded: true, usage }
   }
 
   const parsed = orderSchema.safeParse(raw)
-  if (!parsed.success) return { degraded: true }
-  if (!parsed.data.order.length) return { degraded: true }
-  return { ok: true, order: parsed.data.order, reason: parsed.data.reason }
+  // 解析失败也把用量带回去：模型输出了内容只是格式不对，钱照样花了
+  if (!parsed.success) return { degraded: true, usage }
+  if (!parsed.data.order.length) return { degraded: true, usage }
+  return { ok: true, order: parsed.data.order, reason: parsed.data.reason, usage }
 }

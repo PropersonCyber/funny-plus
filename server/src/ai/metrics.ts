@@ -29,6 +29,11 @@ export type AiCallRow = {
    * 也没法比较两版的方案采纳率与降级率。现在按版本分组统计，回滚才有依据。
    */
   promptVersion: string
+  /** 输入/输出 token；null = 这次没拿到用量（不是 0，0 是「免费」） */
+  inputTokens: number | null
+  outputTokens: number | null
+  /** 折算费用（微元）；null = 未计价 */
+  costMicros: number | null
 }
 
 export type Summary = {
@@ -49,6 +54,15 @@ export type Summary = {
   toolSuccessRate: number
   avgDurationMs: number
   p95DurationMs: number
+  /** token 合计（只累加有记录的调用） */
+  inputTokens: number
+  outputTokens: number
+  /** 成本（元）；只合计已知的，未知单独计数 */
+  costYuan: number
+  /** 没拿到用量的调用数 —— 报表要能说「有多少笔没记到」，而不是让总额看起来是全部 */
+  costUnknown: number
+  /** 单次对话均价（元）；没有可用样本时为 null */
+  avgCostYuan: number | null
 }
 
 /** 最近分位；空数组返回 0。用最近秩而不是插值：延迟分布是长尾的，插值会把尾巴抹平 */
@@ -86,7 +100,39 @@ export function summarize(rows: AiCallRow[]): Summary {
     // 分母用「调用数」而不是「调用数 - 失败数」：成功率要能反映「压根没调成」的情况
     toolSuccessRate: rate(toolCalls - toolFailures, toolCalls),
     avgDurationMs: durations.length ? Math.round(durations.reduce((s, d) => s + d, 0) / durations.length) : 0,
-    p95DurationMs: percentile(durations, 95)
+    p95DurationMs: percentile(durations, 95),
+    ...costOf(rows)
+  }
+}
+
+/**
+ * 成本汇总。
+ *
+ * 未知用量的调用单独计数、不进求和：只把已知的加起来会得到一个偏低的总额，
+ * 看起来完整、实际少算了一部分 —— 那比明确说「有 N 笔没记到」更危险。
+ * 均价的分母也只取已知成本的那些，否则单价会被未知笔数稀释成虚低。
+ */
+function costOf(rows: AiCallRow[]): Pick<Summary, 'inputTokens' | 'outputTokens' | 'costYuan' | 'costUnknown' | 'avgCostYuan'> {
+  let inputTokens = 0
+  let outputTokens = 0
+  let costMicros = 0
+  let known = 0
+  let unknown = 0
+  for (const r of rows) {
+    if (r.inputTokens !== null) inputTokens += r.inputTokens
+    if (r.outputTokens !== null) outputTokens += r.outputTokens
+    if (r.costMicros === null || r.costMicros === undefined) unknown += 1
+    else {
+      costMicros += r.costMicros
+      known += 1
+    }
+  }
+  return {
+    inputTokens,
+    outputTokens,
+    costYuan: Math.round(costMicros) / 1_000_000,
+    costUnknown: unknown,
+    avgCostYuan: known ? Math.round((costMicros / known) * 10) / 10_000_000 : null
   }
 }
 
@@ -166,7 +212,10 @@ export async function loadAiCalls(days = 7): Promise<AiCallRow[]> {
       planGenerated: aiCalls.planGenerated,
       planAttempts: aiCalls.planAttempts,
       degraded: aiCalls.degraded,
-      promptVersion: aiCalls.promptVersion
+      promptVersion: aiCalls.promptVersion,
+      inputTokens: aiCalls.inputTokens,
+      outputTokens: aiCalls.outputTokens,
+      costMicros: aiCalls.costMicros
     })
     .from(aiCalls)
     .where(gte(aiCalls.at, since))
