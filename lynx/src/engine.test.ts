@@ -2,7 +2,7 @@ import { describe, expect, it } from '@rstest/core';
 
 import { estimateBudget } from '../../shared/engine/budget.js';
 import { isExpired, splitByFreshness } from '../../shared/engine/facts.js';
-import { clearRouteMinutes, hasRoute, setPlaces, setRouteMinutes, travelMinutes } from '../../shared/engine/placeIndex.js';
+import { clearRouteMinutes, hasRoute, placeById, setPlaces, setRouteMinutes, travelMinutes } from '../../shared/engine/placeIndex.js';
 import { generatePlans, keywordReviseOp, revisePlan } from '../../shared/engine/planner.js';
 import { applyReviseOp } from '../../shared/engine/planEdit.js';
 import { canJudgeHard, lineSegmentFor, setLines } from '../../shared/engine/lines.js';
@@ -775,5 +775,26 @@ describe('闭馆判断只在三件事同时成立时报警（N3 日期）', () =
     const issues = validatePlan(plan, demand({ dayCount: 1, dateFrom: '2026-12-08' }));
     expect(issues.some((i) => i.code === 'closed-weekday')).toBe(false);
     setPlaces(places);
+  });
+});
+
+describe('设备定位点也能命中真实路段（F03 回程）', () => {
+  it('用坐标灌入的路线耗时能被回程段命中', () => {
+    clearRouteMinutes();
+    const here = { lng: 104.05, lat: 30.62 };
+    setRouteMinutes('a-3', here, false, 37);
+    // 按坐标查同一个点：量化到 5 位小数，同一个坐标必须命中
+    expect(travelMinutes(placeById('a-3')!, here, false)).toBe(37);
+    expect(hasRoute(placeById('a-3')!, here, false)).toBe(true);
+    clearRouteMinutes();
+  });
+
+  it('没有 id 的点之间不会共用一条「undefined」键', () => {
+    clearRouteMinutes();
+    setRouteMinutes({ lng: 104.0, lat: 30.0 }, { lng: 104.1, lat: 30.1 }, false, 42);
+    // 另一对完全不同的坐标不该读到上面那条
+    expect(hasRoute({ lng: 104.3, lat: 30.3 }, { lng: 104.4, lat: 30.4 }, false)).toBe(false);
+    expect(travelMinutes({ lng: 104.0, lat: 30.0 }, { lng: 104.1, lat: 30.1 }, false)).toBe(42);
+    clearRouteMinutes();
   });
 });

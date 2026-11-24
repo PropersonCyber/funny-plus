@@ -182,7 +182,9 @@ function fillUntil(ordered: Place[], demand: Demand, start: number, endsAt: numb
     // 三个门槛：时间窗放得下、到的时候它还开着、走完还能回到起点。
     // 第三条只在有起点坐标时才有意义 —— 用户说「14 点前回来」是回到起点，
     // 不是回到最后一个景点，漏掉这段回程他会以为卡点，实际晚半小时。
-    const back = demand.origin ? travelMinutes(place, demand.origin as Place, demand.transport !== 'public') : 0
+    // 这里不再把 origin 强转成 Place：它没有 id，强转后路段缓存键会变成
+    // `undefined>xxx`，真实耗时永远命中不了（见 placeIndex.pointKey）
+    const back = demand.origin ? travelMinutes(place, demand.origin, demand.transport !== 'public') : 0
     // 只看 endsAt 会把「23:00 关门、22:30 到、停留一小时」排进去 —— 用户到了门口进不去。
     if (end + back > endsAt || end > window[1]) continue
     items.push(placeItem(place, began, leg, demand))

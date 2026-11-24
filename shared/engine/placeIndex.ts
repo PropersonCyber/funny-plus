@@ -17,6 +17,9 @@ export const placesOf = (city: string): Place[] => [...index.values()].filter((p
 // 行程项只存 placeId，回查地名/坐标统一走这里，避免各处重复 filter。
 export const placeById = (id: string): Place | undefined => index.get(id)
 
+/** 任何带坐标的点；设备定位与 Place 都满足 */
+export type Point = { lng: number; lat: number }
+
 export const distanceKm = (a: Place, b: Place): number => {
   const dLat = (a.lat - b.lat) * 111
   const dLng = (a.lng - b.lng) * 111 * Math.cos(((a.lat + b.lat) / 2) * (Math.PI / 180))
@@ -48,14 +51,39 @@ export type TravelSource = 'route' | 'straight'
 
 const routeCache = new Map<string, number>()
 
-const routeKey = (a: Place, b: Place, faster: boolean): string => `${a.id}>${b.id}>${faster ? 'f' : 's'}`
+/**
+ * 路段缓存键。
+ *
+ * 用 id 而不是坐标：id 比浮点坐标稳定，也短。
+ * 但**设备定位点没有 id** —— 早期这里直接读 `a.id`，于是回程段（景点 → 用户当前位置）
+ * 的键变成 `undefined>xxx`，真实耗时永远命中不了，界面也就永远显示直线估算，
+ * 而用户以为那是导航结果。
+ *
+ * 没有 id 的点退化成坐标：`~lng,lat`。坐标按 5 位小数量化，
+ * 避免 GPS 抖动导致每次调用都算一段「新路」—— 那会让缓存形同虚设、每次都要问地图服务。
+ */
+const pointKey = (p: Point): string => {
+  const id = (p as { id?: string }).id
+  if (typeof id === 'string' && id) return id
+  const lng = Number.isFinite(p.lng) ? p.lng.toFixed(5) : '?'
+  const lat = Number.isFinite(p.lat) ? p.lat.toFixed(5) : '?'
+  return `~${lng},${lat}`
+}
+
+const routeKey = (a: Point, b: Point, faster: boolean): string =>
+  `${pointKey(a)}>${pointKey(b)}>${faster ? 'f' : 's'}`
 
 /**
  * 真实路线耗时由调用方预先取好再灌进来（引擎是同步纯函数，不能自己去 await）。
  * 没灌到的路段自然退回直线折算，所以取数失败不会让整个方案生成失败。
+ *
+ * 传 id 或坐标点都行：回程段（景点 → 用户当前位置）没有 id，
+ * 只能按坐标灌 —— 只支持 id 的话，那段永远是估算。
  */
-export function setRouteMinutes(a: string, b: string, faster: boolean, minutes: number): void {
-  if (Number.isFinite(minutes) && minutes > 0) routeCache.set(`${a}>${b}>${faster ? 'f' : 's'}`, Math.round(minutes))
+export function setRouteMinutes(a: string | Point, b: string | Point, faster: boolean, minutes: number): void {
+  if (!Number.isFinite(minutes) || minutes <= 0) return
+  const key = (p: string | Point): string => (typeof p === 'string' ? p : pointKey(p))
+  routeCache.set(`${key(a)}>${key(b)}>${faster ? 'f' : 's'}`, Math.round(minutes))
 }
 
 export function clearRouteMinutes(): void {
@@ -63,16 +91,16 @@ export function clearRouteMinutes(): void {
 }
 
 /** 这一段有没有拿到真实耗时；界面用它决定标注「估算」与否 */
-export const hasRoute = (a: Place, b: Place, faster = false): boolean =>
+export const hasRoute = (a: Point, b: Point, faster = false): boolean =>
   routeCache.has(routeKey(a, b, faster))
 
 /**
  * 两点之间的耗时。优先用地图服务的真实路线时长；没有就按直线距离折算。
  * 折算那档只是占位，别对外当成导航结果——界面上要标「估算」。
  */
-export const travelMinutes = (a: Place, b: Place, faster = false): number => {
+export const travelMinutes = (a: Point, b: Point, faster = false): number => {
   const hit = routeCache.get(routeKey(a, b, faster))
   if (hit !== undefined) return hit
-  const base = Math.max(10, Math.round((distanceKm(a, b) / (faster ? 22 : 15)) * 60))
+  const base = Math.max(10, Math.round((kmTo(a, b) / (faster ? 22 : 15)) * 60))
   return Math.ceil(base / 5) * 5
 }
