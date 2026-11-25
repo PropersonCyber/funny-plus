@@ -24,6 +24,9 @@ These guides help you **ask the right questions before coding**.
 | [Code Reuse Thinking Guide](./code-reuse-thinking-guide.md) | Identify patterns and reduce duplication | When you notice repeated patterns |
 | [Cross-Layer Thinking Guide](./cross-layer-thinking-guide.md) | Think through data flow across layers | Features spanning multiple layers |
 
+> 服务端契约（字段级依据、补录审核、校验等级）见 [`../backend/data-governance.md`](../backend/data-governance.md)。
+> 改「数据可信度」或「error/warn 分级」之前先读它，那份 spec 里记着每条限制的原因。
+
 ---
 
 ## Quick Reference: Thinking Triggers

@@ -1,1 +1,3 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/backend/data-governance.md", "reason": "字段级可信依据、补录审核到发布的契约与决策；改校验等级或可信度展示前必读"}
+{"file": ".trellis/spec/backend/index.md", "reason": "服务端通用约定：env 口径、业务规则不进路由、序列化器只留一份"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "本次改动跨 shared/server/lynx 三层，先过一遍层间数据流检查"}
