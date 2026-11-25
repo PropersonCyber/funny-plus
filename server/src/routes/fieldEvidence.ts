@@ -20,6 +20,7 @@ fieldEvidenceRoute.get('/', async (c) => {
     validUntil: fieldEvidence.validUntil
   }).from(fieldEvidence)
     .where(and(eq(fieldEvidence.scope, scope), eq(fieldEvidence.targetId, targetId)))
-    .orderBy(desc(fieldEvidence.verifiedAt))
+    // 与 fieldEvidenceQuery 同一套总序：同时刻靠 id 定先后，不靠返回顺序
+    .orderBy(desc(fieldEvidence.verifiedAt), desc(fieldEvidence.id))
   return c.json({ items: rows })
 })

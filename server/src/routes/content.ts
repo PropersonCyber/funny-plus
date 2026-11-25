@@ -3,34 +3,9 @@ import { asc } from 'drizzle-orm'
 import { db } from '../db/client.ts'
 import { cities, facts, guides, places, playPlaces, plays } from '../db/schema.ts'
 import { factWithTrust, feedbackStats } from './facts.ts'
-import type { City, Guide, Place, Play } from '@/types/index.ts'
-
-const toPlace = (r: typeof places.$inferSelect): Place => ({
-  id: r.id,
-  name: r.name,
-  city: r.city,
-  lng: r.lng,
-  lat: r.lat,
-  open: [r.openStart, r.openEnd],
-  /**
-   * 高德的原始营业时间文本。少了它，界面只剩一个被收紧过的时段：
-   * 「16:00 停止检票」「周一闭馆」这些约束是怎么被吃掉的，用户无从复核。
-   */
-  openText: r.openText ?? undefined,
-  closedWeekdays: r.closedWeekdays ?? [],
-  closedRanges: r.closedRanges ?? undefined,
-  seasons: r.seasons ?? undefined,
-  ticket: r.ticket,
-  stayMin: r.stayMin,
-  walk: r.walk as Place['walk'],
-  tags: r.tags,
-  rating: r.rating,
-  visitors: r.visitors,
-  hype: r.hype ?? undefined,
-  source: r.source,
-  verifiedAt: r.verifiedAt ?? undefined,
-  trust: r.trust
-})
+import { toApi as placeToApi } from './places.ts'
+import { loadFieldEvidence } from '../data/fieldEvidenceQuery.ts'
+import type { City, Guide, Play } from '@/types/index.ts'
 
 export const contentRoute = new Hono()
 
@@ -39,7 +14,7 @@ export const contentRoute = new Hono()
  * 分接口拉会让 Lynx 冷启动多三四个 RTT，而这几张表都是几十条量级。
  */
 contentRoute.get('/', async (c) => {
-  const [cityRows, placeRows, factRows, guideRows, playRows, linkRows, factStats] = await Promise.all([
+  const [cityRows, placeRows, factRows, guideRows, playRows, linkRows, factStats, placeEvidence] = await Promise.all([
     db.select().from(cities).orderBy(asc(cities.sortOrder)),
     db.select().from(places).orderBy(asc(places.id)),
     db.select().from(facts).orderBy(asc(facts.id)),
@@ -48,7 +23,8 @@ contentRoute.get('/', async (c) => {
     db.select().from(playPlaces).orderBy(asc(playPlaces.sortOrder)),
     // 避坑的可信度必须和 GET /api/facts 同口径：这个入口同样把 facts 发给客户端，
     // 直接用库里的 trust 就会让同一条避坑在两个接口上给出两个可信度
-    feedbackStats()
+    feedbackStats(),
+    loadFieldEvidence('place')
   ])
 
   const cityItems: City[] = cityRows.map((r) => ({
@@ -95,7 +71,8 @@ contentRoute.get('/', async (c) => {
 
   return c.json({
     cities: cityItems,
-    places: placeRows.map(toPlace),
+    // 与 /api/places 共用同一个序列化器：两份 toPlace 各改一半，界面内容和地点池就对不上了
+    places: placeRows.map((r) => placeToApi(r, placeEvidence.get(r.id))),
     facts: factRows.map((r) => factWithTrust(r, factStats)),
     guides: guideItems,
     plays: playItems

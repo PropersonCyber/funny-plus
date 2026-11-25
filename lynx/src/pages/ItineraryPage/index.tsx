@@ -15,6 +15,7 @@ import { track } from '../../track.js';
 import styles from './index.module.scss';
 import { makeCls } from '../../styles/cls.js';
 import { ticketText } from '../../ticketText.js';
+import { openNote } from '../../../../shared/engine/fieldEvidence.js';
 import { dateRangeLabel } from '../../../../shared/engine/dayDate.js';
 
 const cls = makeCls(styles);
@@ -391,14 +392,13 @@ function placeNote(placeId?: string): string {
   if (!placeId) return '';
   const place = placeById(placeId);
   if (!place) return '';
-  const when = place.verifiedAt ? `核验 ${place.verifiedAt}` : '未记录核验时间';
   // 规划时段是从 openText 收紧算出来的（多档取交集、关灯时刻封顶），把原文带上，
   // 用户才能判断「周一闭馆」「16:00 停止检票」这类约束有没有被吃掉
   const span = `开放 ${clock(place.open[0])}-${clock(place.open[1])}`;
   const body = place.openText ? `${span}（${place.openText}）` : span;
-  // 来源必须露出来：只说「核验 11-11」而不说谁核验的，等于让用户自己相信一个无名出处
-  const from = place.source ? `来源${place.source} · ` : '';
-  return `${body} · ${trustLabel[place.trust]} · ${from}${when}`;
+  // 来源必须露出来：只说「核验 11-11」而不说谁核验的，等于让用户自己相信一个无名出处。
+  // 有字段级依据时用依据（可能和行级来源不同、也可能已过期），见 openNote。
+  return `${body} · ${trustLabel[place.trust]} · ${openNote(place)}`;
 }
 
 /**

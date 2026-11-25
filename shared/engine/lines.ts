@@ -1,4 +1,5 @@
 import type { Demand, ItineraryItem, LineMode, TransitLine } from '@/types'
+import { judgeField } from './fieldEvidence'
 
 /**
  * 线路索引（FR-01）。
@@ -31,11 +32,24 @@ export const LINE_MODE_LABEL: Record<LineMode, string> = {
 }
 
 /**
- * 班次表算不算「可判硬约束」。
- * 只有官方核验过的一手信息才配拦用户，其余（待核实/用户填报）最多提示（FR-02 / FR-06）。
- * 演示班次即使标了 official 也不算：它的首末班是构造值，拿它拦用户等于用假数据拦住真行程。
+ * 班次表某个字段（首班 / 末班）当下算不算「可判硬约束」。
+ *
+ * 三层条件缺一不可：
+ * 1. 只有官方核验过的一手信息才配拦用户，其余（待核实/用户填报）最多提示（FR-02 / FR-06）。
+ * 2. 演示班次不算：它的首末班是构造值，拿它拦用户等于用假数据拦住真行程。
+ * 3. 该字段自己的依据必须没过期、且核的就是当下这个值。
+ *
+ * **首末班必须分开问**：`validate` 对「早于首班」也发 error。拿末班的依据去判首班，
+ * 就会出现「首班依据已过期却硬拦人」和「首班依据有效却被当成待核实」两种错。
  */
-export const canJudgeHard = (line: TransitLine): boolean => line.trust === 'official' && !line.isDemo
+export const canJudgeLineHard = (
+  line: TransitLine,
+  field: 'firstBus' | 'lastBus',
+  today = new Date().toISOString().slice(0, 10)
+): boolean => {
+  if (line.trust !== 'official' || line.isDemo) return false
+  return judgeField(line.fieldEvidence, field, line[field], line.trust, today) === 'ok'
+}
 
 /**
  * >= startMin 的最近一班车的发车时刻；末班之后没有车就返回 null。

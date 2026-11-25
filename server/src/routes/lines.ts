@@ -2,7 +2,8 @@ import { Hono } from 'hono'
 import { eq } from 'drizzle-orm'
 import { db } from '../db/client.ts'
 import { lines } from '../db/schema.ts'
-import type { TransitLine } from '@/types/index.ts'
+import { loadFieldEvidence } from '../data/fieldEvidenceQuery.ts'
+import type { FieldEvidence, TransitLine } from '@/types/index.ts'
 
 /**
  * 线路（FR-01）。
@@ -10,7 +11,7 @@ import type { TransitLine } from '@/types/index.ts'
  * 全量返回、不过滤：数量级是几十条，前端启动时随 /api/content 一起预热一次，
  * 之后引擎里的线路索引就是唯一来源。分页在这里只会让「排行程时缺一条线」变成偶发 bug。
  */
-export const lineToApi = (r: typeof lines.$inferSelect): TransitLine => ({
+export const lineToApi = (r: typeof lines.$inferSelect, evidence?: FieldEvidence[]): TransitLine => ({
   id: r.id,
   city: r.city,
   name: r.name,
@@ -29,7 +30,8 @@ export const lineToApi = (r: typeof lines.$inferSelect): TransitLine => ({
   sourceUrl: r.sourceUrl ?? undefined,
   verifiedAt: r.verifiedAt ?? undefined,
   trust: r.trust,
-  isDemo: r.isDemo
+  isDemo: r.isDemo,
+  ...(evidence?.length ? { fieldEvidence: evidence } : {})
 })
 
 export const linesRoute = new Hono()
@@ -41,5 +43,6 @@ linesRoute.get('/', async (c) => {
     .from(lines)
     .where(city ? eq(lines.city, city) : undefined)
     .orderBy(lines.city, lines.id)
-  return c.json({ items: rows.map(lineToApi) })
+  const evidence = await loadFieldEvidence('line')
+  return c.json({ items: rows.map((r) => lineToApi(r, evidence.get(r.id))) })
 })

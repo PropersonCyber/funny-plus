@@ -5,7 +5,7 @@ import { isExpired, splitByFreshness } from '../../shared/engine/facts.js';
 import { clearRouteMinutes, hasRoute, placeById, placesOf, setPlaces, setRouteMinutes, travelMinutes } from '../../shared/engine/placeIndex.js';
 import { generatePlans, keywordReviseOp, revisePlan } from '../../shared/engine/planner.js';
 import { applyReviseOp } from '../../shared/engine/planEdit.js';
-import { canJudgeHard, lineSegmentFor, setLines } from '../../shared/engine/lines.js';
+import { canJudgeLineHard, lineSegmentFor, setLines } from '../../shared/engine/lines.js';
 import { validatePlan } from '../../shared/engine/validate.js';
 import { legsOf } from './legs.js';
 import { windowOf } from '../../shared/types/index.js';
@@ -29,7 +29,7 @@ const places: Place[] = [
   { ...base, id: 'a-2', name: '二号点', city: '测试城', lng: 104.02, lat: 30.61, ticket: 60, stayMin: 120 },
   { ...base, id: 'a-3', name: '三号点', city: '测试城', lng: 104.05, lat: 30.62, ticket: 0, stayMin: 90 },
   // 只在 17:00 前开放，用来造「营业时间冲突」
-  { ...base, id: 'a-4', name: '早关门点', city: '测试城', lng: 104.08, lat: 30.63, ticket: 0, stayMin: 90, open: [540, 1020] },
+  { ...base, id: 'a-4', name: '早关门点', city: '测试城', lng: 104.08, lat: 30.63, ticket: 0, stayMin: 90, open: [540, 1020], openText: '09:00-17:00' },
   ...Array.from({ length: 8 }, (_, i) => ({
     ...base,
     id: `a-x${i}`,
@@ -125,6 +125,102 @@ describe('校验按可信状态分级', () => {
     expect(hit?.level).toBe('warn');
     expect(hit?.message).toContain('待核实');
     // 复位，避免影响后续用例
+    setPlaces(places);
+  });
+
+  // 字段级依据（清单 §2.2）：行级 official 只是必要条件。
+  // 三年前核过的营业时间，档位再高也不能拿来拦用户 —— 他按这句话改行程，走错了是我们造成的。
+  //
+  // 基谁是有讲究的：判行程用的是 `openingForDay` 算出的窗口，所以依据落在 `openWindow`，
+  // 而不是 `openText` 原文。拿原文当基就会出现「核了一句话，却用另一份数字拦人」。
+  const withEvidence = (validUntil?: string, window = '09:00-17:00') => {
+    setPlaces(
+      places.map((p) =>
+        p.id === 'a-4'
+          ? {
+              ...p,
+              trust: 'official' as const,
+              fieldEvidence: [
+                {
+                  id: 'ev-engine-open',
+                  field: 'openWindow',
+                  value: window,
+                  source: '景区公告',
+                  verifiedAt: '2023-01-01',
+                  ...(validUntil ? { validUntil } : {}),
+                },
+              ],
+            }
+          : p
+      )
+    );
+    return validatePlan(emptyPlan([lateItem]), demand());
+  };
+
+  it('依据仍在有效期时，官方档位照常判 error', () => {
+    const issues = withEvidence('2027-01-01');
+    expect(issues.some((i) => i.code === 'closed-window' && i.level === 'error')).toBe(true);
+    setPlaces(places);
+  });
+
+  it('依据已过期时降为 warn，并说明是依据过期而不是数据待核实', () => {
+    const issues = withEvidence('2020-01-01');
+    const hit = issues.find((i) => i.code === 'closed-window');
+    expect(hit?.level).toBe('warn');
+    // 两种 warn 的原因不能混：一个是「没人核过」，一个是「核过但过期了」
+    expect(hit?.message).toContain('依据已过期');
+    setPlaces(places);
+  });
+
+  it('依据核的是旧时段 → 不能再判 error', () => {
+    // 依据说 09:00-17:00，当前窗口已经是 10:00-16:00：那条依据没核过当前这个窗口，不能拿它拦人
+    const issues = withEvidence('2027-01-01', '10:00-16:00');
+    const hit = issues.find((i) => i.code === 'closed-window');
+    expect(hit?.level).toBe('warn');
+    expect(hit?.message).toContain('不一致');
+    setPlaces(places);
+  });
+
+  it('依据只核了原文、没核结构化时段 → 最多 warn', () => {
+    // 典型漏洞：原文和依据都是 09:00-17:00，但 `open` 被改成 09:00-16:00。
+    // 依据能证明「那句话」，证明不了行程实际用的是哪个窗口，所以不能判硬。
+    setPlaces(
+      places.map((p) =>
+        p.id === 'a-4'
+          ? {
+              ...p,
+              openText: '09:00-17:00',
+              trust: 'official' as const,
+              fieldEvidence: [
+                { id: 'ev-text', field: 'openText', value: '09:00-17:00', source: '景区公告', verifiedAt: '2023-01-01' },
+              ],
+            }
+          : p
+      )
+    );
+    const hit = validatePlan(emptyPlan([lateItem]), demand()).find((i) => i.code === 'closed-window');
+    expect(hit?.level).toBe('warn');
+    setPlaces(places);
+  });
+
+  it('只有票价依据时，营业时间仍按待核实而不是「已过期」', () => {
+    setPlaces(
+      places.map((p) =>
+        p.id === 'a-4'
+          ? {
+              ...p,
+              trust: 'official' as const,
+              fieldEvidence: [
+                { id: 'ev-ticket', field: 'ticket', value: '0', source: '景区公告', verifiedAt: '2026-11-01' },
+              ],
+            }
+          : p
+      )
+    );
+    const hit = validatePlan(emptyPlan([lateItem]), demand()).find((i) => i.code === 'closed-window');
+    expect(hit?.level).toBe('warn');
+    expect(hit?.message).toContain('待核实');
+    expect(hit?.message).not.toContain('过期');
     setPlaces(places);
   });
 });
@@ -443,9 +539,32 @@ describe('演示班次不参与硬约束（R4）', () => {
   });
 
   it('isDemo 为真时即使 official 也不判硬', () => {
-    expect(canJudgeHard(line({ isDemo: true }))).toBe(false);
+    expect(canJudgeLineHard(line({ isDemo: true }), 'lastBus')).toBe(false);
     // 未标 isDemo 的 official 仍可判硬，别把整条路堵死
-    expect(canJudgeHard(line({ isDemo: false }))).toBe(true);
+    expect(canJudgeLineHard(line({ isDemo: false }), 'lastBus')).toBe(true);
+  });
+
+  it('首末班各用各的依据：末班依据有效不能顺手证明首班', () => {
+    // 末班重核过、首班依据已过期 —— 以前只看末班，首班会被过期依据硬拦
+    const l = line({
+      fieldEvidence: [
+        { id: 'ev-last', field: 'lastBus', value: '1020', source: '公告 A', verifiedAt: '2026-11-01', validUntil: '2027-01-01' },
+        { id: 'ev-first', field: 'firstBus', value: '450', source: '公告 B', verifiedAt: '2020-01-01', validUntil: '2021-01-01' },
+      ],
+    });
+    expect(canJudgeLineHard(l, 'lastBus')).toBe(true);
+    expect(canJudgeLineHard(l, 'firstBus')).toBe(false);
+  });
+
+  it('依据核的末班与当前末班不同时不算核验过', () => {
+    const l = line({
+      fieldEvidence: [
+        { id: 'ev-last', field: 'lastBus', value: '17:00', source: '公告', verifiedAt: '2026-11-01' },
+      ],
+    });
+    // 17:00 = 1020，与当前末班一致
+    expect(canJudgeLineHard(l, 'lastBus')).toBe(true);
+    expect(canJudgeLineHard(line({ ...l, lastBus: 1080 }), 'lastBus')).toBe(false);
   });
 
   it('同段有真实线路时，演示班次不排前面', () => {
@@ -510,6 +629,38 @@ describe('线路注入决定班次校验是否发生（G2）', () => {
     const issues = validatePlan(emptyPlan([item]), demand())
     expect(issues.find((i) => i.code === 'after-lastbus')?.level).toBe('error')
     // 复位，避免影响后续用例
+    setLines([])
+  })
+
+  // 首末班各有各的依据：末班刚重核过，不能顺手把过期三年的首班也当成已核验。
+  it('末班依据有效、首班依据过期时，首班只提示不硬拦', () => {
+    const early: ItineraryItem = { ...item, startMin: 6 * 60, endMin: 6 * 60 + 30 }
+    setLines([
+      {
+        ...officialLine,
+        fieldEvidence: [
+          { id: 'ev-last', field: 'lastBus', value: '1020', source: '公告 A', verifiedAt: '2026-11-01', validUntil: '2027-01-01' },
+          { id: 'ev-first', field: 'firstBus', value: '480', source: '公告 B', verifiedAt: '2020-01-01', validUntil: '2021-01-01' },
+        ],
+      },
+    ])
+    const issues = validatePlan(emptyPlan([early]), demand())
+    expect(issues.find((i) => i.code === 'before-firstbus')?.level).toBe('warn')
+    setLines([])
+  })
+
+  it('首班依据有效时照常判 error', () => {
+    const early: ItineraryItem = { ...item, startMin: 6 * 60, endMin: 6 * 60 + 30 }
+    setLines([
+      {
+        ...officialLine,
+        fieldEvidence: [
+          { id: 'ev-first', field: 'firstBus', value: '08:00', source: '公告', verifiedAt: '2026-11-01', validUntil: '2027-01-01' },
+        ],
+      },
+    ])
+    const issues = validatePlan(emptyPlan([early]), demand())
+    expect(issues.find((i) => i.code === 'before-firstbus')?.level).toBe('error')
     setLines([])
   })
 })

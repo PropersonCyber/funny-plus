@@ -1,7 +1,8 @@
 import type { Demand, IssueAlternative, ItineraryItem, Plan, PlanIssue, TripDay } from '@/types'
 import { budgetLevelCap } from './budget'
 import { placeById } from './placeIndex'
-import { canJudgeHard, lineById, nextDeparture } from './lines'
+import { canJudgeLineHard, lineById, nextDeparture } from './lines'
+import { judgeField } from './fieldEvidence'
 import { closureIssue, closureOf, dayDateOf } from './dayDate'
 import { openingForDay } from './opening'
 import { startOf } from './timeWindow'
@@ -191,8 +192,23 @@ function checkItem(
   if (item.startMin < open[0] || item.endMin > open[1]) {
     // 只有官方核验过的营业时间才配判硬冲突。待核实的数据一旦判 error，
     // 就是把「我们没核过」的锅甩给用户，误报两次之后没人再看提示卡。
-    const isHard = place.trust === 'official'
+    //
+    // 基准是「当日实际算出来的那个窗口」（`openWindow`），不是 `openText` 原文：
+    // 行程能不能排进去取决于 `open`，而原文只是它的来源。拿原文当基准会出现
+    // 「依据说 09:00-17:00，结构化时段被改成 09:00-16:00，16:30 仍被判硬冲突」——
+    // 依据从未证明过 16:00 这个数（见 spec §4.8）。
+    const verdict = judgeField(place.fieldEvidence, 'openWindow', [open[0], open[1]], place.trust)
+    const isHard = verdict === 'ok'
     const alt = isHard ? nextDayAlternatives(day, `「${place.name}」在 ${fmt(open[0])} 开门，提前到点也进不去`) : undefined
+    // 三种不能判硬的原因要分开说：运营据此决定是新建依据、重核、还是先补原文
+    const why =
+      verdict === 'expired'
+        ? '（营业时间依据已过期，出发前自行确认）'
+        : verdict === 'mismatch'
+          ? '（营业时间依据与当前时段不一致，出发前自行确认）'
+          : verdict === 'noBaseline'
+            ? '（营业时间没有可比对的值，出发前自行确认）'
+            : '（营业时间待核实，出发前自行确认）'
     push(hard, soft, {
       id: `closed-window-${place.id}`,
       code: 'closed-window',
@@ -201,7 +217,9 @@ function checkItem(
       // 说清这条时段是哪一档：用户才知道该去核对哪个季节的公告，而不是以为数据错了
       message: `「${place.name}」在 ${fmt(open[0])}-${fmt(open[1])} 开放${
         bySeason ? '（当季时段）' : ''
-      }，当前安排落在时段外${isHard ? '' : '（营业时间待核实，出发前自行确认）'}`,
+      }，当前安排落在时段外${
+        isHard ? '' : why
+      }`,
       alternatives: alt
     })
   }
@@ -218,7 +236,10 @@ function checkItem(
 function checkLineSegment(item: ItineraryItem, day: TripDay, hard: PlanIssue[], wait: PlanIssue[], soft: PlanIssue[]) {
   const line = lineById(item.lineId!)
   if (!line) return
-  const hard_ok = canJudgeHard(line)
+  // 首末班各用各的依据：两者可能来自不同公告、分别过期。
+  // 拿末班的依据去判首班，会把人拦在一条已经重核过的首班前面。
+  const lastOk = canJudgeLineHard(line, 'lastBus')
+  const firstOk = canJudgeLineHard(line, 'firstBus')
   const lastBus = line.lastBus
   const missLabel = line.lastBus === null ? '暂无末班时间' : `末班 ${fmt(line.lastBus)}`
   const impact = `你可能排到 ${fmt(item.endMin)} 却无车可回`
@@ -239,11 +260,11 @@ function checkLineSegment(item: ItineraryItem, day: TripDay, hard: PlanIssue[], 
     push(hard, soft, {
       id: `after-lastbus-${line.id}-d${day.index}`,
       code: 'after-lastbus',
-      level: hard_ok ? 'error' : 'warn',
+      level: lastOk ? 'error' : 'warn',
       dayIndex: day.index,
       lineId: line.id,
       message: `${line.name}末班 ${fmt(lastBus)}，当前安排 ${fmt(item.startMin)} 才到站${
-        hard_ok ? '' : `（班次未核验，按现有来源为「${line.source}」）`
+        lastOk ? '' : `（班次未核验，按现有来源为「${line.source}」）`
       }`,
       alternatives: alts
     })
@@ -251,7 +272,7 @@ function checkLineSegment(item: ItineraryItem, day: TripDay, hard: PlanIssue[], 
     push(hard, soft, {
       id: `before-firstbus-${line.id}-d${day.index}`,
       code: 'before-firstbus',
-      level: hard_ok ? 'error' : 'warn',
+      level: firstOk ? 'error' : 'warn',
       dayIndex: day.index,
       lineId: line.id,
       message: `${line.name}首班 ${fmt(line.firstBus)}，当前 ${fmt(item.startMin)} 到站还没开始运营`,

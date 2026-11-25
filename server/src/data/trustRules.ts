@@ -36,7 +36,7 @@ const RANK: Record<TrustLevel, number> = { official: 0, credible: 1, experience:
  *
  * 用在「用户补录被写进线上表」这一刻（C2）：`trust` 是**行级**的，
  * 一行里只要有一个字段来自用户填报，整行就不再满足「每个字段都核验过」，
- * 于是它不该再声称比用户经验更可信。压到 `experience` 同时关掉了 canJudgeHard ——
+ * 于是它不该再声称比用户经验更可信。压到 `experience` 同时关掉了 canJudgeLineHard ——
  * 用户填的末班班次绝不能拿去判硬冲突，那等于让填报数据替用户做决定。
  *
  * 本来就是 pending 的行保持 pending：这里只设上限，不会把更不可信的行往上抬。

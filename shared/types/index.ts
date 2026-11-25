@@ -82,6 +82,48 @@ export interface OpenSeason {
   text?: string
 }
 
+/**
+ * 一个字段的「值是谁核的、依据什么、什么时候过期」（字段级数据治理）。
+ *
+ * 为什么按字段而不是整行：一个地点的坐标、营业时间和票价可能来自不同来源、
+ * 分别过期。因为坐标可信就把票价标成可信，是最容易骗过自己的错 ——
+ * 而用户没有能力分辨哪一段是核过的。
+ *
+ * 与行级 `trust` 并存而不是取代它：行级档位描述「这条信息整体多可信」，
+ * 字段级依据回答「这一格怎么来的」。迁移到字段级之前，两者要能对上。
+ *
+ * **公开形状，刻意不含审核人**：它随 `Place` / `TransitLine` 走 `/api/places`、
+ * `/api/content`、`/api/lines`，还整包塞进 AI 上下文。审核人是内部身份，
+ * 放进公开响应等于把「谁核的哪条数据」报给所有调用方。它只在
+ * `field_evidence.verified_by` 列里留档，等有鉴权后再由受控接口读。
+ */
+export interface FieldEvidence {
+  /**
+   * 依据行自身的标识。**只用来在「核验时刻完全相同」时确定次序**，
+   * 不要拿它做业务判断（它没有时间先后含义）。
+   */
+  id: string
+  /** 字段名，与 places / lines 的列同名（openText / ticket / firstBus …） */
+  field: string
+  /** 核验时的值。数字字段存规范化写法（如 1020），展示层自行转成时刻 */
+  value: string
+  source: string
+  sourceUrl?: string
+  /**
+   * 核验**时刻**，完整 ISO 时间戳（不是日期）。
+   *
+   * 不能裁成 `YYYY-MM-DD`：同一天上午、下午各核一次时，两者会变成同一个值，
+   * 取「最新」就只能看数据库返回顺序 —— 后核的依据可能被先核的盖掉。
+   * 展示要日期时自己 `slice(0, 10)`。
+   */
+  verifiedAt: string
+  /**
+   * 有效期截止**日**（`YYYY-MM-DD`，闭区间）。没有 = 不设有效期。
+   * 但「没设」不等于「永久有效」—— 判过期时按「未知」处理，见 engine/fieldEvidence。
+   */
+  validUntil?: string
+}
+
 export interface Place {
   id: string
   name: string
@@ -157,6 +199,13 @@ export interface Place {
    * 营业时间与票价共用一档，MVP 不做逐字段分级。
    */
   trust: TrustLevel
+  /**
+   * 各字段的依据与核验状态。
+   *
+   * 缺省（或空数组）= 这一格没有单独核过，只能沿用上面那个行级 `trust`。
+   * 两者都不该被当成「已核验」。
+   */
+  fieldEvidence?: FieldEvidence[]
 }
 
 /**
@@ -194,6 +243,8 @@ export interface TransitLine {
    * 界面必须显式标注，不能和真实线路混在一起展示。
    */
   isDemo?: boolean
+  /** 各字段的依据与核验状态；口径同 `Place.fieldEvidence` */
+  fieldEvidence?: FieldEvidence[]
 }
 
 export interface ItineraryItem {
