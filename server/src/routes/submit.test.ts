@@ -3,15 +3,12 @@ import { and, eq, like } from 'drizzle-orm'
 import { app } from '../app.ts'
 import { db, pool } from '../db/client.ts'
 import { authSessions, dataSubmissions, lines, smsCodes, users } from '../db/schema.ts'
+import { reviewSubmission } from '../data/reviewSubmission.ts'
+import { publishSubmission } from '../data/publishSubmission.ts'
+import { fieldEvidence } from '../db/schema.ts'
 
 /**
- * 补录生效（C2）打真库验证。
- *
- * 必须连库：要验的是「谁能凑成那两票」——`clientId` 是客户端自报的，
- * 而账号归属来自 token。这两件事只有真跑一遍 INSERT/UPDATE 才说得清。
- *
- * 核心用例是**一个人自导自演**：同一请求体里换两次 clientId，
- * 过去就能把一条未经核验的末班写进线上表。
+ * 用户补录待复核：连库验证提交留存，且不会自动修改线路事实。
  */
 const LINE_ID = 't-c2-line'
 const CLIENT_A = 't-c2-dev-a'
@@ -38,6 +35,7 @@ const seedLine = () =>
   })
 
 async function cleanup(): Promise<void> {
+  await db.delete(fieldEvidence).where(eq(fieldEvidence.targetId, LINE_ID))
   await db.delete(dataSubmissions).where(eq(dataSubmissions.targetId, LINE_ID))
   await db.delete(dataSubmissions).where(like(dataSubmissions.clientId, 't-c2-dev-%'))
   await db.delete(lines).where(eq(lines.id, LINE_ID))
@@ -94,7 +92,29 @@ const currentLine = async () => {
   return row
 }
 
-describe('补录生效（C2）', () => {
+describe('补录待复核', () => {
+  it('仅发布已核验的缺失字段，并同时保留来源；重复发布不可覆盖', async () => {
+    await submit(CLIENT_A, '17:00')
+    const [row] = await db.select().from(dataSubmissions).where(eq(dataSubmissions.targetId, LINE_ID))
+    await expect(publishSubmission(row.id, '官方公告', 'https://example.com')).rejects.toThrow()
+    await reviewSubmission(row.id, 'verified', '编辑', '已核验')
+    await publishSubmission(row.id, '官方公告', 'https://example.com')
+    expect((await currentLine())?.lastBus).toBe(1020)
+    const evidence = await db.select().from(fieldEvidence).where(eq(fieldEvidence.targetId, LINE_ID))
+    expect(evidence).toHaveLength(1)
+    expect(evidence[0]).toMatchObject({ field: 'lastBus', source: '官方公告' })
+    await expect(publishSubmission(row.id, '官方公告', 'https://example.com')).rejects.toThrow()
+  })
+  it('人工复核留存依据且不可重复处理，不改变线路事实', async () => {
+    await submit(CLIENT_A, '17:00')
+    const [row] = await db.select().from(dataSubmissions).where(eq(dataSubmissions.targetId, LINE_ID))
+    expect(await reviewSubmission(row.id, 'verified', '编辑甲', '官方公告核对')).toBe(true)
+    expect(await reviewSubmission(row.id, 'rejected', '编辑乙', '重复处理')).toBe(false)
+    const [reviewed] = await db.select().from(dataSubmissions).where(eq(dataSubmissions.id, row.id))
+    expect(reviewed).toMatchObject({ status: 'verified', reviewedBy: '编辑甲', reviewReason: '官方公告核对' })
+    expect(reviewed.reviewedAt).not.toBeNull()
+    expect((await currentLine())?.lastBus).toBeNull()
+  })
   it('一个人换两个 clientId 自证，不生效', async () => {
     // 这就是本用例存在的理由：clientId 由调用方自报，换字符串没有任何成本
     const first = await submit(CLIENT_A, '17:00')
@@ -106,19 +126,18 @@ describe('补录生效（C2）', () => {
     expect(line?.lastBus).toBeNull()
   })
 
-  it('两个登录账号说同一个值才写进线上表，并降到用户填报档', async () => {
+  it('两个登录账号提交相同值仍待复核，不修改官方数据', async () => {
     const tokenA = await login(PHONE_A, CLIENT_A)
     const tokenB = await login(PHONE_B, CLIENT_B)
     expect(tokenA && tokenB).toBeTruthy()
 
     await submit(CLIENT_A, '17:00', tokenA)
-    // 第二个账号用另一种写法：归一化之后应该是同一个值
+    // 第二个账号使用另一种等价写法。
     await submit(CLIENT_B, '1020', tokenB)
 
     const line = await currentLine()
-    expect(line?.lastBus).toBe(1020)
-    // 用户填报不能顶着官方身份去判硬冲突
-    expect(line?.trust).toBe('experience')
+    expect(line?.lastBus).toBeNull()
+    expect(line?.trust).toBe('official')
   })
 
   it('同一个账号换设备重投，去重后仍只算一票', async () => {
@@ -138,7 +157,7 @@ describe('补录生效（C2）', () => {
     expect((await currentLine())?.lastBus).toBeNull()
   })
 
-  it('生效后所有等价写法的行都标成已核验', async () => {
+  it('等价写法的提交均保持待核验', async () => {
     const tokenA = await login(PHONE_A, CLIENT_A)
     const tokenB = await login(PHONE_B, CLIENT_B)
     await submit(CLIENT_A, '17:00', tokenA)
@@ -148,7 +167,8 @@ describe('补录生效（C2）', () => {
       .select({ value: dataSubmissions.value, status: dataSubmissions.status })
       .from(dataSubmissions)
       .where(and(eq(dataSubmissions.targetId, LINE_ID), eq(dataSubmissions.field, 'lastBus')))
-    // "17:00" 与 "1020" 是同一个值的两种写法，都该显示「已核验」
-    expect(rows.every((r) => r.status === 'verified')).toBe(true)
+    // "17:00" 与 "1020" 均须等待复核。
+    expect(rows).toHaveLength(2)
+    expect(rows.every((r) => r.status === 'pending')).toBe(true)
   })
 })

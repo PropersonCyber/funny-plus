@@ -148,6 +148,20 @@
       "when": 1795502605602,
       "tag": "0020_nosy_colossus",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1795526738235,
+      "tag": "0021_normal_firebrand",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1795527823910,
+      "tag": "0022_cool_captain_britain",
+      "breakpoints": true
     }
   ]
 }

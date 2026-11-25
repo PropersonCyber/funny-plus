@@ -11,7 +11,9 @@
     "db:seed": "tsx --env-file=.env src/db/seed.ts",
     "metrics": "tsx --env-file=.env scripts/ai-metrics.ts",
     "test": "vitest run",
-    "eval:chat": "tsx --env-file=.env scripts/chat-eval.ts"
+    "eval:chat": "tsx --env-file=.env scripts/chat-eval.ts",
+    "review:submissions": "tsx --env-file=.env scripts/review-submissions.ts",
+    "add:field-evidence": "tsx --env-file=.env scripts/add-field-evidence.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.115",

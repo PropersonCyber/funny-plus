@@ -331,6 +331,9 @@ export const dataSubmissions = pgTable(
     userId: text('user_id'),
     /** 核验状态：提交只进池子，不做审核队列；pending 只能让行程 warn，不能判 error */
     status: text('status', { enum: ['pending', 'verified', 'rejected'] }).notNull().default('pending'),
+    reviewedBy: text('reviewed_by'),
+    reviewReason: text('review_reason'),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
   },
   (t) => [
@@ -339,6 +342,21 @@ export const dataSubmissions = pgTable(
     index('data_submissions_user_idx').on(t.userId)
   ]
 )
+
+/** 按字段独立保存的核验依据；不改变既有地点和线路的事实值。 */
+export const fieldEvidence = pgTable('field_evidence', {
+  id: text('id').primaryKey(),
+  scope: text('scope', { enum: ['place', 'line'] }).notNull(),
+  targetId: text('target_id').notNull(),
+  field: text('field').notNull(),
+  value: text('value').notNull(),
+  source: text('source').notNull(),
+  sourceUrl: text('source_url'),
+  verifiedBy: text('verified_by').notNull(),
+  verifiedAt: timestamp('verified_at', { withTimezone: true }).notNull(),
+  validUntil: timestamp('valid_until', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+}, (t) => [index('field_evidence_target_idx').on(t.scope, t.targetId, t.field)])
 
 /**
  * 「这条不对」（FR-02）：每个硬提示都必须带它，否则误报率无法测量。

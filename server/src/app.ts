@@ -5,6 +5,7 @@ import { aiRoute } from './routes/ai.ts'
 import { authRoute } from './routes/auth.ts'
 import { contentRoute } from './routes/content.ts'
 import { eventsRoute } from './routes/events.ts'
+import { fieldEvidenceRoute } from './routes/fieldEvidence.ts'
 import { factsRoute } from './routes/facts.ts'
 import { geoRoute } from './routes/geo.ts'
 import { guideRoute } from './routes/guides.ts'
@@ -36,6 +37,7 @@ app.route('/api/auth', authRoute)
 app.route('/api/content', contentRoute)
 app.route('/api/me', meRoute)
 app.route('/api/facts', factsRoute)
+app.route('/api/field-evidence', fieldEvidenceRoute)
 app.route('/api/places', placesRoute)
 app.route('/api/lines', linesRoute)
 // 用户补录走 /api/submissions；「这条不对」单独一个路径，方便按规则统计误报率
