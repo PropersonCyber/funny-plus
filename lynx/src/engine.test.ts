@@ -2,7 +2,7 @@ import { describe, expect, it } from '@rstest/core';
 
 import { estimateBudget } from '../../shared/engine/budget.js';
 import { isExpired, splitByFreshness } from '../../shared/engine/facts.js';
-import { clearRouteMinutes, hasRoute, placeById, setPlaces, setRouteMinutes, travelMinutes } from '../../shared/engine/placeIndex.js';
+import { clearRouteMinutes, hasRoute, placeById, placesOf, setPlaces, setRouteMinutes, travelMinutes } from '../../shared/engine/placeIndex.js';
 import { generatePlans, keywordReviseOp, revisePlan } from '../../shared/engine/planner.js';
 import { applyReviseOp } from '../../shared/engine/planEdit.js';
 import { canJudgeHard, lineSegmentFor, setLines } from '../../shared/engine/lines.js';
@@ -798,3 +798,21 @@ describe('设备定位点也能命中真实路段（F03 回程）', () => {
     clearRouteMinutes();
   });
 });
+
+// P0-1 的前提：服务端补录生效后会重新 setPlaces / setLines。
+// 这里钉住「重新装入是整体替换」——如果它其实是合并，那被删掉的地点会永远留在索引里，
+// 光靠「下次重新装载」根本不够，得再加一个显式的清空入口。
+describe('重新装载地点池是整体替换', () => {
+  it('重新 setPlaces 后，没在新列表里的地点查不到', () => {
+    const snapshot = placesOf('测试城')
+    try {
+      const first = snapshot[0]
+      setPlaces([{ ...first, id: 'only-1', name: '唯一' }])
+      expect(placeById(first.id)).toBeUndefined()
+      expect(placeById('only-1')?.name).toBe('唯一')
+    } finally {
+      // 别的用例共用这份池，必须还原
+      setPlaces(snapshot)
+    }
+  })
+})

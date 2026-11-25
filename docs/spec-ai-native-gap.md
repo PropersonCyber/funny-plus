@@ -1,6 +1,7 @@
 # AI Native MVP 差距闭合规格
 
-- 状态：R 组、G1–G7、X1–X6 已完成（见 §0.1）；剩 §1 四项决策与 DOC1–DOC5；其中 D1 决定 §5 是否成立，N 组（N1–N11）全部阻塞在 D1- 范围：把当前实现与 AI Native MVP 口径的差距，转成可判定、可分期、可验收的工作项
+- 状态：R / G / X / N3–N4、N8、N10–N11 / C1–C3 / DOC1–DOC6 已完成（见 §0.1）；剩 N1–N2（与「不改页面布局」冲突）、N5（外部依赖）、N6–N7（数据供给为零）。D1 已裁为 B 版
+- 范围：把当前实现与 AI Native MVP 口径的差距，转成可判定、可分期、可验收的工作项
 - 使用方：Funny+ 全栈（`lynx/` 客户端、`server/` 服务端、`shared/` 引擎、`data/` 数据）
 - 日期：2026-11-18
 - 取证基线：HEAD `faad1b9`，`git diff` 为空（`e3b0c442`）。本文全部结论为**静态代码与数据取证**，未跑 App、未调外部接口，运行时行为见 §9。
@@ -72,7 +73,9 @@
 | 接口裁剪字段 | `GET /api/content` 的 `toPlace` 少 `openText`、`toFact` 少 `placeId`/`poiGroup`，与 `GET /api/places`、`GET /api/facts` 不同形。客户端 `applyPlaces` 用 content 覆盖随包副本后，行程页的营业时间原文（`ItineraryPage:362`）静默变空 | 两处补齐；`poiGroup` 类型本就允许可选 | lynx typecheck 0 / server typecheck 0 |
 | 结束旅行无回忆记录 | `endTrip` 只写 `endedAt`，回忆页每条安排读 `memory.places`，没有记录时整页只剩「还没记录」，等于「归属于某趟旅行的记录」没有起点 | `useTrips.endTrip` 结束时建一份空回忆记录；已有内容只更新 `updatedAt`，不覆盖用户的文字；`visited` 仍默认 `unknown`，不替用户写「去过」 | 同上（纯状态构造，无外网依赖） |
 
-未做（仍需裁决）：首页咕噜迎接与主卡入口权重（N1/N2，与 `docs/ai-native-plan.md:26` 的「不动入口权重」冲突，属 D1）；固定安排与时段粒度修改（N3/N4，D1 口径）；现场推荐与下一站（N6/N7，D4 数据供给为零）；登录三通道（N5，D3）；攻略照片勾选「不默认带出」（N9，`useGuides.ts:72` 仍自动带前 3 张，改它要同时定「重生成时是否保留用户已选」）；DOC1–DOC5。
+未做（仍需裁决或外部依赖）：首页咕噜迎接与主卡入口权重（N1/N2，与 `docs/ai-native-plan.md:26` 的「不动页面布局」冲突，产品未裁）；现场推荐与下一站的内容层（N6/N7 的代码路径已通，吃/拍/买与真实班次数据为零）；登录三通道的**兑换环节**（N5，代码在等 AppID / Apple 能力配置）。
+
+已做（2026-11-23）：N3 固定安排（日期范围只到类型层，见该条）、N4 时段粒度、N8 回忆草稿、N10 表单走模型提案、N11 对话回归集、C1–C3 数据维护、N9 照片勾选与更新发布、DOC1–DOC6。
 
 **技术栈未定的地方只留了接口位，没有擅自选型**：G7 的聚合口径集中在 `ai/metrics.ts`，命令行只负责打印，将来接看板不改编排；G5/G6 的会话与行程存储都走既有的 drizzle + Postgres，没有引入新组件；N5 的三项外部依赖（短信服务商 / 微信开放平台 / Sign in with Apple）仍等 D3 定责任人后才落实现。
 
@@ -566,6 +569,9 @@ J1 证据链：`lynx/src/pages/AssistantPage/index.tsx:265` → `lynx/src/App/su
 | DOC3 | `README.md:56` | 「局部修改只认 4 类意图」 | `server/src/routes/ai.ts:435` 走模型解析 |
 | DOC4 | `PRODUCT.md:51`、`docs/product-plan.md:16` | 「明确不做：账号体系与云端档案、行程分享页、避坑反馈入口」 | 三项均已实现 |
 | DOC5 | `docs/prd-v0.2.md:194`、`docs/ai-native-plan.md:16` | 「P0 不接模型」「现状 0/4」 | 模型已接；A1–A6 已落 |
+| DOC6 | `docs/funny-plus-technical-architecture.md` | 「服务端行程路由只读」「生成的完整行程尚未从对话贯通到工作台」「登录通道占位」「尚无完整图文回忆、攻略快照和对外分享」 | 这些均已被 G5 / G1 / N5 / N9 推翻；**这份是架构文档，比 README 更权威，却不在一开始的 DOC1–DOC5 清单里** |
+
+DOC6 于 2026-11-23 一并重写：§1 依赖说明、§2 两条「当前代价」、§3.1–§3.4 主流程、§4（新增可观测性与数据可信两节）、§5 已知限制（改成当前真实存在的问题，含本次新修的引擎缓存与 AI 接口鉴权）、§6 演进方向（已实现的部分移出）、§7 代码索引。
 
 D1 裁决后，`docs/ai-native-mvp.md:3,7` 的 A 版声明也需同步。
 

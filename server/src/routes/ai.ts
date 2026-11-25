@@ -3,6 +3,7 @@ import { streamSSE } from 'hono/streaming'
 import { streamText, tool, stepCountIs } from 'ai'
 import { z } from 'zod'
 import { db } from '../db/client.ts'
+import { engineGeneration } from '../engineCache.ts'
 import { facts, lines, places } from '../db/schema.ts'
 import { aiConfigured, chatModel, modelName } from '../ai/model.ts'
 import { proposeReviseOp } from '../ai/revise.ts'
@@ -143,8 +144,20 @@ const demandSchema = z.object({
  * 每次 getFacts 重查反馈聚合即可（见 tools.getFacts）。
  */
 let engineReady: Promise<void> | null = null
+/**
+ * 手里这份缓存是按哪一代数据装的。
+ *
+ * 与当前代次不一致就说明数据变过（补录生效写进 lines / places），
+ * 必须重新装载 —— 否则行程页看到新末班、对话还在按旧值排时刻，
+ * 而两边都不报错。见 `server/src/engineCache.ts`。
+ */
+let engineAtGeneration = -1
 
 function ensureEngine(): Promise<void> {
+  if (engineAtGeneration !== engineGeneration()) {
+    engineReady = null
+    engineAtGeneration = engineGeneration()
+  }
   if (!engineReady) {
     engineReady = (async () => {
       const [placeRows, lineRows] = await Promise.all([db.select().from(places), db.select().from(lines)])

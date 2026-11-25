@@ -1,6 +1,6 @@
 # Funny+ 技术架构：当前实现与 AI Native 演进
 
-> **状态**：基于当前工作区代码的静态梳理，更新于 2026-11-13；未以本次运行或线上环境验证服务配置与端到端行为。工作区含未提交改动，本说明反映本次查看时的代码，不等同于已发布版本。
+> **状态**：基于当前工作区代码的静态梳理，**更新于 2026-11-23（第二次对齐：账号同步、分享快照、AI 度量与评估、数据飞轮均已落地，原文 §3–§7 的多处「尚未实现」已过期）**；未以本次运行或线上环境验证部署与端到端行为。
 >
 > **阅读口径**：明确区分「当前实现」「代码或文档体现的选型理由」与「MVP 目标」。历史文档存在过时内容时，以本次读取的代码为准；未找到的决策理由标为推断。
 
@@ -18,7 +18,7 @@ flowchart TD
     DB --> DATA[地点、避坑、线路等种子数据]
 ```
 
-这是**当前主要依赖关系**，不是目标架构的完整实现。用户行程目前主要在客户端保存；服务端行程路由只读。AI 对话可调用本地共享的确定性规划引擎，但生成的完整行程尚未从对话贯通到工作台。
+这是**当前主要依赖关系**，不是目标架构的完整实现。行程、回忆、攻略草稿都是「本机先写 → 推云端 → 登录时补推 + 拉回合并」，服务端 `trips` / `memories` / `guides` 三个路由都已读写（409 `stale_write` 处理并发写）。对话与表单两个入口生成的方案都会落成真实行程并进工作台，走的是同一份 `shared/engine`。
 
 | 层 | 当前技术 | 主要职责 |
 | --- | --- | --- |
@@ -35,69 +35,100 @@ flowchart TD
 | ReactLynx 跨端 UI | `PRODUCT.md` 定义一份 UI 代码覆盖 iOS、Android、Web，减少多端重复实现。 | 宿主与 Web 运行时能力不同；流式响应、定位和存储需要各端实测。 |
 | TypeScript + shared 纯函数 | 领域类型和计算供客户端与服务端复用，减少两端口径漂移；引擎不依赖 DOM。 | 模块级地点索引等共享状态需要注意初始化和并发边界。 |
 | Hono | 后端方案记载路由与内置 SSE 足够支撑当前服务，框架相对轻量。 | 复杂账号授权、后台任务和可靠性能力仍需自行建设。 |
-| PostgreSQL + Drizzle | 后端方案强调 SQL 和迁移可读，适合结构化地点、事实及关系数据。 | 当前模式与鉴权尚不能支撑正式账号下的私人旅行读写。 |
+| PostgreSQL + Drizzle | 后端方案强调 SQL 和迁移可读，适合结构化地点、事实及关系数据。 | 账号下的私人旅行读写已落地（24 张表）；当前**连库测试只能靠本机/compose 起库**，CI 里没跑，持久化层实际是零自动化验证。 |
 | AI SDK + OpenAI 兼容网关 | 代码使用流式响应、工具调用及可配置网关；模型密钥留在服务端。 | 实际模型与网关可用性依赖部署配置；工具调用和输出质量需回归评估。 |
-| 确定性规划与校验 | 用程序计算预算、时间和规则，保留证据、未知项及约束，减少模型凭空生成数字。 | 规则和数据覆盖有限；当前 AI 主要收集需求，并非已实现模型驱动的动态规划。 |
+| 确定性规划与校验 | 用程序计算预算、时间和规则，保留证据、未知项及约束，减少模型凭空生成数字。 | 规则和数据覆盖仍有限。模型现在参与「挑哪些地点、什么顺序」（`POST /api/ai/plans`）与叙述生成，但**时刻、耗时、票价、校验一律不经过模型**。 |
 
 这里的选型理由来自仓库文档、代码注释及职责归纳；不代表已经做过完整竞品基准测试或对所有替代技术的性能结论。
 
 ## 三、当前主流程
 
-### 3.1 普通行程生成
+### 3.1 普通行程生成（表单主链路）
 
-客户端收集 `Demand`，使用共享地点索引与 `generatePlans` 生成不同节奏或交通方案；`budget.ts` 与 `validate.ts` 负责费用估算和规则检查。路线耗时可由地图服务预热，缺失时退回直线折算，并在数据中区分来源。
+客户端收集 `Demand` 后打 `POST /api/ai/plans`：模型只在已收录地点里挑「去哪儿、先哪个」，返回一个 id 序列；`generatePlans(demand, { order })` 拿这个顺序去排，时刻、停留、路上耗时、预算、校验全部仍由 `shared/engine` 算。服务端与对话入口共用同一套两遍生成（第一遍定顺序、`warmRoutes` 预热路段后第二遍把到达时刻变准）。
+
+**降级是彻底的**：`AI_API_KEY` 未配置、服务端不可用、6 秒超时、返回形状不对，一律落回本地 `planFor`，产出与没有模型时完全一致。`PlansResult` 同时给出 `by`（model/engine）与 `source`（server/local）—— 服务端的 engine 已经预热过路段，客户端不能再预热一次。
 
 `Place.ticket = null` 表示票价未知，预算中应列为未核实，不等同免费。地点和事实带 `source`、`verifiedAt`、`trust` 等字段；硬冲突判定受数据可信状态约束。展示用评分和访问人数是录入值，不应当作真实统计数据。
 
 ### 3.2 咕噜对话
 
-客户端 `lynx/src/aiChat.ts` 将消息、槽位和当前行程发给 `POST /api/ai/chat`，优先接收 SSE，运行时不支持时退回非流式。两条通道都把 `generatePlans` 和 `proposeRevise` 的结果交给同一份解析。`server/src/routes/ai.ts` 使用 AI SDK `streamText` 和工具：
+客户端 `lynx/src/aiChat.ts` 将消息、槽位和当前行程发给 `POST /api/ai/chat`，优先接收 SSE，运行时不支持时退回非流式。两条通道都把 `generatePlans` 和 `proposeRevise` 的结果交给同一份解析。`server/src/routes/ai.ts` 使用 AI SDK `streamText` 和 **12 个工具**：
 
 1. `updateDemand` 收集结构化需求，当前要求目的地、天数、人数、预算档位齐全。
 2. `queryPlaces` 查询地点池。`getPlaceDetail`、`getFacts`、`getBudget`、`listLines` 只读引擎里的营业、避坑、费用依据和班次。票价未核实保持空，不能说成免费。
 3. `generatePlans` 调用共享引擎，返回完整方案，并把硬冲突放进 `checks`。有冲突最多再生成一版；第二次仍冲突就停，已保存行程不动。用户选定后经 `onPlanned` 写入当前行程并打开行程页。
-4. `proposeRevise` 把用户原话交给 `resolveRevision`，与行程页的 `POST /api/ai/revise` 是同一个函数。返回的是待确认预览；用户点确认后才写入，取消则原行程不动。
+4. `proposeRevise` 把用户原话交给 `resolveRevision`，与行程页的 `POST /api/ai/revise` 是同一个函数。返回的是待确认预览；用户点确认后才写入，取消则原行程不动。支持**时段粒度**（`ReviseOp.ease` + `window`）：「第二天下午轻松点」只动下午；带 `pinned` 标记的固定安排会被拒绝删改并说明原因。
 5. `validatePlan` 检查当前行程的硬冲突，不接受模型自己写的计划。
+6. 现场相关工具：`nearbyPlaces`（按定位与类别找吃/拍/玩）、`transportFor`（线路班次与打车建议）、`nextStop`（下一站候选）。到达判定在 `shared/engine/onSite.ts`，只回答「能不能判定」，精度不足/坐标缺失一律 `unknown` 交给用户确认，**不假定到达**。
+7. `memory-narrative` 是独立入口：把整趟回忆整理成叙述段落，确定性草稿（`shared/engine/memoryDraft.ts`）作为兜底与基线。
 
 模型通过服务端配置的 OpenAI 兼容网关调用；代码提供默认模型及环境变量覆盖，实际启用与否取决于配置。提示词要求数字只复述工具字段，这仍不是可证明的输出保证。
 
-对话文字按行程存在本机（`funny-plus.chat.v1`）。再次进入能看到上次说过的话，方案卡片不重复挂，行程以工作台为准。换设备仍找不到这段对话。
+对话会话已上云（G6）：登录后客户端只传 `sessionId + 本轮输入`，历史由服务端 `ai_sessions` / `ai_messages` 持有，换设备能接着聊；匿名时退回本机 `funny-plus.chat.v1`。历史只回文本，未确认的预览卡**不会跨设备复活成可确认状态**。
 
 ### 3.3 定位和地图
 
-`lynx/src/geo.ts` 与宿主桥接定位状态，服务端 `routes/geo.ts` 提供地图相关代理能力；密钥由服务端配置。不可用时存在状态提示或估算退路。当前代码存在宿主运行时适配限制，不能据此宣称各端定位与现场到达判断已经完整可用。
+`lynx/src/geo.ts` 与宿主桥接定位状态，服务端 `routes/geo.ts` 提供地图相关代理能力；密钥由服务端配置，客户端只拿到结果。
+
+到达判定在 `shared/engine/onSite.ts`：默认到达半径 300 米，定位精度超过阈值就不判到达。三分支（匹配 → 建议推荐 / 不匹配 → 先询问 / 定位不可用 → 手动指定或确认到达）的口径是「定位推断与用户确认分开记录」，所以引擎只回答「能不能判定」，从不替用户下结论。**无后台持续定位、无推送**。
+
+现场推荐的数据供给仍然是短板：`data/facts.json` 的 `poiGroup` 只有 `pitfall` / `access`，吃 / 拍 / 买条目基本为零，真实城市班次也缺。代码路径是通的，内容层是空的 —— 界面会如实说「暂无推荐」，不会编。
 
 ### 3.4 保存与身份
 
-`lynx/src/storage.ts` 在宿主桥、浏览器存储、IndexedDB 和内存等可用路径间选择，本机行程并非账号云档案。`routes/auth.ts` 是登录通道占位，兑换流程未实现；`routes/trips.ts` 只读取示例及设备测试行程，未提供用户行程云写入。部分设备级接口使用 `clientId`，不应作为正式账号鉴权。
+**本机优先、云端补齐**。`lynx/src/storage.ts` 在宿主桥、浏览器存储、IndexedDB 和内存之间选择可用路径；写成功后再推云端，登录时补推本机数据并拉回云端数据做一次合并（`lynx/src/syncMerge.ts`）。服务端 `trips` / `memories` / `guides` / `photos` 都要求登录，`clientId` 只用于匿名并账的认领，**不作为已登录数据的访问凭证**。并发写用 `updatedAt` 比较，客户端数据更旧时返回 409 `stale_write`，由界面提示，不静默覆盖。
+
+登录三通道：手机号短信（阿里云短信）、微信、一键登录（`routes/auth.ts` + `auth/providers.ts`）。会话 30 天 TTL，续期有 5 分钟节流；短信有重发冷却与尝试次数上限。**手机号是账号合并的锚点**：先用微信登录、再用短信登录同一手机号，会落到同一账号（`auth/merge.ts`）。未配置的服务商由 `/api/auth/status` 报出来，界面隐藏对应入口，不假装可用。
+
+攻略分享走**快照**：发布时冻结一份只读快照并签发 `randomBytes(16)` 的 token（`sync/shareSnapshot.ts` 白名单过滤，只留 remote 照片）；同一草稿再发布是幂等的 —— 刷新快照、token 不变，所以链接不会失效；撤回后 JSON 接口 404，再发布必须换新 token（否则撤回等于摆设）。
 
 ## 四、数据与部署现状
 
-`data/` 中的地点、城市、攻略、避坑与线路等 JSON 由种子流程导入数据库；`server/drizzle/` 保存迁移。`server/src/db/schema.ts` 定义当前表结构。数据库连接和外部凭证来自服务端环境配置；密钥不应进入客户端或文档。
+`data/` 中的地点、城市、攻略、避坑与线路等 JSON 由种子流程导入数据库，同时**也打进客户端包**作为离线兜底（内容层双源，见 §5）。`server/drizzle/` 保存迁移。`server/src/db/schema.ts` 一张文件定义 **24 张表**：内容（places / facts / lines / cities / guides / plays）、账号（users / authSessions / smsCodes）、用户数据（trips / tripVersions / tripMemories / guideDrafts / guideShares / photos / collections / footprints）、运营（dataSubmissions / constraintReports / factFeedbacks / trackEvents / aiCalls / aiSessions / aiMessages）。
+
+数据库连接与外部凭证统一走 `server/src/env.ts`，路由不直接摸 `process.env`（例外：`ai/cost.ts` 的价目表按模型名动态读）。口径上把「没配」和「配错」分开：没配返回 503 + code，前端据此降级；配错把服务商原始错误码透出来。
+
+照片存**本机磁盘**（`server/src/sync/storage.ts`，`MEDIA_DIR`，路径由 id 推导，按 `sha256` 同人同图去重）。单实例可行，容器重建即丢，换对象存储要动这一处。
+
+### 4.1 可观测性
+
+- **AI 调用度量**：`ai_calls` 表 + `server/src/ai/observe.ts` 写入，口径集中在 `server/src/ai/metrics.ts`（纯函数，可测）。`npm run metrics` 打印漏斗、工具成功率、p95 延迟、token 与成本（`ai/cost.ts` 按模型价目表折算 micros）。
+- **提示词版本**：`PROMPT_VERSION` 随每次调用落库，可按版本比较降级率与采纳率。
+- **对话回归集**：`server/src/ai/eval/`（6 类用例 + SSE runner），`npm run eval:chat` 跑通过率，支持 `--save` / `--baseline` / `--only`。**前提是另开终端跑着 `dev:api`**。
+- **客户端埋点**：`lynx/src/track.ts` 32 个事件批量上报 `track_events`，带 `journey` 字段区分验收旅程。
+
+### 4.2 数据可信与维护
+
+`trust` 四档（official / credible / experience / pending）。展示层的两条兜底：随包快照的 `official` 一律降一档显示并标「随包快照 · 未与服务端核对」（`displayTrust` / `originNote`）；反馈与有效期按 `server/src/data/trustRules.ts` 的阈值把可信度**再降一档**并写 `trustNote` 上屏（阈值集中在一个文件，是产品口径）。
+
+补录生效（C2）的四个限制写死在 `routes/submit.ts`：字段白名单、只在原列为空时写、写进去同时把该行压到「用户填报」档、**匿名设备票不凑数**（至少一个登录账号背书）。生效后调 `invalidateEngine()` 让 AI 侧重新装载（见 §5 第一条）。
 
 仓库提供数据库 Docker Compose、服务端开发脚本及客户端构建脚本。历史后端文档提出单机 Compose 与反向代理的部署思路，**未在本次核实生产部署**，不能将其当作当前线上事实。
 
 ## 五、已知限制与风险
 
-当前 MVP 是 A 版：三个城市的 1–2 天计划、本机保存、城市级定位。下表是相对下一阶段的限制，不是这一版的验收缺口。
+上一版这里是「A 版 vs 下一阶段」的差距表，多数条目已经落地（账号与同步、分享快照、图文回忆、AI 度量与回归集）。下面只留**当前真实存在**的问题，按严重度排。
 
-| 范围 | 当前限制 | 对下一阶段的影响 |
+| 范围 | 现状 | 影响 |
 | --- | --- | --- |
-| 旅行上下文 | 对话生成的完整方案和确认后的修改会写入当前行程；对话文字存在本机，换设备找不到。 | 需要账号下的会话同步。 |
-| 灵活规划 | 槽位要求固定，现有 `Demand` 偏完整行程。 | 当地数小时临时规划需要允许缺省与逐步补充。 |
-| 身份与访问 | 登录占位，设备标识非认证，用户行程无云端写入。 | 正式账号、鉴权、跨设备同步必须实现。 |
-| 事实与数据 | 北京数据存在，但餐饮、拍照、商品及实时信息覆盖未核验；部分票价未知。 | 必须盘点来源、时效、许可和缺口；不能宣称实时或全面。 |
-| 行中状态 | 存在定位基础，尚未确认地点到达、状态与推荐联动闭环。 | 需要定位精度、手动确认和隐私控制。 |
-| 回忆与分享 | 尚无完整图文回忆、攻略快照和对外分享实现。 | 需要媒体存储、权限、撤销与内容治理设计。 |
-| 评估 | 当前代码对完整 AI 质量、用户任务与回归覆盖的能力未作全面审计。 | 需建立样例、指标和故障观测，不能仅依赖提示词。 |
+| 引擎缓存与数据维护 | `routes/ai.ts` 的 `ensureEngine` 把 places / lines 灌进进程级单例，整个进程不刷新。补录生效会写这两张表 | 已加**代次失效**（`server/src/engineCache.ts`）：补录写完调 `invalidateEngine()`，下一次 AI 请求重新装载。但 `db:seed` 之后**仍需重启进程**才生效 —— 种子是独立进程，没有失效通道 |
+| AI 接口鉴权 | `/api/ai/chat`、`/plans`、`/revise`、`/memory-narrative` **全部匿名可调** | 无鉴权、无限流、无配额。有成本度量（`ai/cost.ts`）但没有事前约束：谁拿到地址都能刷 token；跑批脚本一旦指向线上地址就是无限制烧钱 |
+| 持久化层验证 | 20 个测试文件里 5 个连库。库起着时全绿（253 例），**库没起时这 5 个文件全红**，而且没有人会因此拦住提交 | 跨设备并账、分享快照幂等、409 `stale_write` 这些最需要回归的地方，验证强度取决于「本机恰好开着库」。`server/docker-compose.yml` 已写好，缺的是把它接进 CI 或 pre-push |
+| 分层 | 16 个路由里 14 个直接 `import { db }`，无 service 层 | 业务规则（归属校验、去重、409 口径）散在 handler，`eval` / 脚本复用不了；改一条规则要 grep 全仓 |
+| 单文件体量 | `server/src/routes/ai.ts` 974 行（`/chat` 单个 handler 约 500 行）；`lynx/src/pages/MapPage/index.tsx` 989 行 | 纯函数已拆进 `server/src/ai/`，路由与页面没拆。工具面（12 个）与提示词装配仍在路由文件里 |
+| 内容层双源 | 客户端从随包 `data/*.json` 起手，接口回来再覆盖 | `displayTrust` / `originNote` 只兜住了 trust 标签，**数值（营业时段、票价）没有对应机制**：随包副本过期时，避坑页标着「随包快照」而行程页用的是另一份数字 |
+| 现场数据供给 | `poiGroup` 只有 pitfall / access；真实城市班次缺 | 到达判定、下一站、现场推荐的**代码路径是通的，内容层基本为空**。界面如实说「暂无推荐」 |
+| 媒体存储 | 照片存本机磁盘 | 单实例可行；多实例或容器重建即丢。换对象存储要同时动 `storage.ts` 与 `photoUrl` 的 `publicBase` 耦合 |
+| 共享类型 | `shared/types/index.ts` 791 行单一 barrel，71 个文件引用 | 任何字段改动命中 71 个引用点，没有按域切分 |
 
-## 六、下一阶段目标架构（方案，尚未实现）
+## 六、演进方向（已实现的部分已移出本节）
 
-旅行成为用户和咕噜共享的状态：计划、已确认经历、偏好、数据来源与用户操作彼此区分。模型负责理解和提案；工具提供带来源的事实；领域系统计算、校验，并在用户确认后执行必要变更。
+旅行现在是用户和咕噜共享的状态：计划、已确认经历、偏好、数据来源与用户操作彼此区分。模型负责理解和提案；工具提供带来源的事实；领域系统计算、校验，并在用户确认后执行必要变更。**这条闭环已落地**，剩下的差距是数据供给与运营能力，不是架构形状。
 
 ```mermaid
 flowchart LR
-    I[对话 / 工作台] --> C[旅行上下文]
+    I[对话 / 工作台 / 表单] --> C[旅行上下文]
     C --> A[咕噜：理解与提议]
     A --> T[地点 / 交通 / 推荐工具]
     A --> P[变更预览]
@@ -108,21 +139,33 @@ flowchart LR
     M -->|用户选择并发布| S[公开攻略快照]
 ```
 
-建议按纵向切片推进：①完整方案进入工作台及修改确认；②北京样板的到达推荐与下一站；③临时规划与位置；④账号、鉴权与云端同步；⑤图文回忆与攻略分享。数据盘点和 AI 评估从第一阶段开始。阶段顺序用于验证，不代表这些能力已实现或最终技术方案已定。
+按当前代码，下一步真正待做的只有四块：
 
-关键设计待定：登录方式、账号数据迁移、跨设备并发冲突、位置匹配和授权、推荐数据与费用、图片存储、分享权限及撤销、事实粒度、评估和运行监控。对外提供服务前需逐项验证。
+1. **数据供给**：吃 / 拍 / 买 POI、真实班次、北京数据补齐。没有数据，现场推荐与下一站做出来是空壳。
+2. **运营与安全**：AI 接口鉴权与限流、日预算上限；持久化层进 CI。
+3. **账号边界**：微信 / Apple 通道的真实兑换（现在服务端有通道、缺 AppID 与 Apple 能力配置）；`users.wechatUnionid` / `appleSub` 仍零写入。
+4. **工程债**：`routes/ai.ts` 抽 `tools.ts`、`shared/types` 按域拆、媒体换对象存储。
 
 ## 七、代码索引
 
 | 内容 | 路径 |
 | --- | --- |
-| 产品方向与 MVP | `PRODUCT.md`、`docs/ai-native-mvp.md` |
-| 客户端与页面 | `lynx/src/App/index.tsx`、`lynx/src/pages/` |
-| 对话客户端与服务端 | `lynx/src/aiChat.ts`、`server/src/routes/ai.ts`、`server/src/ai/model.ts` |
-| 领域类型与引擎 | `shared/types/index.ts`、`shared/engine/` |
-| 存储和身份 | `lynx/src/storage.ts`、`server/src/routes/auth.ts`、`server/src/routes/trips.ts` |
+| 产品方向与 MVP | `PRODUCT.md`、`docs/ai-native-mvp.md`、`docs/spec-ai-native-gap.md`（差距台账） |
+| 客户端与页面 | `lynx/src/App/index.tsx`、`lynx/src/App/subPages.tsx`、`lynx/src/pages/` |
+| 客户端状态 | `lynx/src/App/useTrips.ts`、`useGuides.ts`、`useAuth.ts`、`useContent.ts`、`useBootstrap.ts` |
+| 对话客户端与服务端 | `lynx/src/aiChat.ts`、`lynx/src/planFetch.ts`、`server/src/routes/ai.ts`、`server/src/ai/` |
+| AI 纯函数 | `server/src/ai/{prompt,chatPrompt,slots,propose,revise,narrate,cost,metrics,observe,routeWarm,model}.ts` |
+| AI 回归集 | `server/src/ai/eval/`、`server/scripts/chat-eval.ts` |
+| 领域类型与引擎 | `shared/types/index.ts`、`shared/engine/`（planner / planEdit / budget / validate / lines / facts / placeIndex / opening / timeWindow / dayDate / lightPlan / onSite / memoryDraft / aiGround） |
+| 存储与同步 | `lynx/src/storage.ts`、`lynx/src/sync.ts`、`lynx/src/syncMerge.ts`、`server/src/routes/{trips,memories,guides}.ts` |
+| 身份 | `lynx/src/apiAuth.ts`、`lynx/src/App/useAuth.ts`、`server/src/routes/auth.ts`、`server/src/auth/` |
+| 分享与快照 | `server/src/routes/{guides,share,shareShell}.ts`、`server/src/sync/shareSnapshot.ts` |
+| 媒体 | `lynx/src/photo.ts`、`server/src/routes/photos.ts`、`server/src/sync/storage.ts` |
+| 数据可信与飞轮 | `server/src/data/trustRules.ts`、`server/src/routes/{facts,submit}.ts` |
+| 引擎缓存失效 | `server/src/engineCache.ts` |
 | 位置和地图 | `lynx/src/geo.ts`、`lynx/src/hostBridge.ts`、`server/src/routes/geo.ts` |
 | 数据与迁移 | `data/`、`server/src/db/schema.ts`、`server/src/db/seed.ts`、`server/drizzle/` |
+| 脚本 | `scripts/verify-amap.ts`、`server/scripts/{ai-metrics,chat-eval}.ts` |
 
 ## 八、Lynx 跨端与原生能力架构（2026-11-16 工作区核对）
 
