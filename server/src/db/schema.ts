@@ -1,4 +1,4 @@
-import { boolean, date, doublePrecision, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
+import { bigint, boolean, date, doublePrecision, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
 import type { ChangeImpact, Demand, LineStop, LineTicket, Plan } from '@/types/index.ts'
 
 const TRUST = ['official', 'credible', 'experience', 'pending'] as const
@@ -357,6 +357,20 @@ export const fieldEvidence = pgTable('field_evidence', {
   validUntil: timestamp('valid_until', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
 }, (t) => [index('field_evidence_target_idx').on(t.scope, t.targetId, t.field)])
+
+/**
+ * 数据版本计数器：AI 引擎判断「库里的数据变没变」用（见 server/src/data/dataVersion.ts）。
+ *
+ * 为什么要有它而不是直接比各表的 `max(updated_at)`：那样漏掉两类写入 ——
+ * 删除一条非最新的记录（最大值不变）、以及手动 UPDATE 没写 `updated_at`（列默认值只在 insert 生效）。
+ * 这一行的 `version` 由 `places` / `lines` / `field_evidence` 上的触发器维护（迁移 0023），
+ * 三个表的增、改、删都会推进它。写入方不需要记得做任何事。
+ */
+export const dataVersion = pgTable('data_version', {
+  id: text('id').primaryKey(),
+  version: bigint('version', { mode: 'number' }).notNull().default(0),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+})
 
 /**
  * 「这条不对」（FR-02）：每个硬提示都必须带它，否则误报率无法测量。

@@ -22,7 +22,9 @@ export async function publishSubmission(id: string, source: string, sourceUrl: s
     } else if (row.scope === 'place' && row.field === 'openText' && normalized.kind === 'text') {
       const [current] = await tx.select({ trust: places.trust }).from(places).where(eq(places.id, row.targetId)).limit(1)
       if (!current) throw new Error('对象不存在')
-      written = await tx.update(places).set({ openText: normalized.label, trust: capTrust(current.trust, 'experience') })
+      // updatedAt 必须手动写：列默认值只在 insert 时生效，update 不写就永远停在建行那天。
+      // （引擎判断数据新旧看的是 data_version 计数器，不是这个列；这里只管「这一行什么时候改过」）
+      written = await tx.update(places).set({ openText: normalized.label, trust: capTrust(current.trust, 'experience'), updatedAt: new Date() })
         .where(and(eq(places.id, row.targetId), isNull(places.openText))).returning({ id: places.id })
     } else throw new Error('该字段暂不支持发布')
     if (!written.length) throw new Error('对象不存在或已有事实；不能覆盖')

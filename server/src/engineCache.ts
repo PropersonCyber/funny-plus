@@ -10,6 +10,9 @@
  * 补录那一侧只该知道「数据变了」，不该知道 AI 路由怎么装载引擎。
  * 路由之间一旦互相 import，迟早连成环，而这种环在 Hono 里表现为
  * 某个 route 的 handler 在模块初始化时是 undefined —— 报错信息完全指不到真正的原因。
+ *
+ * **代次只管本进程**。别的进程写进来的东西（`add:field-evidence`、`db:seed`、手动 psql）
+ * 推不动它，那一半由 `data/dataVersion.ts` 的库内指纹负责，两个一起比。
  */
 let generation = 0
 

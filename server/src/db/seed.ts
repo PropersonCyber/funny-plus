@@ -56,7 +56,9 @@ for (const l of seedLines) {
     console.warn(`[seed] 跳过线路 ${id}：站点少于 2 个`)
     continue
   }
-  await db.insert(lines).values({ id, ...rest }).onConflictDoUpdate({ target: lines.id, set: rest })
+  // updatedAt 手动写：列默认值只在 insert 生效，upsert 命中冲突时不写就停在建行那天。
+  // 数据变没变由 data_version 计数器（触发器维护）负责，这个列只管「这一行什么时候改过」
+  await db.insert(lines).values({ id, ...rest }).onConflictDoUpdate({ target: lines.id, set: { ...rest, updatedAt: new Date() } })
 }
 
 for (const p of seedPlaces) {
@@ -72,7 +74,7 @@ for (const p of seedPlaces) {
   await db
     .insert(places)
     .values({ id, openStart: open[0], openEnd: open[1], ...rest })
-    .onConflictDoUpdate({ target: places.id, set: { openStart: open[0], openEnd: open[1], ...rest, ...cleared } })
+    .onConflictDoUpdate({ target: places.id, set: { openStart: open[0], openEnd: open[1], ...rest, ...cleared, updatedAt: new Date() } })
 }
 
 for (const { id, ...rest } of seedFacts) {
